@@ -13,10 +13,13 @@ const healthConfig = {
   'Perlu Perhatian': { label: '🔴 Perlu Perhatian', className: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400' },
 }
 
-export function BookingStatusBadge({ status }) {
+export function BookingStatusBadge({ status, size = 'sm' }) {
   const config = statusConfig[status] || statusConfig['Menunggu']
+  const sizeClass = size === 'lg' 
+    ? 'px-4 py-2 text-sm' 
+    : 'px-2.5 py-0.5 text-xs'
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${config.className}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold border ${sizeClass} ${config.className}`}>
       {config.label}
     </span>
   )
