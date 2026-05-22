@@ -1,139 +1,271 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { useUser } from '@/hooks/useUser'
-import { useNotifications } from '@/hooks/useNotifications'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Cat, Bell, User, LogOut, ChevronDown, CheckCheck, Package } from 'lucide-react'
+  Cat,
+  Menu,
+  X,
+  LogOut,
+  LayoutDashboard,
+  User,
+  PlusCircle,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { NotificationBell } from "./NotificationBell";
 
 export function Navbar() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const { user, profile, signOut } = useUser()
-  const { notifications, unreadCount, markAllRead } = useNotifications(user?.id)
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState("user");
+  const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function getUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          setRole(profile.role);
+        }
+      }
+    }
+    getUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single();
+        if (profile) {
+          setRole(profile.role);
+        }
+      } else {
+        setRole("user");
+      }
+    });
+
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [supabase]);
 
   const handleSignOut = async () => {
-    await signOut()
-    router.push('/login')
-    router.refresh()
-  }
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
-  const getInitials = (name) => {
-    if (!name) return '?'
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-  }
+  const isAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/forgot-password");
+
+  if (isAuthPage) return null;
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center">
-              <Cat className="text-white" size={20} />
-            </div>
-            <span className="font-[var(--font-nunito)] font-bold text-xl text-slate-900 dark:text-white hidden sm:block">
-              NekoStay
-            </span>
-          </Link>
-
-          {/* Right side actions */}
-          <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell size={20} className="text-slate-600 dark:text-slate-300" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <span className="font-semibold text-sm">Notifikasi</span>
-                  {unreadCount > 0 && (
-                    <button onClick={markAllRead} className="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1">
-                      <CheckCheck size={12} /> Tandai semua dibaca
-                    </button>
-                  )}
-                </div>
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <div className="px-3 py-6 text-center text-sm text-slate-400">
-                    Belum ada notifikasi
-                  </div>
-                ) : (
-                  <>
-                    {notifications.slice(0, 5).map((notif) => (
-                      <DropdownMenuItem
-                        key={notif.id}
-                        className={`px-3 py-2.5 cursor-pointer ${!notif.is_read ? 'bg-brand-50 dark:bg-brand-950/20' : ''}`}
-                        onClick={() => {
-                          if (notif.booking_id) router.push(`/booking/${notif.booking_id}`)
-                        }}
-                      >
-                        <div className="flex gap-2 w-full">
-                          <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notif.is_read ? 'bg-brand-500' : 'bg-transparent'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{notif.title}</p>
-                            <p className="text-xs text-slate-500 truncate">{notif.message}</p>
-                          </div>
-                        </div>
-                      </DropdownMenuItem>
-                    ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-center" onClick={() => router.push('/notifications')}>
-                      <span className="text-sm text-brand-500 w-full text-center">Lihat Semua Notifikasi</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* User menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 px-2">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-brand-100 text-brand-700 text-xs font-bold">
-                      {getInitials(profile?.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden sm:block text-sm font-medium text-slate-700 dark:text-slate-300 max-w-[120px] truncate">
-                    {profile?.full_name || 'User'}
-                  </span>
-                  <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => router.push('/dashboard')}>
-                  <Package size={16} className="mr-2" /> Pesanan Saya
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/profile')}>
-                  <User size={16} className="mr-2" /> Profil
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:text-red-500">
-                  <LogOut size={16} className="mr-2" /> Keluar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+    <header
+      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+        scrolled
+          ? "bg-background/85 backdrop-blur-md border-b border-border/80 shadow-xs"
+          : "bg-transparent border-b border-transparent"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="p-2 bg-primary text-primary-foreground rounded-xl shadow-sm transition-transform duration-300 group-hover:rotate-6">
+            <Cat className="w-5 h-5" />
           </div>
+          <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-transparent">
+            NekoStay
+          </span>
+        </Link>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6">
+          <Link
+            href="/"
+            className={`text-sm font-semibold transition-colors ${
+              pathname === "/"
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Beranda
+          </Link>
+          {user ? (
+            <>
+              <Link
+                href={role === "admin" ? "/admin/dashboard" : "/dashboard"}
+                className={`text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                  pathname.includes("/dashboard")
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </Link>
+              {role === "user" && (
+                <Link
+                  href="/booking/new"
+                  className={`text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                    pathname.includes("/booking/new")
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Pesan Penitipan
+                </Link>
+              )}
+            </>
+          ) : null}
+        </nav>
+
+        {/* Action Buttons */}
+        <div className="hidden md:flex items-center gap-4">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <NotificationBell userId={user.id} />
+
+              <Link
+                href="/profile"
+                className="p-2 hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-all duration-300 flex items-center gap-1.5 font-semibold text-sm"
+                title="Profil Saya"
+              >
+                <User className="w-4 h-4 text-primary" />
+              </Link>
+
+              <button
+                onClick={handleSignOut}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-card text-xs font-bold hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Keluar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/login"
+                className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="bg-primary text-primary-foreground text-sm font-bold px-4 py-2 rounded-xl hover:bg-primary/95 transition-all shadow-sm hover:shadow"
+              >
+                Daftar
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile menu button */}
+        <div className="md:hidden flex items-center gap-2">
+          {user && <NotificationBell userId={user.id} />}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-2 text-muted-foreground hover:text-foreground rounded-lg cursor-pointer"
+          >
+            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
       </div>
-    </nav>
-  )
+
+      {/* Mobile Menu */}
+      {isOpen && (
+        <div className="md:hidden border-b border-border/80 bg-background/95 backdrop-blur-md px-4 pt-2 pb-6 space-y-3 animate-in slide-in-from-top-3 duration-200">
+          <Link
+            href="/"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-semibold hover:bg-muted"
+          >
+            Beranda
+          </Link>
+          {user ? (
+            <>
+              <Link
+                href={role === "admin" ? "/admin/dashboard" : "/dashboard"}
+                onClick={() => setIsOpen(false)}
+                className="block px-3 py-2 rounded-lg text-base font-semibold hover:bg-muted flex items-center gap-2"
+              >
+                <LayoutDashboard className="w-5 h-5 text-primary" />
+                Dashboard
+              </Link>
+              {role === "user" && (
+                <Link
+                  href="/booking/new"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-3 py-2 rounded-lg text-base font-semibold hover:bg-muted flex items-center gap-2"
+                >
+                  <PlusCircle className="w-5 h-5 text-primary" />
+                  Pesan Penitipan
+                </Link>
+              )}
+              <Link
+                href="/profile"
+                onClick={() => setIsOpen(false)}
+                className="block px-3 py-2 rounded-lg text-base font-semibold hover:bg-muted flex items-center gap-2"
+              >
+                <User className="w-5 h-5 text-primary" />
+                Profil Saya
+              </Link>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  handleSignOut();
+                }}
+                className="w-full text-left px-3 py-2.5 rounded-lg text-base font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+              >
+                <LogOut className="w-5 h-5" />
+                Keluar
+              </button>
+            </>
+          ) : (
+            <div className="pt-2 flex flex-col gap-2.5">
+              <Link
+                href="/login"
+                onClick={() => setIsOpen(false)}
+                className="w-full text-center py-2.5 rounded-xl border border-border font-semibold hover:bg-muted"
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setIsOpen(false)}
+                className="w-full text-center py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/95"
+              >
+                Daftar
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </header>
+  );
 }

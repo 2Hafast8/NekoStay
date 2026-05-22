@@ -1,163 +1,326 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { Cat, ArrowRight, Shield, Heart, Camera, Clock } from 'lucide-react'
+import Link from "next/link";
+import { Cat, Check, Heart, Shield, Users } from "lucide-react";
+import { Navbar } from "@/components/layout/Navbar";
+import { formatRupiah } from "@/lib/utils/format";
 
-export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profile?.role === 'admin') redirect('/admin/dashboard')
-    redirect('/dashboard')
-  }
+export default function LandingPage() {
+  const classes = [
+    {
+      name: "Basic",
+      price: 50000,
+      description:
+        "Kandang nyaman standar dengan ventilasi udara bersih yang terjaga berkala.",
+      facilities: ["Kandang standar", "Makan 2x/hari", "Air minum steril"],
+      gradient: "from-amber-500/10 to-orange-500/10 hover:border-orange-300",
+    },
+    {
+      name: "Standard",
+      price: 80000,
+      description:
+        "Kandang lebih luas serta dilengkapi area mainan kucing untuk menghilangkan bosan.",
+      facilities: [
+        "Kandang luas",
+        "Makan 3x/hari",
+        "Mainan dasar",
+        "Pasir wangi",
+      ],
+      gradient:
+        "from-primary/10 to-amber-500/10 hover:border-primary/40 border-primary/20 scale-102 shadow-xs",
+    },
+    {
+      name: "Premium",
+      price: 130000,
+      description:
+        "Ruang privat eksklusif ber-AC dengan pemantauan intensif dan perawatan mewah harian.",
+      facilities: [
+        "Ruang privat AC",
+        "Makan teratur premium",
+        "Grooming harian",
+        "Layanan dokter hewan siaga",
+      ],
+      gradient: "from-amber-600/10 to-yellow-600/10 hover:border-yellow-400",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-900">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center">
-              <Cat className="text-white" size={20} />
-            </div>
-            <span className="font-[var(--font-nunito)] font-bold text-xl text-slate-900 dark:text-white">NekoStay</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-500 transition-colors px-4 py-2 rounded-lg">
-              Masuk
-            </Link>
-            <Link href="/register" className="text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 px-5 py-2.5 rounded-lg transition-colors">
-              Daftar
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="flex flex-col min-h-screen">
+      <Navbar />
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24">
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
-            <Cat size={16} />
-            <span>Platform Penitipan Kucing #1</span>
-          </div>
-          <h1 className="font-[var(--font-nunito)] text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white leading-tight mb-6">
-            Titipkan Kucing Anda dengan
-            <span className="text-brand-500"> Aman & Nyaman</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-slate-600 dark:text-slate-400 leading-relaxed mb-10 max-w-2xl mx-auto">
-            NekoStay memberikan layanan penitipan kucing terbaik dengan laporan kondisi real-time,
-            fasilitas premium, dan transparansi biaya.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/register" className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-8 py-3.5 rounded-xl text-lg transition-all hover:shadow-lg hover:shadow-brand-500/25">
-              Mulai Sekarang
-              <ArrowRight size={20} />
-            </Link>
-            <Link href="/login" className="inline-flex items-center gap-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold px-8 py-3.5 rounded-xl text-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-              Sudah Punya Akun
-            </Link>
-          </div>
-        </div>
-      </section>
+      <section className="relative overflow-hidden pt-20 pb-16 sm:pb-24 lg:pt-32 lg:pb-32 bg-linear-to-b from-secondary/40 via-background to-background">
+        {/* Soft background glow bubbles */}
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full bg-primary/10 blur-3xl -z-10" />
+        <div className="absolute top-1/3 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-amber-500/10 blur-3xl -z-10" />
 
-      {/* Features */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="text-center mb-14">
-          <h2 className="font-[var(--font-nunito)] text-3xl font-bold text-slate-900 dark:text-white mb-3">Kenapa NekoStay?</h2>
-          <p className="text-slate-600 dark:text-slate-400">Layanan terbaik untuk kucing kesayangan Anda</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { icon: Shield, title: 'Aman & Terpercaya', desc: 'Fasilitas aman dengan pengawasan 24 jam', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/30' },
-            { icon: Camera, title: 'Laporan Berkala', desc: 'Update kondisi kucing setiap 2 hari via email', color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-950/30' },
-            { icon: Heart, title: 'Perawatan Penuh', desc: 'Makan teratur, grooming, dan area bermain', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-950/30' },
-            { icon: Clock, title: 'Transparansi Biaya', desc: 'Harga jelas, refund adil, tanpa biaya tersembunyi', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-          ].map((feature, i) => (
-            <div key={i} className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl p-6 hover:shadow-lg transition-all duration-300 group">
-              <div className={`w-12 h-12 ${feature.bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <feature.icon className={feature.color} size={24} />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-center">
+            {/* Left Content */}
+            <div className="col-span-7 space-y-6 text-center lg:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs">
+                <SparkleIcon className="w-3.5 h-3.5 animate-spin-slow" />
+                <span>Hotel Kucing Bintang 5 Pertama di Kota Anda</span>
               </div>
-              <h3 className="font-semibold text-lg text-slate-900 dark:text-white mb-2">{feature.title}</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{feature.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1]">
+                Penitipan Terbaik untuk Kucing Kesayangan Anda,{" "}
+                <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
+                  Penuh Kasih Sayang.
+                </span>
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                Kami memahami kucing Anda adalah keluarga. NekoStay menghadirkan
+                layanan penitipan kucing online premium dengan laporan berkala,
+                ruang ber-AC, nutrisi terbaik, dan layanan kesehatan siaga.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Link
+                  href="/booking/new"
+                  className="px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-100 flex items-center justify-center gap-2"
+                >
+                  <Cat className="w-5 h-5" />
+                  Pesan Penitipan Sekarang
+                </Link>
+                <Link
+                  href="#services"
+                  className="px-8 py-4 rounded-2xl border border-border bg-card font-bold hover:bg-muted transition-all flex items-center justify-center"
+                >
+                  Lihat Fasilitas & Tarif
+                </Link>
+              </div>
 
-      {/* Pricing */}
-      <section className="bg-slate-50 dark:bg-slate-800/30 py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <h2 className="font-[var(--font-nunito)] text-3xl font-bold text-slate-900 dark:text-white mb-3">Pilihan Kelas Penitipan</h2>
-            <p className="text-slate-600 dark:text-slate-400">Sesuaikan dengan kebutuhan kucing Anda</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {[
-              { name: 'Basic', icon: '🏠', price: '50.000', features: ['Kandang standar', 'Makan 2x/hari', 'Air minum segar'], popular: false },
-              { name: 'Standard', icon: '⭐', price: '80.000', features: ['Kandang luas', 'Makan 3x/hari', 'Mainan dasar', 'Monitoring harian'], popular: true },
-              { name: 'Premium', icon: '👑', price: '130.000', features: ['Ruang privat', 'Makan teratur', 'Grooming harian', 'Laporan foto', 'Area bermain'], popular: false },
-            ].map((plan, i) => (
-              <div key={i} className={`relative bg-white dark:bg-slate-800 rounded-2xl p-6 border-2 transition-all hover:shadow-xl ${plan.popular ? 'border-brand-500 shadow-lg scale-[1.02]' : 'border-slate-200 dark:border-slate-700'}`}>
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold px-4 py-1 rounded-full">
-                    POPULER
-                  </div>
-                )}
-                <div className="text-center mb-6">
-                  <span className="text-3xl mb-2 block">{plan.icon}</span>
-                  <h3 className="font-bold text-xl text-slate-900 dark:text-white">{plan.name}</h3>
-                  <div className="mt-3">
-                    <span className="text-3xl font-extrabold text-brand-500">Rp {plan.price}</span>
-                    <span className="text-slate-500 text-sm">/hari</span>
+              {/* Stats */}
+              <div className="pt-8 grid grid-cols-3 gap-6 max-w-md mx-auto lg:mx-0 border-t border-border/80">
+                <div>
+                  <p className="text-3xl font-extrabold text-foreground">
+                    1,200+
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1">
+                    Kucing Terlayani
+                  </p>
+                </div>
+                <div>
+                  <p className="text-3xl font-extrabold text-foreground">
+                    99.8%
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1">
+                    Rating Kepuasan
+                  </p>
+                </div>
+                <div>
+                  <p className="text-3xl font-extrabold text-foreground">
+                    24/7
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1">
+                    Dokter Hewan Siaga
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Image Mockup / Visual */}
+            <div className="col-span-5 mt-12 lg:mt-0 relative flex justify-center">
+              <div className="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border-4 border-card bg-gradient-to-tr from-primary/25 to-secondary rotate-2 group hover:rotate-0 transition-transform duration-500">
+                <img
+                  src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=600&auto=format&fit=crop"
+                  alt="Cute Cat"
+                  className="object-cover w-full h-full"
+                />
+
+                <div className="absolute bottom-4 left-4 right-4 glass p-4 rounded-2xl flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="flex-1">
+                    <h4 className="text-xs font-bold text-foreground">
+                      Laporan Kondisi
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Kucing Anda terpantau sehat & aktif bermain.
+                    </p>
                   </div>
                 </div>
-                <ul className="space-y-3">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                      <span className="text-green-500">✓</span> {f}
-                    </li>
-                  ))}
-                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-16 sm:py-24 bg-card border-t border-b border-border/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center space-y-3 mb-16">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Mengapa Memilih NekoStay?
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto text-sm sm:text-base">
+              Kami berkomitmen menjaga kenyamanan, keamanan, dan keceriaan
+              kucing Anda selama Anda bepergian.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="p-6 bg-background border border-border rounded-2xl space-y-4 hover:border-primary/30 transition-colors">
+              <div className="p-3 bg-secondary text-primary rounded-xl w-fit">
+                <Shield className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold">
+                Keamanan & Higienitas Terjamin
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Setiap kandang dan area bermain dibersihkan menggunakan
+                disinfektan ramah hewan secara berkala untuk mencegah bakteri
+                dan virus.
+              </p>
+            </div>
+
+            <div className="p-6 bg-background border border-border rounded-2xl space-y-4 hover:border-primary/30 transition-colors">
+              <div className="p-3 bg-secondary text-primary rounded-xl w-fit">
+                <Heart className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold">
+                Laporan Berkala 2 Hari Sekali
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Dapatkan notifikasi dan email berisi status kesehatan, nafsu
+                makan, dan foto terbaru si mpus yang diupdate langsung oleh staf
+                kami.
+              </p>
+            </div>
+
+            <div className="p-6 bg-background border border-border rounded-2xl space-y-4 hover:border-primary/30 transition-colors">
+              <div className="p-3 bg-secondary text-primary rounded-xl w-fit">
+                <Users className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold">Staf Ahli Penyayang Kucing</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Staf kami terlatih dalam menangani berbagai karakter kucing,
+                mulai dari yang pemalu hingga yang hiperaktif, dengan kelembutan
+                penuh.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing / Services Section */}
+      <section id="services" className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center space-y-3 mb-16">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              Pilih Kelas Penitipan
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto text-sm sm:text-base">
+              Beragam pilihan kelas yang dirancang khusus menyesuaikan
+              kenyamanan kucing kesayangan Anda.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {classes.map((cls) => (
+              <div
+                key={cls.name}
+                className={`relative bg-card border border-border rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 ${cls.gradient}`}
+              >
+                {cls.name === "Standard" && (
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground tracking-wider uppercase shadow-sm">
+                    Paling Populer
+                  </span>
+                )}
+                <div>
+                  <h3 className="text-xl font-extrabold text-foreground">
+                    {cls.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                    {cls.description}
+                  </p>
+
+                  <div className="mt-5 flex items-baseline gap-1 text-foreground">
+                    <span className="text-3xl font-extrabold">
+                      {formatRupiah(cls.price)}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      /hari
+                    </span>
+                  </div>
+
+                  <ul className="mt-6 space-y-3.5 border-t border-border/50 pt-6">
+                    {cls.facilities.map((fac) => (
+                      <li
+                        key={fac}
+                        className="flex items-center gap-3 text-sm text-muted-foreground"
+                      >
+                        <div className="p-0.5 rounded-full bg-primary/10 text-primary">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                        <span>{fac}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-8">
+                  <Link
+                    href={`/booking/new?class=${cls.name}`}
+                    className={`block w-full text-center py-3 rounded-2xl text-xs font-bold transition-all shadow-xs ${
+                      cls.name === "Standard"
+                        ? "bg-primary text-primary-foreground hover:bg-primary/95"
+                        : "bg-card border border-border text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Pilih Kelas {cls.name}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-24">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="font-[var(--font-nunito)] text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-            Siap Menitipkan Kucing Anda?
-          </h2>
-          <p className="text-lg text-slate-600 dark:text-slate-400 mb-8">
-            Daftar sekarang dan buat pesanan penitipan pertama Anda dalam hitungan menit.
-          </p>
-          <Link href="/register" className="inline-flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-all hover:shadow-lg hover:shadow-brand-500/25">
-            Daftar Gratis
-            <ArrowRight size={20} />
-          </Link>
-        </div>
-      </section>
-
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="mt-auto border-t border-border bg-card py-12 text-center text-sm text-muted-foreground">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center">
-              <Cat className="text-white" size={14} />
-            </div>
-            <span className="font-[var(--font-nunito)] font-bold text-slate-900 dark:text-white">NekoStay</span>
+            <Cat className="w-5 h-5 text-primary" />
+            <span className="font-extrabold text-foreground">NekoStay</span>
           </div>
-          <p className="text-sm text-slate-500">© 2025 NekoStay. Semua hak dilindungi.</p>
+          <p>
+            © {new Date().getFullYear()} NekoStay. Seluruh hak cipta dilindungi.
+          </p>
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <Link
+              href="/login"
+              className="hover:text-foreground transition-colors"
+            >
+              Syarat & Ketentuan
+            </Link>
+            <Link
+              href="/register"
+              className="hover:text-foreground transition-colors"
+            >
+              Kebijakan Privasi
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
-  )
+  );
+}
+
+function SparkleIcon(props) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12 3v18" />
+      <path d="M3 12h18" />
+      <path d="m18 6-12 12" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
 }

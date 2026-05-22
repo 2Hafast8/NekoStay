@@ -9,7 +9,7 @@ const rejectSchema = z.object({
 export async function POST(request, { params }) {
   try {
     const supabase = await createClient()
-    const { id } = params
+    const { id } = await params
 
     // Cek user session & role
     const { data: { user } } = await supabase.auth.getUser()
@@ -31,10 +31,10 @@ export async function POST(request, { params }) {
     const body = await request.json()
     const validatedData = rejectSchema.parse(body)
 
-    // Get booking
+    // Get booking with profiles
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('*')
+      .select('*, profiles (full_name, email)')
       .eq('id', id)
       .single()
 
@@ -63,6 +63,23 @@ export async function POST(request, { params }) {
       .eq('id', id)
 
     if (updateError) throw updateError
+
+    // Send transactional reject email securely on the server
+    const userEmail = booking.profiles?.email
+    if (userEmail) {
+      try {
+        const { sendBookingRejected } = await import('@/lib/email/resend')
+        await sendBookingRejected(
+          userEmail,
+          booking.profiles.full_name,
+          booking.cat_name,
+          booking.id,
+          validatedData.reason
+        )
+      } catch (emailErr) {
+        console.warn('[Server Email Warning] Resend reject notification failed:', emailErr.message)
+      }
+    }
 
     return NextResponse.json({
       success: true,

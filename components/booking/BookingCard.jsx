@@ -1,67 +1,102 @@
-import Link from 'next/link'
-import { BookingStatusBadge } from '@/components/booking/BookingStatus'
-import { formatRupiah } from '@/lib/utils/format'
-import { formatDate } from '@/lib/utils/dates'
-import { Calendar, ChevronRight, Cat } from 'lucide-react'
+import Link from "next/link";
+import { Calendar, Cat, Layers, DollarSign, AlertTriangle, TrendingDown } from "lucide-react";
+import { BookingStatus } from "./BookingStatus";
+import { formatDate } from "@/lib/utils/dates";
+import { formatRupiah } from "@/lib/utils/format";
 
-const borderColors = {
-  'Menunggu': 'border-l-amber-400',
-  'Aktif': 'border-l-green-400',
-  'Selesai': 'border-l-slate-300',
-  'Dibatalkan': 'border-l-red-400',
-}
-
-export function BookingCard({ booking }) {
-  const isCancelled = booking.status === 'Dibatalkan'
+export function BookingCard({ booking, isAdmin = false }) {
+  const detailHref = isAdmin
+    ? `/admin/bookings/${booking.id}`
+    : `/booking/${booking.id}`;
 
   return (
-    <Link href={`/booking/${booking.id}`}>
-      <div className={`bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl p-5 
-        border-l-4 ${borderColors[booking.status] || 'border-l-slate-300'}
-        hover:shadow-md transition-all duration-200 group
-        ${isCancelled ? 'opacity-60' : ''}`}
-      >
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {booking.cat_photo_url ? (
-              <img
-                src={booking.cat_photo_url}
-                alt={booking.cat_name}
-                className="w-12 h-12 rounded-lg object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-lg bg-brand-50 dark:bg-brand-950/30 flex items-center justify-center shrink-0">
-                <Cat className="text-brand-400" size={24} />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+    <div className="relative group overflow-hidden bg-card text-card-foreground border border-border/80 hover:border-primary/40 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
+      {/* Background soft gradient ornament */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 group-hover:scale-110 transition-transform duration-500" />
+
+      <div className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-secondary rounded-2xl text-primary">
+              <Cat className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
                 {booking.cat_name}
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {booking.class} · {booking.total_days || '—'} hari
+              <p className="text-xs text-muted-foreground">
+                {booking.cat_gender} • {booking.cat_age}
               </p>
             </div>
           </div>
-          <BookingStatusBadge status={booking.status} />
+          <BookingStatus status={booking.status} />
         </div>
 
-        <div className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 mb-2">
-          <Calendar size={14} />
-          <span>
-            {formatDate(booking.check_in_date)} → {formatDate(booking.check_out_date)}
-          </span>
-        </div>
+        {isAdmin && booking.profiles && (
+          <div className="mb-4 text-xs bg-muted/50 p-2.5 rounded-lg border border-border/40">
+            <span className="text-muted-foreground block">Pemilik:</span>
+            <span className="font-semibold">
+              {booking.profiles.full_name}
+            </span>{" "}
+            {booking.profiles.phone && `(${booking.profiles.phone})`}
+          </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-brand-500 text-sm">
-            {formatRupiah(booking.estimated_total || 0)}
-          </span>
-          <span className="text-xs text-slate-400 group-hover:text-brand-500 transition-colors flex items-center gap-1">
-            Lihat <ChevronRight size={14} />
-          </span>
+        <div className="space-y-3.5 text-sm text-muted-foreground my-4">
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-4 h-4 text-primary/70" />
+            <span>
+              Kelas <strong className="text-foreground">{booking.class}</strong>{" "}
+              ({formatRupiah(booking.price_per_day)}/hari)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <Calendar className="w-4 h-4 text-primary/70" />
+            <span>
+              {formatDate(booking.check_in_date)} -{" "}
+              {formatDate(booking.check_out_date)}
+              <span className="text-xs ml-1 bg-muted px-2 py-0.5 rounded-full font-medium text-foreground">
+                {booking.total_days} Hari
+              </span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <DollarSign className="w-4 h-4 text-emerald-500" />
+            <span className="font-semibold text-foreground">
+              Estimasi: {formatRupiah(booking.estimated_total)}
+            </span>
+          </div>
+
+          {booking.late_fee_total > 0 && (
+            <div className="flex items-center gap-2.5 text-rose-600 font-medium">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>
+                Denda Terlambat: +{formatRupiah(booking.late_fee_total)}
+              </span>
+            </div>
+          )}
+
+          {booking.refund_amount > 0 && (
+            <div className="flex items-center gap-2.5 text-blue-600 font-medium">
+              <TrendingDown className="w-4 h-4 text-blue-500 shrink-0" />
+              <span>
+                Refund Pengambilan Cepat: -{formatRupiah(booking.refund_amount)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
-    </Link>
-  )
+
+      <div className="p-4 bg-muted/40 border-t border-border/50 flex items-center justify-end">
+        <Link
+          href={detailHref}
+          className="w-full text-center py-2 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.01] active:scale-100 shadow-sm hover:shadow transition-all"
+        >
+          Lihat Detail
+        </Link>
+      </div>
+    </div>
+  );
 }

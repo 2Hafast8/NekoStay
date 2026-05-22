@@ -1,129 +1,157 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { loginSchema } from '@/lib/validations/booking'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Cat, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Cat, KeyRound, Mail, Sparkles, ArrowRight, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [showPassword, setShowPassword] = useState(false)
-  const supabase = createClient()
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const supabase = createClient();
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(loginSchema),
-  })
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setIsLoading(true);
 
-  const onSubmit = async (values) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    })
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      toast.error('Email atau password salah')
-      return
+      if (error) {
+        if (error.message === "Invalid login credentials") {
+          throw new Error("Email atau password salah.");
+        }
+        throw error;
+      }
+
+      if (data.user) {
+        // Fetch role from profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        const redirectTo =
+          profile?.role === "admin" ? "/admin/dashboard" : "/dashboard";
+        router.push(redirectTo);
+        router.refresh();
+      }
+    } catch (err) {
+      setErrorMsg(err.message || "Terjadi kesalahan sistem. Coba lagi.");
+    } finally {
+      setIsLoading(false);
     }
-
-    // Cek role user
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single()
-
-    toast.success('Berhasil masuk!')
-    const redirectTo = profile?.role === 'admin' ? '/admin/dashboard' : '/dashboard'
-    router.push(redirectTo)
-    router.refresh()
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-brand-50 dark:bg-slate-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-500 mb-4">
-            <Cat className="text-white" size={32} />
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-tr from-secondary/30 via-background to-background p-4 relative">
+      <div className="absolute inset-0 overflow-hidden -z-10">
+        <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-amber-500/5 blur-3xl" />
+      </div>
+
+      <div className="w-full max-w-md bg-card border border-border p-8 rounded-3xl shadow-xl space-y-6">
+        <div className="text-center space-y-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-primary font-extrabold text-2xl mb-2"
+          >
+            <div className="p-2.5 bg-primary text-primary-foreground rounded-2xl">
+              <Cat className="w-6 h-6" />
+            </div>
+            <span>NekoStay</span>
+          </Link>
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
+            <Sparkles className="w-3 h-3" />
+            <span>Selamat Datang Kembali</span>
           </div>
-          <h1 className="font-[var(--font-nunito)] text-2xl font-bold text-slate-900 dark:text-white">NekoStay</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Penitipan Kucing Terpercaya</p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-white dark:bg-slate-900 shadow-xl rounded-2xl p-8 border border-slate-200 dark:border-slate-800">
-          <h2 className="font-[var(--font-nunito)] text-xl font-bold text-slate-900 dark:text-white mb-6 text-center">Masuk Akun</h2>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="nama@email.com"
-                {...register('email')}
-                className="mt-1.5"
-              />
-              {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-xs text-brand-500 hover:text-brand-600 font-medium">
-                  Lupa Password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
-            </div>
-
-            <Button type="submit" className="w-full bg-brand-500 hover:bg-brand-600 text-white" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <><Loader2 className="animate-spin mr-2" size={16} /> Masuk...</>
-              ) : 'Masuk'}
-            </Button>
-          </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200 dark:border-slate-700" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white dark:bg-slate-900 px-3 text-xs text-slate-400">atau</span>
-            </div>
-          </div>
-
-          <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-            Belum punya akun?{' '}
-            <Link href="/register" className="text-brand-500 hover:text-brand-600 font-semibold">
-              Daftar
-            </Link>
+          <h2 className="text-2xl font-black text-foreground">
+            Masuk ke Akun Anda
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Silakan isi detail akun Anda di bawah untuk melanjutkan.
           </p>
         </div>
+
+        {errorMsg && (
+          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+              Alamat Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/75" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@email.com"
+                className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                Lupa Password?
+              </Link>
+            </div>
+            <div className="relative">
+              <KeyRound className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/75" />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/95 transition-all shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "Sedang Masuk..." : "Masuk Sekarang"}
+            <ArrowRight className="w-4.5 h-4.5" />
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Belum punya akun?{" "}
+          <Link
+            href="/register"
+            className="font-bold text-primary hover:underline"
+          >
+            Daftar Gratis
+          </Link>
+        </p>
       </div>
     </div>
-  )
+  );
 }

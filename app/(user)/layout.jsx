@@ -1,14 +1,16 @@
-import { Navbar } from '@/components/layout/Navbar'
-import { BottomTabBar } from '@/components/layout/BottomTabBar'
+import { Navbar } from "@/components/layout/Navbar";
+import { UserSidebar } from "@/components/layout/UserSidebar";
 
 export default function UserLayout({ children }) {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="pb-20 sm:pb-8">
-        {children}
-      </main>
-      <BottomTabBar />
+      <div className="flex flex-col md:flex-row flex-1 max-w-7xl w-full mx-auto">
+        <UserSidebar />
+        <main className="flex-1 p-6 md:p-8 bg-background overflow-hidden">
+          {children}
+        </main>
+      </div>
     </div>
-  )
+  );
 }

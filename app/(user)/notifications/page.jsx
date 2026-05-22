@@ -1,178 +1,143 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@/hooks/useUser'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { formatDate } from '@/lib/utils/dates'
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Bell,
-  CheckCircle,
-  AlertCircle,
   Info,
-  Trash2,
-  Loader2,
-} from 'lucide-react'
-import { toast } from 'sonner'
+  CheckCircle2,
+  AlertTriangle,
+  AlertCircle,
+  Sparkles,
+  Check,
+  ArrowRight,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export default function NotificationsPage() {
-  const supabase = createClient()
-  const { user } = useUser()
-
-  const [notifications, setNotifications] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [deleting, setDeleting] = useState(null)
+  const [userId, setUserId] = useState("");
+  const supabase = createClient();
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-        setNotifications(data || [])
-      } catch (err) {
-        console.error('Error fetching notifications:', err)
-      } finally {
-        setLoading(false)
+    async function loadUser() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
       }
     }
+    loadUser();
+  }, [supabase]);
 
-    fetchNotifications()
+  const { notifications, unreadCount, markAllRead } = useNotifications(userId);
 
-    if (!user) return
-
-    // Subscribe to realtime notifications
-    const channel = supabase
-      .channel('notifications-user')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setNotifications((prev) => [payload.new, ...prev])
-          } else if (payload.eventType === 'DELETE') {
-            setNotifications((prev) =>
-              prev.filter((n) => n.id !== payload.old.id)
-            )
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      channel.unsubscribe()
+  const getIcon = (type) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+      case "warning":
+        return <AlertTriangle className="w-5 h-5 text-amber-500" />;
+      case "error":
+        return <AlertCircle className="w-5 h-5 text-rose-500" />;
+      default:
+        return <Info className="w-5 h-5 text-sky-500" />;
     }
-  }, [user])
-
-  const handleDelete = async (id) => {
-    try {
-      setDeleting(id)
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
-      toast.success('Notifikasi dihapus')
-    } catch (err) {
-      toast.error('Gagal menghapus notifikasi')
-    } finally {
-      setDeleting(null)
-    }
-  }
-
-  const getIconAndColor = (type) => {
-    const iconMap = {
-      success: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-950/30' },
-      error: { icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-950/30' },
-      info: { icon: Info, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-950/30' },
-      warning: { icon: AlertCircle, color: 'text-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-950/30' },
-    }
-    return iconMap[type] || iconMap.info
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-brand-500" size={40} />
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-        Notifikasi
-      </h1>
-      <p className="text-slate-600 dark:text-slate-400 mb-8">
-        Pantau perkembangan pesanan dan laporan kucing Anda
-      </p>
-
-      {notifications.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-12 text-center">
-          <Bell className="mx-auto text-slate-400 mb-4" size={40} />
-          <h2 className="font-semibold text-slate-900 dark:text-white mb-2">
-            Belum ada notifikasi
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Notifikasi akan muncul di sini saat ada update tentang pesanan Anda
+    <div className="max-w-3xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
+            <Sparkles className="w-3 h-3" />
+            <span>Pemberitahuan</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            Kotak Masuk Notifikasi
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Lihat riwayat pembaruan status dan laporan kucing Anda.
           </p>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {notifications.map((notif) => {
-            const { icon: Icon, color, bg } = getIconAndColor(notif.type)
-            return (
+
+        {unreadCount > 0 && (
+          <button
+            onClick={markAllRead}
+            className="px-4 py-2 border border-border hover:bg-muted text-xs font-bold text-foreground rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Check className="w-4 h-4 text-emerald-500" />
+            Tandai Semua Dibaca
+          </button>
+        )}
+      </div>
+
+      {/* Notifications List */}
+      <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+        {notifications.length === 0 ? (
+          <div className="text-center py-20 p-8 space-y-4">
+            <div className="p-4 bg-secondary text-primary rounded-full w-fit mx-auto">
+              <Bell className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-foreground">
+                Kotak Masuk Kosong
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                Anda belum menerima notifikasi apapun saat ini.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {notifications.map((n) => (
               <div
-                key={notif.id}
-                className={`${bg} border border-slate-200 dark:border-slate-700 rounded-xl p-5 flex items-start gap-4`}
+                key={n.id}
+                className={`p-6 hover:bg-muted/15 transition-all flex gap-4 ${
+                  !n.is_read
+                    ? "bg-primary/5 border-l-4 border-l-primary"
+                    : "border-l-4 border-l-transparent"
+                }`}
               >
-                <Icon className={`${color} shrink-0 mt-1`} size={20} />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    {notif.title}
-                  </h3>
-                  {notif.message && (
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      {notif.message}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                    {formatDate(notif.created_at, 'datetime')}
+                <div className="mt-0.5">{getIcon(n.type)}</div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex justify-between items-start gap-4">
+                    <h3 className="font-bold text-sm sm:text-base text-foreground">
+                      {n.title}
+                    </h3>
+                    <span className="text-[10px] text-muted-foreground font-medium shrink-0">
+                      {new Date(n.created_at).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    {n.message}
                   </p>
-                </div>
-                <button
-                  onClick={() => handleDelete(notif.id)}
-                  disabled={deleting === notif.id}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors shrink-0"
-                >
-                  {deleting === notif.id ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <Trash2 size={16} />
+
+                  {n.booking_id && (
+                    <div className="pt-2">
+                      <Link
+                        href={`/booking/${n.booking_id}`}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                      >
+                        Lihat Rincian Pesanan
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
                   )}
-                </button>
+                </div>
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  )
+  );
 }

@@ -1,206 +1,193 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { useUser } from '@/hooks/useUser'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Loader2, Mail, Phone, User } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const supabase = createClient()
-  const { user, profile, loading, signOut } = useUser()
+  const router = useRouter();
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+  const [userId, setUserId] = useState("");
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
-  const [formData, setFormData] = useState({
-    full_name: profile?.full_name || '',
-    phone: profile?.phone || '',
-    email: user?.email || '',
-  })
+  const supabase = createClient();
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  useEffect(() => {
+    async function loadProfile() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        setEmail(user.email || "");
 
-  const handleSave = async () => {
-    try {
-      setIsSaving(true)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
 
-      // Update profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          phone: formData.phone,
-        })
-        .eq('id', user?.id)
-
-      if (profileError) throw profileError
-
-      toast.success('Profil berhasil diperbarui')
-      setIsEditing(false)
-    } catch (err) {
-      toast.error('Gagal memperbarui profil')
-      console.error(err)
-    } finally {
-      setIsSaving(false)
+        if (profile) {
+          setFullName(profile.full_name || "");
+          setPhone(profile.phone || "");
+          setRole(profile.role || "");
+        }
+      }
+      setIsLoading(false);
     }
-  }
+    loadProfile();
+  }, [supabase]);
 
-  const handleLogout = async () => {
-    await signOut()
-    toast.success('Berhasil logout')
-    router.push('/login')
-  }
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsUpdating(true);
 
-  if (loading) {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          phone: phone,
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
+      setSuccessMsg("Profil Anda berhasil diperbarui!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal memperbarui profil.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-brand-500" size={40} />
+      <div className="space-y-6 max-w-2xl mx-auto animate-pulse">
+        <div className="h-6 w-24 bg-muted rounded-md" />
+        <div className="h-64 bg-card border border-border rounded-3xl" />
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-8">
-        Profil Saya
-      </h1>
+    <div className="max-w-2xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
+          <Sparkles className="w-3 h-3" />
+          <span>Pengaturan Akun</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+          Profil Saya
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Kelola informasi diri Anda untuk mempermudah pendaftaran penitipan.
+        </p>
+      </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 space-y-8">
-        {/* Profile Section */}
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">
-            Data Diri
-          </h2>
+      {errorMsg && (
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
-          <div className="space-y-5">
-            {/* Full Name */}
-            <div>
-              <Label htmlFor="full_name" className="flex items-center gap-2 mb-2">
-                <User size={16} />
-                Nama Lengkap
-              </Label>
-              {isEditing ? (
-                <Input
-                  id="full_name"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleInputChange}
-                  className="mt-1.5"
-                />
-              ) : (
-                <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                  {profile?.full_name || '-'}
-                </p>
-              )}
-            </div>
+      {successMsg && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 rounded-2xl p-4 text-xs font-semibold leading-relaxed flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
 
-            {/* Email */}
-            <div>
-              <Label htmlFor="email" className="flex items-center gap-2 mb-2">
-                <Mail size={16} />
-                Email
-              </Label>
-              <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                {user?.email || '-'}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Email tidak dapat diubah. Hubungi support jika perlu perubahan.
-              </p>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <Label htmlFor="phone" className="flex items-center gap-2 mb-2">
-                <Phone size={16} />
-                Nomor HP
-              </Label>
-              {isEditing ? (
-                <Input
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  placeholder="08xxxxxxxxxx"
-                  className="mt-1.5"
-                />
-              ) : (
-                <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                  {profile?.phone || '-'}
-                </p>
-              )}
+      <div className="bg-card border border-border p-6 sm:p-8 rounded-3xl space-y-6">
+        <form onSubmit={handleUpdate} className="space-y-6">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+              Nama Lengkap
+            </label>
+            <div className="relative">
+              <User className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/75" />
+              <input
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Nama Lengkap Anda"
+                className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground"
+              />
             </div>
           </div>
 
-          {/* Edit Buttons */}
-          <div className="mt-8 flex gap-3">
-            {!isEditing ? (
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="flex-1"
-              >
-                Edit Profil
-              </Button>
-            ) : (
-              <>
-                <Button
-                  onClick={() => {
-                    setIsEditing(false)
-                    setFormData({
-                      full_name: profile?.full_name || '',
-                      phone: profile?.phone || '',
-                      email: user?.email || '',
-                    })
-                  }}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  Batal
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex-1"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 animate-spin" size={16} />
-                      Menyimpan...
-                    </>
-                  ) : (
-                    'Simpan'
-                  )}
-                </Button>
-              </>
-            )}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+              Nomor WhatsApp / HP
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/75" />
+              <input
+                type="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Contoh: 08123456789"
+                className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Danger Zone */}
-        <div className="border-t border-slate-200 dark:border-slate-700 pt-8">
-          <h3 className="text-lg font-semibold text-red-600 mb-4">
-            Zona Berbahaya
-          </h3>
-          <Button
-            onClick={handleLogout}
-            variant="destructive"
-            className="w-full"
-          >
-            Logout
-          </Button>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Anda akan keluar dari akun ini dan kembali ke halaman login.
-          </p>
-        </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Alamat Email (Akun)
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/35" />
+                <input
+                  type="email"
+                  disabled
+                  value={email}
+                  className="w-full pl-11 pr-4 py-3 bg-muted/40 border border-border/80 rounded-xl text-sm font-medium text-muted-foreground cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                Peran (Role)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  disabled
+                  value={role === "admin" ? "Administrator" : "Pemilik Kucing"}
+                  className="w-full px-4 py-3 bg-muted/40 border border-border/80 rounded-xl text-sm font-bold text-primary/80 cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-border/60">
+            <button
+              type="submit"
+              disabled={isUpdating}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {isUpdating ? "Menyimpan..." : "Simpan Perubahan"}
+              <Check className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-  )
+  );
 }

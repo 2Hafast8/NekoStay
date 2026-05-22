@@ -9,7 +9,7 @@ const cancelSchema = z.object({
 export async function POST(request, { params }) {
   try {
     const supabase = await createClient()
-    const { id } = params
+    const { id } = await params
 
     // Cek user session
     const { data: { user } } = await supabase.auth.getUser()
