@@ -141,3 +141,16 @@ NekoStay secures user data by enforcing rules at every touchpoint:
 For commercial inquiries, white-labeling requests, customized features, or integration with external veterinary systems, contact the NekoStay team.
 *   **License**: Licensed under standard commercial terms. An open-source edition is distributed under the MIT license.
 *   **Support**: For bugs or support queries, please open an Issue on GitHub or check our extensive internal documentation inside the `docs/` folder.
+
+---
+
+## 👤 Credits & Creator Portfolio
+This application was engineered and is maintained as a professional showcase development project.
+
+*   **Developer / Creator**: [HAfast2008]
+*   **GitHub**: [@2Hafast8](https://github.com/2Hafast8)
+*   **LinkedIn**: [...](...)
+*   **Portfolio**: [...](...)
+
+If you are interested in a full demonstration, customized business adaptations, or collaborative projects, feel free to get in touch!
+
