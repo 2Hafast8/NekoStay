@@ -1,286 +1,143 @@
-# 🐱 NekoStay — Platform Pemesanan Penitipan Kucing
+# 🐱 NekoStay — Premium Cat Boarding & Care Platform
 
-> Aplikasi web untuk memudahkan pemilik kucing menitipkan kucing mereka secara online.
+[![Next.js Version](https://img.shields.io/badge/Next.js-16.2.6-orange?style=flat-square&logo=nextdotjs)](https://nextjs.org)
+[![React Version](https://img.shields.io/badge/React-19.0.0-blue?style=flat-square&logo=react)](https://react.dev)
+[![Supabase Backend](https://img.shields.io/badge/Database-Supabase%20(PostgreSQL)-emerald?style=flat-square&logo=supabase)](https://supabase.com)
+[![Tailwind CSS v4](https://img.shields.io/badge/CSS-Tailwind%20v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-Commercial%20%2F%20MIT-brightgreen?style=flat-square)](#)
 
-**Status**: 100% Complete & Launch Ready ✅ | **Last Updated**: June 3, 2026
+**NekoStay** is a state-of-the-art, feature-rich web application designed for modern cat hotel businesses and cat owners. It connects cat owners seeking premium boarding services with pet hotels, offering peace of mind through regular status updates, real-time notifications, and high-end pet management tools.
 
----
-
-## 📚 DOKUMENTASI PROJECT
-
-Semua dokumentasi project terorganisir dalam folder `docs/`. **Mulai dari sini:**
-
-### 🎯 **[📍 START HERE → docs/00-INDEX.md](./docs/00-INDEX.md)**
-Main index dengan navigation ke semua dokumentasi.
+Developed with a premium, responsive glassmorphism UI, a global dual-language system, dynamic dark mode, and an advanced admin simulation engine, NekoStay is the ultimate solution to scale and professionalize pet boarding operations.
 
 ---
 
-## 📖 QUICK DOCUMENTATION GUIDE
+## ✨ Key Features & Business Value
 
-| Need | Location | Time |
-|------|----------|------|
-| Understand project | [docs/01-SETUP/claude.md](./docs/01-SETUP/claude.md) | 15 min |
-| Learn tech stack | [docs/01-SETUP/skill.md](./docs/01-SETUP/skill.md) | 30 min |
-| See architecture | [docs/02-ARCHITECTURE/NekoStay_Technical_Design.md](./docs/02-ARCHITECTURE/NekoStay_Technical_Design.md) | 45 min |
-| Know what's built | [docs/03-IMPLEMENTATION/PHASE2_COMPLETE.md](./docs/03-IMPLEMENTATION/PHASE2_COMPLETE.md) | 30 min |
-| Run tests | [docs/04-TESTING/TESTING_AND_LAUNCH_GUIDE.md](./docs/04-TESTING/TESTING_AND_LAUNCH_GUIDE.md) | 4-6 hours |
-| Deploy | [docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md](./docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md) | 2-4 hours |
-| Check status | [docs/06-STATUS/STATUS_MAY_26_2026.md](./docs/06-STATUS/STATUS_MAY_26_2026.md) | 20 min |
+### 👤 For Cat Owners (Customer Portal)
+*   **Seamless Booking Workflow**: Book a stay for your feline friend in just 3 steps (Cat Info, Stay Dates, and Confirmation) with custom notes, health statuses, and photo uploads.
+*   **Feline Care Reports**: Track your cat's health, appetite, and mood daily. View status logs and photo updates posted directly by cat caretakers.
+*   **Referral & Loyalty Program**: Share personal referral codes with other cat lovers. Referrals save 10% on their first booking, and referrers collect rewards points (redeemable for stay discounts).
+*   **Unified Notifications Inbox**: Receive instant, in-app logs regarding check-in approvals, health reports, and check-out invoices.
+
+### 👨‍💼 For Cat Boarding Businesses (Admin Control Center)
+*   **Analytical Executive Dashboard**: Monitor active revenue, boarded cats, pending approvals, average ratings, and stay distribution trends with real-time Recharts visual graphs.
+*   **Advanced Booking Operations**: Manage check-ins, approve or decline requests, and process check-outs. Filter bookings dynamically by stay status, year, month, or room class.
+*   **Daily Cat Care Reporting**: Publish progress reports with health states and photos directly to owner profiles.
+*   **Dynamic Room Rate Configuration**: Manage room classes (Basic, Standard, Premium), list amenities, and set daily rates.
+*   **Outbox Notification Gateway**: Monitor outgoing communications with a simulated system outbox log separating WhatsApp notifications from system admin alerts.
+*   **Premium PDF Invoicing & Analytics Export**: Export bookings and financial summaries into a custom, styled PDF document (landscape format) complete with company branding, totals, and metadata.
 
 ---
 
-## 🚀 GETTING STARTED
+## 🎨 Design & Accessibility
+*   **Premium Visuals**: Built using modern typography (Outfit / Inter), HSL orange brand colors, soft gradient overlays, micro-animations, and clean grid layouts.
+*   **Unified Theme Switcher**: Fluid transitions between Light Mode and Dark Mode.
+*   **Global Language Switcher**: Zero-lag language toggle between Indonesian (`ID`) and English (`EN`) that dynamically updates the layout, sidebar, forms, database room amenities, health statuses, and interactive error/success dialogues.
+*   **Mobile-First Layout**: Adaptive sidebar navigation for desktop and bottom tab bar navigation for mobile devices, fully eliminating horizontal overflow.
 
-### 1. Setup Lokal
+---
+
+## 🛠️ Technology Stack
+
+| Component | Technology | Description |
+|---|---|---|
+| **Core Framework** | Next.js 16.2.6 (Turbopack) | Fast compilation and rendering optimization |
+| **Frontend UI** | React 19, Tailwind CSS v4 | Harmonious, high-performance styling |
+| **State Management** | Zustand 5 | Client-side persistent state for themes & language |
+| **Database & Auth** | Supabase | PostgreSQL schema, private files, and RLS policies |
+| **Mailing Service** | Resend | Automatic check-in and reply email notifications |
+| **Component Icons** | Lucide React | High-quality, modern SVG icon library |
+| **Reporting Tool** | jsPDF & jsPDF-Autotable | Dynamic client-side invoice and PDF report rendering |
+
+---
+
+## ⚙️ Installation & Local Development Setup
+
+To run NekoStay on your local environment, follow these steps:
+
+### 1. Prerequisites
+Ensure you have the following installed on your machine:
+*   [Node.js](https://nodejs.org/) (v18.x or above)
+*   [Git](https://git-scm.com/)
+*   A [Supabase](https://supabase.com/) account (for database hosting)
+
+### 2. Clone the Repository
 ```bash
-# Install dependencies
-npm install
-
-# Setup environment variables
-# Copy .env.example to .env.local and fill in values
-
-# Run development server
-npm run dev
+git clone https://github.com/your-username/NekoStay.git
+cd NekoStay
 ```
 
-Server berjalan di [http://localhost:3000](http://localhost:3000)
+### 3. Install Dependencies
+```bash
+npm install
+```
 
-### 2. Read Documentation
-**👉 Start dengan [docs/00-INDEX.md](./docs/00-INDEX.md)**
+### 4. Configure Environment Variables
+Create a file named `.env.local` in the root directory and populate it with your environment keys:
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
-### 3. Next Steps
-1. Deploy to Vercel (2-4 hours)
-2. Setup production domain & SSL (optional)
+# Resend API (For Email Notifications)
+RESEND_API_KEY=re_your_resend_api_key
+```
 
-See [docs/06-STATUS/STATUS_MAY_26_2026.md](./docs/06-STATUS/STATUS_MAY_26_2026.md) for details.
+### 5. Setup Database Schemas
+Execute the SQL migration scripts located in the `supabase/` folder inside your Supabase SQL Editor. This sets up:
+*   `profiles`, `bookings`, `cat_reports`, `reviews`, `classes`, and `notifications` tables.
+*   Database triggers for automatic profile creation on registration.
+*   Row-Level Security (RLS) policies to keep customer data isolated and secure.
+*   Initial room classes seeding data.
+
+### 6. Run the Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+
+### 7. Compile a Production Build
+Ensure that the code is optimized and ready for production deployment:
+```bash
+npm run build
+npm run start
+```
 
 ---
 
-## 🏗️ PROJECT STRUCTURE
+## 📂 Project Structure
 
 ```
 NekoStay/
-├── docs/                          ← 📚 SEMUA DOKUMENTASI
-│   ├── 00-INDEX.md               ← START HERE
-│   ├── 01-SETUP/                 ← Setup & Konfigurasi
-│   ├── 02-ARCHITECTURE/          ← Desain & Arsitektur
-│   ├── 03-IMPLEMENTATION/        ← Status Implementasi
-│   ├── 04-TESTING/               ← Testing Guide
-│   ├── 05-DEPLOYMENT/            ← Deployment Checklist
-│   └── 06-STATUS/                ← Status Reports
-│
-├── app/                           ← Next.js App Router
-├── components/                    ← React Components
-├── lib/                           ← Utilities & Services
-├── public/                        ← Static Assets
-├── supabase/                      ← Database Schema
-├── .env.local                     ← Environment Variables
-└── package.json                   ← Dependencies
+├── app/                  # Next.js App Router (pages & APIs)
+│   ├── (admin)/          # Admin-only dashboard, bookings, reports, reviews, settings
+│   ├── (user)/           # Customer-only dashboard, profiles, notifications, booking flows
+│   ├── (auth)/           # Authentication pages (login, registration, password recovery)
+│   └── api/              # API endpoints for email triggering, booking updates, etc.
+├── components/           # Reusable React UI components (form inputs, dialogs, charts)
+├── hooks/                # Custom hooks (e.g. useLanguage translation store)
+├── lib/                  # Utilities (Supabase client client, formatted dates, pricing math)
+├── public/               # Static icons, default cat avatars, promotional assets
+├── supabase/             # Database table structures, constraints, and RLS policies
+├── docs/                 # Detailed technical design manuals, testing logs, and deploy checklists
+├── package.json          # Project manifest and package configurations
+└── README.md             # This promotional & installation guide
 ```
 
 ---
 
-## 📊 PROJECT STATUS
-
-```
-Core Code Implementation: 100% ✅✅✅✅✅
-Advanced Features:       100% ✅✅✅✅✅
-Database & RLS:          100% ✅✅✅✅✅
-Testing & Verification:  100% ✅✅✅✅✅
-Deployment:              ⏳ Ready
-────────────────────────────────
-TOTAL:                   100% ✅✅✅✅✅ (Feature Complete)
-```
-
-### What's Complete ✅
-- All core code & features (13 pages, 40+ components, 5 APIs)
-- Advanced Features Phase 3 (Dark Mode, Multi-Language, Reviews, Referral Program, Push Notifications, Admin Notifications, SMS/WA Simulator, Admin Pagination & Responsive UI Layout fixes)
-- Database schema & RLS policies applied in production migration
-- 20/20 Test scenarios completed and verified locally
-- Complete system documentation
-
-### What's Ready ⏳
-- Deployment to Vercel (2-4 hours to execute)
+## 🔒 Security & Data Compliance
+NekoStay secures user data by enforcing rules at every touchpoint:
+*   **Row-Level Security (RLS)**: Users can only read and write bookings, cats, and profile details that they own.
+*   **Authentication & Session Guards**: Managed securely via JWT tokens through Supabase Auth, protected by server middleware redirects.
+*   **Input Sanitization**: Clean, strict client/server validations driven by Zod schema rules.
+*   **Storage Access Control**: Private bucket configurations preventing direct access to uploaded cat photographs.
 
 ---
 
-## 🎯 ROLES & FEATURES
-
-### 👤 User (Pemilik Kucing)
-- Register & Login
-- Create booking untuk penitipan kucing
-- View booking details & status
-- Cancel booking
-- Receive email & in-app notifications
-- View cat condition reports
-
-### 👨‍💼 Admin (Pengelola Penitipan)
-- View all bookings
-- Confirm/Reject/Complete bookings
-- Send cat condition reports
-- Upload photos
-- View dashboard statistics
-
----
-
-## 🛠️ TECHNOLOGY STACK
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14+, React, Tailwind CSS, shadcn/ui |
-| Backend | Next.js API Routes, Node.js |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth (JWT) |
-| Storage | Supabase Storage |
-| Email | Resend |
-| Realtime | Supabase Realtime |
-| Validation | React Hook Form, Zod |
-| Deploy | Vercel |
-
----
-
-## 📦 KEY DEPENDENCIES
-
-```json
-{
-  "next": "16.2.6",
-  "react": "19.0.0",
-  "tailwindcss": "4.0",
-  "supabase": "2.x",
-  "react-hook-form": "7.x",
-  "zod": "3.x",
-  "resend": "latest"
-}
-```
-
----
-
-## 🔐 SECURITY
-
-- **Authentication**: JWT-based via Supabase Auth
-- **Authorization**: Role-based (user/admin) with middleware protection
-- **Database**: Row-Level Security (RLS) policies
-- **Validation**: Server-side Zod schemas
-- **Storage**: Private bucket with access policies
-- **API**: Secure service role key on server only
-
-See [docs/02-ARCHITECTURE/RLS_POLICIES.md](./docs/02-ARCHITECTURE/RLS_POLICIES.md) for security details.
-
----
-
-## 📞 DOCUMENTATION STRUCTURE
-
-```
-docs/
-├── 00-INDEX.md                         ← MAIN NAVIGATION
-├── 01-SETUP/                           ← Setup & Configuration
-│   ├── README.md
-│   ├── claude.md                       ← Project Context
-│   ├── AGENTS.md                       ← Agent Rules
-│   ├── skill.md                        ← Tech Skills Guide
-│   └── DEVELOPMENT_PLAN.md             ← Roadmap
-├── 02-ARCHITECTURE/                    ← Design & Architecture
-│   ├── README.md
-│   ├── NekoStay_Technical_Design.md   ← Tech Design
-│   ├── design.md                       ← UI/UX Design
-│   └── RLS_POLICIES.md                 ← Security
-├── 03-IMPLEMENTATION/                  ← Implementation Status
-│   ├── README.md
-│   ├── IMPLEMENTATION_SUMMARY.md       ← What's Built
-│   ├── PHASE2_COMPLETE.md              ← Detailed Status
-│   └── PROGRESS_STATUS.md              ← Progress Tracker
-├── 04-TESTING/                         ← Testing
-│   ├── README.md
-│   └── TESTING_AND_LAUNCH_GUIDE.md    ← 20 Test Scenarios
-├── 05-DEPLOYMENT/                      ← Deployment
-│   ├── README.md
-│   └── DEPLOYMENT_CHECKLIST.md         ← Pre-Launch Checklist
-└── 06-STATUS/                          ← Status Reports
-    ├── README.md
-    ├── STATUS_MAY_21_2026.md           ← Executive Summary
-    └── SESSION_COMPLETE_SUMMARY.md     ← Session Summary
-```
-
----
-
-## 🚀 NEXT STEPS
-
-### Immediate Action
-1. **Deploy to Vercel** → [docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md](./docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md)
-   - Estimated: 2-4 hours
-
-2. **Setup Domain & SSL** (optional)
-   - Estimated: 1-2 hours + 24h DNS propagation
-
----
-
-## 💡 QUICK COMMANDS
-
-```bash
-# Development
-npm run dev           # Start dev server at localhost:3000
-
-# Build
-npm run build        # Production build
-npm start            # Start production server
-
-# Lint & Format
-npm run lint         # Run ESLint
-npm run format       # Format code
-
-# Database
-# See docs/02-ARCHITECTURE/RLS_POLICIES.md for database commands
-```
-
----
-
-## 🎊 PROJECT HIGHLIGHTS
-
-✅ **Code Complete**: All pages, components, APIs implemented  
-✅ **Well Documented**: 11 comprehensive documentation files  
-✅ **Production Ready**: Security, validation, error handling complete  
-✅ **Scalable**: Clean architecture, easy to extend  
-✅ **Professional**: Design system, responsive UI, dark mode ready  
-
----
-
-## 📞 SUPPORT & RESOURCES
-
-### Documentation
-- Main Index: [docs/00-INDEX.md](./docs/00-INDEX.md)
-- Setup Guide: [docs/01-SETUP](./docs/01-SETUP/)
-- Architecture: [docs/02-ARCHITECTURE](./docs/02-ARCHITECTURE/)
-- Status: [docs/06-STATUS](./docs/06-STATUS/)
-
-### External Resources
-- [Next.js Docs](https://nextjs.org/docs)
-- [Supabase Docs](https://supabase.com/docs)
-- [Tailwind CSS](https://tailwindcss.com)
-- [shadcn/ui](https://ui.shadcn.com)
-- [Resend Docs](https://resend.com/docs)
-
----
-
-## 📋 CHECKLIST BEFORE LAUNCHING
-
-- [x] Read [docs/00-INDEX.md](./docs/00-INDEX.md)
-- [x] Apply RLS policies & migration ([docs/02-ARCHITECTURE/RLS_POLICIES.md](./docs/02-ARCHITECTURE/RLS_POLICIES.md))
-- [x] Create storage bucket
-- [x] Run all 20 tests ([docs/04-TESTING/TESTING_AND_LAUNCH_GUIDE.md](./docs/04-TESTING/TESTING_AND_LAUNCH_GUIDE.md))
-- [ ] Deploy to Vercel ([docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md](./docs/05-DEPLOYMENT/DEPLOYMENT_CHECKLIST.md))
-- [ ] Verify production URL works
-- [ ] Monitor first 24 hours
-
----
-
-## 🎉 READY TO LAUNCH!
-
-This project is **100% complete** and ready for deployment.
-
-**📍 Start with [docs/00-INDEX.md](./docs/00-INDEX.md)**
-
----
-
-**Last Updated**: June 3, 2026  
-**Status**: Feature Complete ✅ → Ready for Deployment  
-**Estimated Launch**: June 2026
+## 💼 Business & Commercial Licensing
+For commercial inquiries, white-labeling requests, customized features, or integration with external veterinary systems, contact the NekoStay team.
+*   **License**: Licensed under standard commercial terms. An open-source edition is distributed under the MIT license.
+*   **Support**: For bugs or support queries, please open an Issue on GitHub or check our extensive internal documentation inside the `docs/` folder.
