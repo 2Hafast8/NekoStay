@@ -8,31 +8,36 @@ import {
   HeartPulse,
   Settings,
   ShieldAlert,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
+import { useLanguage } from "@/hooks/useLanguage";
+
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const links = [
-    { label: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
-    { label: "Semua Pesanan", href: "/admin/bookings", icon: CalendarRange },
-    { label: "Kondisi Kucing", href: "/admin/reports", icon: HeartPulse },
-    { label: "Kelas & Tarif", href: "/admin/settings", icon: Settings },
+    { label: t("side_overview"), href: "/admin/dashboard", icon: LayoutDashboard },
+    { label: t("side_all_bookings"), href: "/admin/bookings", icon: CalendarRange },
+    { label: t("side_cat_conditions"), href: "/admin/reports", icon: HeartPulse },
+    { label: t("side_customer_reviews"), href: "/admin/reviews", icon: MessageSquare },
+    { label: t("side_rates_settings"), href: "/admin/settings", icon: Settings },
   ];
 
   return (
-    <aside className="w-full md:w-64 bg-card border-r border-border p-6 space-y-6 flex-shrink-0 md:min-h-[calc(100vh-4rem)]">
+    <aside className="hidden md:block w-full md:w-64 bg-card border-r border-border p-6 space-y-6 flex-shrink-0 md:min-h-[calc(100vh-4rem)]">
       <div className="flex items-center gap-3 pb-6 border-b border-border/60">
         <div className="p-2 bg-rose-50 dark:bg-rose-950/20 text-rose-600 rounded-xl">
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div>
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Panel Admin
+            {t("side_panel_admin")}
           </span>
           <h4 className="font-extrabold text-sm text-foreground">
-            NekoStay Admin
+            {t("side_admin_title")}
           </h4>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { AutoReloadProvider } from "@/components/providers/AutoReloadProvider";
 import "./globals.css";
 
 export const metadata = {
@@ -10,11 +12,15 @@ export default function RootLayout({ children }) {
   return (
     <html lang="id" suppressHydrationWarning>
       <body
-        className="antialiased min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white"
+        className="antialiased min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white transition-colors duration-300"
         suppressHydrationWarning
       >
-        {children}
+        <ThemeProvider>
+          <AutoReloadProvider />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+

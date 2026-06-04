@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -38,6 +39,16 @@ export default function RegisterPage() {
         throw new Error("Password minimal 8 karakter.");
       }
 
+      // Verify referral code first if filled
+      let finalReferral = referralCode.trim().toUpperCase();
+      if (finalReferral) {
+        const verifyRes = await fetch(`/api/referral/verify?code=${finalReferral}`);
+        const verifyData = await verifyRes.json();
+        if (!verifyData.valid) {
+          throw new Error("Kode referral tidak valid atau milik Anda sendiri.");
+        }
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -45,6 +56,7 @@ export default function RegisterPage() {
           data: {
             full_name: fullName,
             phone: phone,
+            referred_by_code: finalReferral || null,
           },
         },
       });
@@ -59,6 +71,7 @@ export default function RegisterPage() {
       setEmail("");
       setPhone("");
       setPassword("");
+      setReferralCode("");
     } catch (err) {
       setErrorMsg(
         err.message || "Terjadi kesalahan saat mendaftar. Coba lagi.",
@@ -180,6 +193,23 @@ export default function RegisterPage() {
               />
             </div>
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+              Kode Referral (Opsional)
+            </label>
+            <div className="relative">
+              <Sparkles className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/75" />
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value)}
+                placeholder="Contoh: NEKO-XXXXXXXX"
+                className="w-full pl-11 pr-4 py-3 bg-muted/30 border border-border rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium uppercase"
+              />
+            </div>
+          </div>
+
 
           <button
             type="submit"

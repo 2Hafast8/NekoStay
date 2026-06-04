@@ -61,9 +61,10 @@ export function useBookings(options = {}) {
 
     if (!subscribe || !user) return
 
-    // Subscribe ke realtime changes
+    // Subscribe ke realtime changes dengan unique channel ID
+    const channelUniqueId = Math.random().toString(36).substring(7);
     const channel = supabase
-      .channel('bookings-changes')
+      .channel(`bookings-${user.id}-${channelUniqueId}`)
       .on(
         'postgres_changes',
         {
@@ -87,7 +88,7 @@ export function useBookings(options = {}) {
       .subscribe()
 
     return () => {
-      channel.unsubscribe()
+      supabase.removeChannel(channel);
     }
   }, [user, subscribe])
 

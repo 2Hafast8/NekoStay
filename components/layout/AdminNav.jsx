@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Cat,
+  MessageSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -43,6 +44,11 @@ export function AdminNav() {
       label: 'Laporan',
       href: '/admin/reports',
       icon: BarChart3,
+    },
+    {
+      label: 'Ulasan',
+      href: '/admin/reviews',
+      icon: MessageSquare,
     },
     {
       label: 'Pengaturan',

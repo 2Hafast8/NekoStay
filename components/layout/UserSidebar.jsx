@@ -16,7 +16,7 @@ export function UserSidebar() {
   ];
 
   return (
-    <aside className="w-full md:w-64 bg-card border-r border-border p-6 space-y-6 flex-shrink-0 md:min-h-[calc(100vh-4rem)]">
+    <aside className="hidden md:block w-full md:w-64 bg-card border-r border-border p-6 space-y-6 flex-shrink-0 md:min-h-[calc(100vh-4rem)]">
       <div className="flex items-center gap-3 pb-6 border-b border-border/60">
         <div className="p-2 bg-secondary text-primary rounded-xl">
           <Cat className="w-5 h-5" />

@@ -99,23 +99,14 @@ export async function POST(request) {
       console.warn('[Warning] Notification creation failed:', notifErr.message)
     }
 
-    // Create in-app notification for admin
+    // Create in-app notification for admin securely via RPC
     try {
-      const { data: adminUsers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin')
-
-      if (adminUsers && adminUsers.length > 0) {
-        const adminNotifications = adminUsers.map(admin => ({
-          user_id: admin.id,
-          title: `Pesanan Baru: ${validatedData.cat_name}`,
-          message: `${profile.full_name} mengirim pesanan penitipan kucing.`,
-          type: 'info',
-          booking_id: booking.id,
-        }))
-        await supabase.from('notifications').insert(adminNotifications)
-      }
+      await supabase.rpc("create_admin_notification", {
+        booking_id_param: booking.id,
+        title_param: `Pesanan Baru: ${validatedData.cat_name}`,
+        message_param: `${profile.full_name} mengirim pesanan penitipan kucing.`,
+        type_param: "info",
+      });
     } catch (notifErr) {
       console.warn('[Warning] Admin notification creation failed:', notifErr.message)
     }

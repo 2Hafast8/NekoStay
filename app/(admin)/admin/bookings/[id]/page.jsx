@@ -17,6 +17,7 @@ import {
   Plus,
   Edit3,
   X,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -31,6 +32,12 @@ export default function AdminBookingDetailPage({ params }) {
   const [reports, setReports] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
+  
+  // Review States
+  const [review, setReview] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [replySuccess, setReplySuccess] = useState(null);
 
   // Report Form States
   const [healthStatus, setHealthStatus] = useState("Sehat");
@@ -83,6 +90,18 @@ export default function AdminBookingDetailPage({ params }) {
       if (reportsData) {
         setReports(reportsData);
       }
+
+      // Fetch review
+      const { data: reviewData } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("booking_id", id)
+        .maybeSingle();
+
+      if (reviewData) {
+        setReview(reviewData);
+        setReplyText(reviewData.reply_text || "");
+      }
     } catch (err) {
       console.error("Error fetching admin booking details:", err);
       setErrorMsg("Gagal memuat detail pesanan.");
@@ -94,6 +113,48 @@ export default function AdminBookingDetailPage({ params }) {
   useEffect(() => {
     loadBookingDetails();
   }, [loadBookingDetails]);
+
+  // Handle reply submission
+  const handleReplySubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setReplySuccess(null);
+    setIsSubmittingReply(true);
+
+    try {
+      const response = await fetch(`/api/reviews/reply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: id,
+          replyText,
+        }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || "Gagal mengirim balasan.");
+
+      setReplySuccess("Balasan ulasan berhasil dikirim via email dan disimpan!");
+      
+      // Reload reviews
+      const { data: updatedReview } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("booking_id", id)
+        .maybeSingle();
+      
+      if (updatedReview) {
+        setReview(updatedReview);
+      }
+    } catch (err) {
+      console.error("Error replying to review:", err);
+      setErrorMsg(err.message || "Gagal membalas ulasan.");
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
 
   // Handle report submission
   const handleAddReport = async (e) => {
@@ -293,7 +354,7 @@ export default function AdminBookingDetailPage({ params }) {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6 text-sm">
               <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-muted-foreground block">
                   Pemilik (Owner)
@@ -502,6 +563,90 @@ export default function AdminBookingDetailPage({ params }) {
               </div>
             )}
           </div>
+
+          {/* Ulasan & Rating Pelanggan */}
+          {booking.status === "Selesai" && (
+            <div className="bg-card border border-border p-6 rounded-3xl space-y-6">
+              <h3 className="text-sm font-extrabold text-foreground border-b border-border/60 pb-3 flex items-center gap-2">
+                <Star className="w-4.5 h-4.5 text-amber-500 fill-amber-500" />
+                <span>Ulasan & Rating Pelanggan</span>
+              </h3>
+
+              {!review ? (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  Pelanggan belum memberikan ulasan untuk pesanan ini.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 border border-border/80 rounded-2xl space-y-3 bg-muted/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-4 h-4 ${
+                              star <= review.rating
+                                ? "text-amber-500 fill-amber-500"
+                                : "text-zinc-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(review.created_at).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    {review.review_text ? (
+                      <p className="text-xs text-foreground bg-card p-3 rounded-lg border border-border/40 font-medium">
+                        "{review.review_text}"
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        Tidak ada ulasan tertulis.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Reply Form */}
+                  <form onSubmit={handleReplySubmit} className="space-y-3 pt-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                      Balas Ulasan (Kirim via Email)
+                    </label>
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Tulis balasan Anda ke pelanggan..."
+                      rows={3}
+                      className="w-full text-xs p-3.5 border border-border/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary dark:bg-zinc-950 dark:border-zinc-800"
+                      required
+                    />
+                    
+                    {replySuccess && (
+                      <p className="text-xs font-semibold text-emerald-600">
+                        {replySuccess}
+                      </p>
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingReply}
+                        className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmittingReply ? "Mengirim..." : "Kirim Balasan"}
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Side: Pricing / Room Info */}

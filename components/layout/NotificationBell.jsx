@@ -17,6 +17,8 @@ export function NotificationBell({ userId }) {
   const { notifications, unreadCount, markAllRead } = useNotifications(userId);
   const dropdownRef = useRef(null);
 
+  const lastNotifiedId = useRef(null);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -24,8 +26,37 @@ export function NotificationBell({ userId }) {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
+    
+    // Request permission for Web Push Notifications
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Web Push simulation trigger
+  useEffect(() => {
+    if (notifications.length > 0 && typeof window !== "undefined" && "Notification" in window) {
+      const latest = notifications[0];
+      if (!latest.is_read && latest.id !== lastNotifiedId.current) {
+        lastNotifiedId.current = latest.id;
+        if (Notification.permission === "granted") {
+          try {
+            new Notification(latest.title, {
+              body: latest.message,
+              icon: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=100&auto=format&fit=crop",
+            });
+          } catch (e) {
+            console.error("Error displaying notification:", e);
+          }
+        }
+      }
+    }
+  }, [notifications]);
+
 
   const getIcon = (type) => {
     switch (type) {

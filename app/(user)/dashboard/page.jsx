@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingCard } from "@/components/booking/BookingCard";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export default function UserDashboard() {
+  const { t } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
@@ -82,13 +84,13 @@ export default function UserDashboard() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
-            <span>Dashboard Pemilik</span>
+            <span>{t("user_db_badge")}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-            Pesanan Penitipan Saya
+            {t("user_db_title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Pantau kondisi dan riwayat menginap kucing kesayangan Anda.
+            {t("user_db_subtitle")}
           </p>
         </div>
 
@@ -97,19 +99,19 @@ export default function UserDashboard() {
           className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/95 transition-all shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-100 cursor-pointer w-fit"
         >
           <Plus className="w-4.5 h-4.5" />
-          Pesan Baru
+          {t("user_db_new_booking")}
         </Link>
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
           <div className="p-3 bg-secondary text-primary rounded-xl">
             <LayoutDashboard className="w-5 h-5" />
           </div>
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              Total Pesanan
+              {t("user_db_stat_total")}
             </span>
             <span className="text-2xl font-black text-foreground">
               {stats.total}
@@ -123,7 +125,7 @@ export default function UserDashboard() {
           </div>
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              Sedang Menginap
+              {t("user_db_stat_active")}
             </span>
             <span className="text-2xl font-black text-foreground">
               {stats.active}
@@ -137,7 +139,7 @@ export default function UserDashboard() {
           </div>
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              Menunggu Konfirmasi
+              {t("user_db_stat_pending")}
             </span>
             <span className="text-2xl font-black text-foreground">
               {stats.waiting}
@@ -151,7 +153,7 @@ export default function UserDashboard() {
           </div>
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              Telah Selesai
+              {t("user_db_stat_completed")}
             </span>
             <span className="text-2xl font-black text-foreground">
               {stats.completed}
@@ -162,22 +164,31 @@ export default function UserDashboard() {
 
       {/* Tabs Filter */}
       <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6">
-        {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-4 text-sm font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
-              activeTab === tab
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab}
-            {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-            )}
-          </button>
-        ))}
+        {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
+          const tabMapping = {
+            "Semua": t("user_db_tab_all"),
+            "Menunggu": t("user_db_tab_waiting"),
+            "Aktif": t("user_db_tab_active"),
+            "Selesai": t("user_db_tab_completed"),
+            "Dibatalkan": t("user_db_tab_cancelled")
+          };
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-4 text-sm font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
+                activeTab === tab
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tabMapping[tab]}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Booking List */}
@@ -210,10 +221,10 @@ export default function UserDashboard() {
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-foreground">
-              Tidak Ada Pesanan
+              {t("user_db_no_bookings")}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Belum ada pesanan dengan status &quot;{activeTab}&quot;.
+              {t("user_db_no_bookings_desc")}
             </p>
           </div>
           {activeTab === "Semua" && (
@@ -221,7 +232,7 @@ export default function UserDashboard() {
               href="/booking/new"
               className="inline-flex px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer"
             >
-              Buat Pesanan Pertama Anda
+              {t("user_db_new_booking")}
             </Link>
           )}
         </div>

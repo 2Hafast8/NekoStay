@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useLanguage } from "@/hooks/useLanguage";
 
 export default function NotificationsPage() {
+  const { t } = useLanguage();
   const [userId, setUserId] = useState("");
   const supabase = createClient();
 
@@ -53,13 +55,13 @@ export default function NotificationsPage() {
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
-            <span>Pemberitahuan</span>
+            <span>{t("tab_notif")}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-            Kotak Masuk Notifikasi
+            {t("notif_title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Lihat riwayat pembaruan status dan laporan kucing Anda.
+            {t("notif_desc")}
           </p>
         </div>
 
@@ -69,7 +71,7 @@ export default function NotificationsPage() {
             className="px-4 py-2 border border-border hover:bg-muted text-xs font-bold text-foreground rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
           >
             <Check className="w-4 h-4 text-emerald-500" />
-            Tandai Semua Dibaca
+            {t("notif_mark_read")}
           </button>
         )}
       </div>
@@ -83,10 +85,10 @@ export default function NotificationsPage() {
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-foreground">
-                Kotak Masuk Kosong
+                {t("notif_empty")}
               </h3>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                Anda belum menerima notifikasi apapun saat ini.
+                {t("notif_empty_desc")}
               </p>
             </div>
           </div>
