@@ -147,7 +147,7 @@ For commercial inquiries, white-labeling requests, customized features, or integ
 ## 👤 Credits & Creator Portfolio
 This application was engineered and is maintained as a professional showcase development project.
 
-*   **Developer / Creator**: [HAfast2008]
+*   **Developer / Creator**: [Hafast2008]
 *   **GitHub**: [@2Hafast8](https://github.com/2Hafast8)
 *   **LinkedIn**: [...](...)
 *   **Portfolio**: [...](...)
