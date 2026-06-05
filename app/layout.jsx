@@ -3,7 +3,7 @@ import { AutoReloadProvider } from "@/components/providers/AutoReloadProvider";
 import "./globals.css";
 
 export const metadata = {
-  title: "NekoStay — Penitipan Kucing Online Terpercaya",
+  title: "NekoStay",
   description:
     "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
 };

@@ -76,13 +76,22 @@ npm install
 ### 4. Configure Environment Variables
 Create a file named `.env.local` in the root directory and populate it with your environment keys:
 ```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+#environment variables for Supabase
+NEXT_PUBLIC_SUPABASE_URL=dummy-supabase-url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=dummy-supabase-publishable-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=dummy-supabase-service-role-key
 
-# Resend API (For Email Notifications)
-RESEND_API_KEY=re_your_resend_api_key
+#environment variables for phone
+NEXT_PUBLIC_ADMIN_WHATSAPP=dummy-admin-whatsapp-number
+
+#environment variables for resend
+RESEND_API_KEY=dummy-resend-api-key
+CRON_SECRET=random-string
+
+#environment variables for app building Localhost
+NEXT_PUBLIC_APP_URL=dummy-app-url
+
 ```
 
 ### 5. Setup Database Schemas
