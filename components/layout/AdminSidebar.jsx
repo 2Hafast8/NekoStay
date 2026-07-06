@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldAlert,
   MessageSquare,
+  ScanLine,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -21,6 +22,7 @@ export function AdminSidebar() {
   const links = [
     { label: t("side_overview"), href: "/admin/dashboard", icon: LayoutDashboard },
     { label: t("side_all_bookings"), href: "/admin/bookings", icon: CalendarRange },
+    { label: t("side_scan_qr"), href: "/admin/scanner", icon: ScanLine },
     { label: t("side_cat_conditions"), href: "/admin/reports", icon: HeartPulse },
     { label: t("side_customer_reviews"), href: "/admin/reviews", icon: MessageSquare },
     { label: t("side_rates_settings"), href: "/admin/settings", icon: Settings },

@@ -27,10 +27,10 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Get booking with profiles
+    // Get booking
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('id, status, cat_name, user_id')
       .eq('id', id)
       .single()
 
@@ -49,27 +49,33 @@ export async function POST(request, { params }) {
       )
     }
 
-    // Update status ke Aktif
+    // Update status ke Aktif (DB trigger otomatis generate offline_payment_token)
     const { error: updateError } = await supabase
       .from('bookings')
-      .update({
-        status: 'Aktif',
-      })
+      .update({ status: 'Aktif' })
       .eq('id', id)
 
     if (updateError) throw updateError
 
-    // Send transactional status update email securely on the server
-    const userEmail = booking.profiles?.email
-    if (userEmail) {
+    // Re-fetch booking lengkap setelah trigger berjalan (untuk mendapatkan token QR)
+    const { data: updatedBooking } = await supabase
+      .from('bookings')
+      .select('*, profiles (full_name, email)')
+      .eq('id', id)
+      .single()
+
+    // Send transactional status update email with PDF + QR
+    const userEmail = updatedBooking?.profiles?.email
+    if (userEmail && updatedBooking) {
       try {
         const { sendBookingStatusUpdate } = await import('@/lib/email/resend')
         await sendBookingStatusUpdate(
           userEmail,
-          booking.profiles.full_name,
-          booking.cat_name,
-          booking.id,
-          'Aktif'
+          updatedBooking.profiles.full_name,
+          updatedBooking.cat_name,
+          updatedBooking.id,
+          'Aktif',
+          updatedBooking
         )
       } catch (emailErr) {
         console.warn('[Server Email Warning] Resend status update failed:', emailErr.message)

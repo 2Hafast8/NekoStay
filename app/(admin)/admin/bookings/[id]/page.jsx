@@ -18,10 +18,20 @@ import {
   Edit3,
   X,
   Star,
+  ChevronDown,
+  Wallet,
+  Check,
+  Mail,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ImageUpload } from "@/components/shared/ImageUpload";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 
@@ -57,6 +67,13 @@ export default function AdminBookingDetailPage({ params }) {
   const [adminNotes, setAdminNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesSaveMsg, setNotesSaveMsg] = useState(null);
+
+  // Payment Status States
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+
+  // Resend Receipt States
+  const [isResendingReceipt, setIsResendingReceipt] = useState(false);
+  const [resendReceiptMsg, setResendReceiptMsg] = useState(null);
 
   const supabase = createClient();
 
@@ -319,6 +336,116 @@ export default function AdminBookingDetailPage({ params }) {
           </button>
         )}
       </div>
+
+      {/* Payment Status Card */}
+      <div className="bg-card border border-border p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${
+            booking.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600' :
+            booking.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-600' :
+            booking.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-600' :
+            'bg-amber-50 dark:bg-amber-950/20 text-amber-600'
+          }`}>
+            <Wallet className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Status Pembayaran</span>
+            <span className={`text-sm font-extrabold ${
+              booking.payment_status === 'Paid' ? 'text-emerald-600' :
+              booking.payment_status === 'Failed' ? 'text-rose-600' :
+              booking.payment_status === 'Refunded' ? 'text-blue-600' :
+              'text-amber-600'
+            }`}>
+              {booking.payment_status === 'Paid' ? 'Lunas' :
+               booking.payment_status === 'Failed' ? 'Gagal' :
+               booking.payment_status === 'Refunded' ? 'Dikembalikan' :
+               'Belum Dibayar'}
+            </span>
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={isUpdatingPayment}
+            className="flex items-center gap-2 px-4 py-2.5 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-bold text-foreground transition-all duration-150 cursor-pointer disabled:opacity-50"
+          >
+            <span>{isUpdatingPayment ? 'Mengubah...' : 'Ubah Status Bayar'}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="end" sideOffset={6}>
+            {[
+              { value: 'Unpaid', label: 'Belum Dibayar', color: 'text-amber-600 dark:text-amber-400' },
+              { value: 'Paid', label: 'Lunas', color: 'text-emerald-600 dark:text-emerald-400' },
+              { value: 'Failed', label: 'Gagal', color: 'text-rose-600 dark:text-rose-400' },
+              { value: 'Refunded', label: 'Dikembalikan', color: 'text-blue-600 dark:text-blue-400' },
+            ].map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={async () => {
+                  if (booking.payment_status === opt.value) return;
+                  setIsUpdatingPayment(true);
+                  try {
+                    const res = await fetch(`/api/bookings/${id}/payment-status`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ paymentStatus: opt.value }),
+                    });
+                    if (!res.ok) {
+                      const data = await res.json();
+                      throw new Error(data.error || 'Gagal mengubah status');
+                    }
+                    loadBookingDetails();
+                  } catch (err) {
+                    setErrorMsg(err.message);
+                  } finally {
+                    setIsUpdatingPayment(false);
+                  }
+                }}
+                className={booking.payment_status === opt.value ? `${opt.color} font-bold` : ''}
+              >
+                {booking.payment_status === opt.value && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Resend Receipt Button (only for Aktif bookings) */}
+      {booking.status === 'Aktif' && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            disabled={isResendingReceipt}
+            onClick={async () => {
+              setIsResendingReceipt(true);
+              setResendReceiptMsg(null);
+              try {
+                const res = await fetch(`/api/bookings/${id}/resend-receipt`, {
+                  method: 'POST',
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Gagal mengirim ulang');
+                setResendReceiptMsg({ type: 'success', text: data.message });
+              } catch (err) {
+                setResendReceiptMsg({ type: 'error', text: err.message });
+              } finally {
+                setIsResendingReceipt(false);
+              }
+            }}
+            className="px-4 py-2.5 bg-primary/10 text-primary hover:bg-primary/20 transition-colors rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Mail className="w-4 h-4" />
+            {isResendingReceipt ? 'Mengirim...' : 'Kirim Ulang Bukti PDF + QR ke Email'}
+          </button>
+          {resendReceiptMsg && (
+            <span className={`text-xs font-semibold ${
+              resendReceiptMsg.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
+            }`}>
+              {resendReceiptMsg.type === 'success' ? '✓' : '✗'} {resendReceiptMsg.text}
+            </span>
+          )}
+        </div>
+      )}
+
       {errorMsg && (
         <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />

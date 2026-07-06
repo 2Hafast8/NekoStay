@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarRange,
   Sparkles,
@@ -15,9 +16,18 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ScanLine,
+  XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { formatRupiah } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
@@ -34,21 +44,88 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
 
 export default function AdminDashboard() {
-  const { t } = useLanguage();
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-8 animate-pulse p-4 sm:p-6 bg-background dark:bg-zinc-950 min-h-screen">
+          <div className="h-8 bg-muted dark:bg-zinc-800/60 rounded-xl w-48 mb-4" />
+          <div className="h-6 bg-muted dark:bg-zinc-800/60 rounded-xl w-96 mb-8" />
+          <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { language: storeLanguage, t } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [outgoingLogs, setOutgoingLogs] = useState([]);
   const [adminEmail, setAdminEmail] = useState("admin@nekostay.com");
   const [isLoading, setIsLoading] = useState(true);
   const [activeSimulatorTab, setActiveSimulatorTab] = useState("all");
   const [currentLogPage, setCurrentLogPage] = useState(1);
+  const [revenueRange, setRevenueRange] = useState("1m");
   const [isMounted, setIsMounted] = useState(false);
+
+  // Scan token modal states
+  const [scanModal, setScanModal] = useState(null); // null | 'processing' | { type: 'success' | 'error', data?, message? }
+
   const supabase = createClient();
+  const language = isMounted ? storeLanguage : "id";
+
+  const headerRef = useRef(null);
+  const statsRef = useRef(null);
+  const chartsRef = useRef(null);
+  const tablesRef = useRef(null);
+  const totalRef = useRef(null);
+  const pendingRef = useRef(null);
+  const activeRef = useRef(null);
+
+  useGsapReveal(headerRef, { selector: ":scope > *", y: 16, stagger: 0.1, duration: 0.5 });
+  useGsapReveal(statsRef, { selector: ":scope > *", y: 22, stagger: 0.08, duration: 0.5, delay: 0.05 });
+  useGsapReveal(chartsRef, { selector: ":scope > *", y: 28, stagger: 0.12, duration: 0.55, start: "top 95%" });
+  useGsapReveal(tablesRef, { selector: ":scope > *", y: 32, stagger: 0.12, duration: 0.55, start: "top 95%" });
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Handle scan_token URL parameter (from native camera QR scan)
+  useEffect(() => {
+    const scanToken = searchParams.get("scan_token");
+    if (!scanToken || scanModal) return;
+
+    setScanModal("processing");
+
+    fetch("/api/payments/scan-offline", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: scanToken }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          setScanModal({ type: "success", data: data.booking });
+        } else {
+          setScanModal({ type: "error", message: data.error || "Verifikasi gagal" });
+        }
+      })
+      .catch(() => {
+        setScanModal({ type: "error", message: "Kesalahan jaringan saat memverifikasi" });
+      })
+      .finally(() => {
+        // Clean the URL
+        router.replace("/admin/dashboard");
+      });
+  }, [searchParams]);
 
   const formatOmzet = (val) => {
     if (val >= 1000000) {
@@ -123,12 +200,30 @@ export default function AdminDashboard() {
     loadStatsAndLogs();
   }, [supabase]);
 
-  const stats = {
-    totalBookings: bookings.length,
-    pending: bookings.filter((b) => b.status === "Menunggu").length,
-    active: bookings.filter((b) => b.status === "Aktif").length,
-    revenue: bookings
+  const calculateRevenue = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    return bookings
       .filter((b) => b.status === "Selesai" || b.status === "Aktif")
+      .filter((b) => {
+        const bookingDate = new Date(b.created_at);
+        if (revenueRange === "1m") {
+          return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
+        } else if (revenueRange === "6m") {
+          return bookingDate >= sixMonthsAgo;
+        } else if (revenueRange === "1y") {
+          return bookingDate >= oneYearAgo;
+        }
+        return false;
+      })
       .reduce(
         (sum, b) =>
           sum +
@@ -137,8 +232,20 @@ export default function AdminDashboard() {
             (b.late_fee_total || 0) -
             (b.refund_amount || 0)),
         0,
-      ),
+      );
   };
+
+  const stats = {
+    totalBookings: bookings.length,
+    pending: bookings.filter((b) => b.status === "Menunggu").length,
+    active: bookings.filter((b) => b.status === "Aktif").length,
+    revenue: calculateRevenue(),
+  };
+
+  // Count up stats
+  useGsapCounter(totalRef, stats.totalBookings);
+  useGsapCounter(pendingRef, stats.pending);
+  useGsapCounter(activeRef, stats.active);
 
   const processChartData = () => {
     if (!bookings.length) return { revenueData: [], classData: [], statusData: [] };
@@ -218,22 +325,85 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8 bg-background dark:bg-zinc-950 p-4 sm:p-6 transition-colors duration-300">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
-          <Sparkles className="w-3 h-3 text-rose-500" />
-          <span>{t("admin_db_badge")}</span>
+      {/* Scan Token Modal */}
+      {scanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-xs" onClick={() => setScanModal(null)} />
+          <div className="relative w-full max-w-sm bg-card border border-border p-8 rounded-3xl shadow-xl text-center space-y-5 animate-in fade-in zoom-in duration-200">
+            {scanModal === "processing" && (
+              <>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+                <p className="text-sm font-bold text-foreground">Memproses Verifikasi Pembayaran...</p>
+              </>
+            )}
+            {scanModal?.type === "success" && (
+              <>
+                <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center border-2 border-emerald-500/20">
+                  <CheckCircle2 className="w-9 h-9 text-emerald-500" />
+                </div>
+                <h3 className="text-xl font-black text-foreground">Pembayaran Terverifikasi!</h3>
+                <div className="space-y-3 text-left bg-muted/30 rounded-2xl p-5 border border-border/60">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Nama Kucing</span>
+                    <span className="font-bold text-foreground">{scanModal.data?.catName}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Pemilik</span>
+                    <span className="font-bold text-foreground">{scanModal.data?.customerName}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-border/50 pt-3 font-extrabold">
+                    <span className="text-foreground">Total Bayar</span>
+                    <span className="text-emerald-600 text-base">{formatRupiah(scanModal.data?.amount || 0)}</span>
+                  </div>
+                </div>
+                <button onClick={() => setScanModal(null)} className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-2xl cursor-pointer">
+                  Tutup
+                </button>
+              </>
+            )}
+            {scanModal?.type === "error" && (
+              <>
+                <div className="mx-auto w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center border-2 border-rose-500/20">
+                  <XCircle className="w-9 h-9 text-rose-500" />
+                </div>
+                <h3 className="text-lg font-black text-foreground">Verifikasi Gagal</h3>
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-medium leading-relaxed">{scanModal.message}</p>
+                <button onClick={() => setScanModal(null)} className="w-full px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-2xl cursor-pointer">
+                  Tutup
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground dark:text-zinc-50">
-          {t("admin_db_title")}
-        </h1>
-        <p className="text-sm text-muted-foreground dark:text-zinc-400">
-          {t("admin_db_subtitle")}
-        </p>
+      )}
+
+      {/* Header */}
+      <div ref={headerRef} className="space-y-1">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
+              <Sparkles className="w-3 h-3 text-rose-500" />
+              <span>{t("admin_db_badge")}</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground dark:text-zinc-50">
+              {t("admin_db_title")}
+            </h1>
+            <p className="text-sm text-muted-foreground dark:text-zinc-400">
+              {t("admin_db_subtitle")}
+            </p>
+          </div>
+          <Link
+            href="/admin/scanner"
+            className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-sm shadow-primary/15 shrink-0"
+          >
+            <ScanLine className="w-4 h-4" />
+            Scan QR Pembayaran
+          </Link>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-5 rounded-2xl flex items-center gap-4">
           <div className="p-3 bg-secondary dark:bg-zinc-800 text-primary rounded-xl">
             <CalendarRange className="w-5 h-5" />
@@ -242,8 +412,8 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider block">
               Total Booking
             </span>
-            <span className="text-2xl font-black text-foreground dark:text-zinc-100">
-              {stats.totalBookings}
+            <span ref={totalRef} className="text-2xl font-black text-foreground dark:text-zinc-100">
+              0
             </span>
           </div>
         </div>
@@ -256,8 +426,8 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider block">
               {t("admin_db_stat_pending")}
             </span>
-            <span className="text-2xl font-black text-foreground dark:text-zinc-100">
-              {stats.pending}
+            <span ref={pendingRef} className="text-2xl font-black text-foreground dark:text-zinc-100">
+              0
             </span>
           </div>
         </div>
@@ -270,21 +440,62 @@ export default function AdminDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider block">
               {t("admin_db_stat_active")}
             </span>
-            <span className="text-2xl font-black text-foreground dark:text-zinc-100">
-              {stats.active}
+            <span ref={activeRef} className="text-2xl font-black text-foreground dark:text-zinc-100">
+              0
             </span>
           </div>
         </div>
 
-        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-600 rounded-xl">
-            <TrendingUp className="w-5 h-5" />
+        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-5 rounded-2xl flex items-center gap-4 relative">
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-600 rounded-xl">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 px-2 py-1 bg-muted/40 hover:bg-muted/80 border border-border/80 dark:border-zinc-800 rounded-lg text-[9px] font-bold text-foreground transition-all duration-150 justify-between cursor-pointer outline-none focus:outline-none min-w-[72px]">
+                <span>
+                  {revenueRange === "1m"
+                    ? (language === "en" ? "1 Month" : "1 Bulan")
+                    : revenueRange === "6m"
+                    ? (language === "en" ? "6 Months" : "6 Bulan")
+                    : (language === "en" ? "1 Year" : "1 Tahun")}
+                </span>
+                <ChevronDown className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="center" sideOffset={6} className="text-xs">
+                <DropdownMenuItem
+                  onClick={() => setRevenueRange("1m")}
+                  className={revenueRange === "1m" ? "text-orange-600 dark:text-orange-400 font-bold" : ""}
+                >
+                  {revenueRange === "1m" && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                  {language === "en" ? "1 Month" : "1 Bulan"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setRevenueRange("6m")}
+                  className={revenueRange === "6m" ? "text-orange-600 dark:text-orange-400 font-bold" : ""}
+                >
+                  {revenueRange === "6m" && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                  {language === "en" ? "6 Months" : "6 Bulan"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setRevenueRange("1y")}
+                  className={revenueRange === "1y" ? "text-orange-600 dark:text-orange-400 font-bold" : ""}
+                >
+                  {revenueRange === "1y" && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                  {language === "en" ? "1 Year" : "1 Tahun"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <span className="text-[10px] font-bold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider block">
-              {t("admin_db_stat_revenue")}
+              {revenueRange === "1m"
+                ? (language === "en" ? "Active Revenue 1 Month" : "Omzet Aktif 1 Bulan")
+                : revenueRange === "6m"
+                ? (language === "en" ? "Active Revenue 6 Months" : "Omzet Aktif 6 Bulan")
+                : (language === "en" ? "Active Revenue 1 Year" : "Omzet Aktif 1 Tahun")}
             </span>
-            <span className="text-2xl font-black text-foreground dark:text-zinc-100">
+            <span className="text-2xl font-black text-foreground dark:text-zinc-100 block mt-1">
               {formatOmzet(stats.revenue)}
             </span>
           </div>
@@ -292,7 +503,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div ref={chartsRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Revenue Chart */}
         <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4">
           <h3 className="font-bold text-foreground dark:text-zinc-200 text-base border-b border-border/60 dark:border-zinc-800/60 pb-2">
@@ -334,7 +545,7 @@ export default function AdminDashboard() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {classData.map((entry, index) => (
+                    {classData.filter(d => d.value > 0).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -356,7 +567,7 @@ export default function AdminDashboard() {
                     paddingAngle={3}
                     dataKey="value"
                   >
-                    {statusData.map((entry, index) => (
+                    {statusData.filter(d => d.value > 0).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -371,7 +582,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent Bookings & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div ref={tablesRef} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Bookings Table */}
         <div className="lg:col-span-2 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 space-y-4">
           <div className="flex justify-between items-center pb-2 border-b border-border/60 dark:border-zinc-800/60">

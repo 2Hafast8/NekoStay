@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -15,11 +15,13 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function NotificationsPage() {
   const { t } = useLanguage();
   const [userId, setUserId] = useState("");
   const supabase = createClient();
+  const containerRef = useRef(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -35,6 +37,8 @@ export default function NotificationsPage() {
 
   const { notifications, unreadCount, markAllRead } = useNotifications(userId);
 
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 20, stagger: 0.08, duration: 0.5 }, [notifications]);
+
   const getIcon = (type) => {
     switch (type) {
       case "success":
@@ -49,9 +53,9 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
+    <div ref={containerRef} className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 anim-item">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
@@ -79,7 +83,7 @@ export default function NotificationsPage() {
       {/* Notifications List */}
       <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
         {notifications.length === 0 ? (
-          <div className="text-center py-20 p-8 space-y-4">
+          <div className="text-center py-20 p-8 space-y-4 anim-item">
             <div className="p-4 bg-secondary text-primary rounded-full w-fit mx-auto">
               <Bell className="w-8 h-8" />
             </div>
@@ -97,7 +101,7 @@ export default function NotificationsPage() {
             {notifications.map((n) => (
               <div
                 key={n.id}
-                className={`p-6 hover:bg-muted/15 transition-all flex gap-4 ${
+                className={`p-6 hover:bg-muted/15 transition-all flex gap-4 anim-item ${
                   !n.is_read
                     ? "bg-primary/5 border-l-4 border-l-primary"
                     : "border-l-4 border-l-transparent"

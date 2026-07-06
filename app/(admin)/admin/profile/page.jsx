@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User, Phone, Mail, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function AdminProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -18,6 +19,9 @@ export default function AdminProfilePage() {
   const [successMsg, setSuccessMsg] = useState(null);
 
   const supabase = createClient();
+  const containerRef = useRef(null);
+
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 20, stagger: 0.1, duration: 0.5 });
 
   useEffect(() => {
     setIsMounted(true);
@@ -84,9 +88,9 @@ export default function AdminProfilePage() {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto mt-4">
+    <div ref={containerRef} className="space-y-8 max-w-2xl mx-auto mt-4">
       {/* Header */}
-      <div className="space-y-1">
+      <div className="space-y-1 anim-item">
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
           <User className="w-3 h-3 text-primary" />
           <span>Pengaturan Akun</span>
@@ -114,7 +118,7 @@ export default function AdminProfilePage() {
       )}
 
       {/* Main Profile Form */}
-      <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6">
+      <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
         <form onSubmit={handleUpdate} className="space-y-6">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">

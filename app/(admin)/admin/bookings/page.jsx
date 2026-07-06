@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+
 import {
   CalendarRange,
   Sparkles,
@@ -17,6 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  ChevronDown,
+  SlidersHorizontal,
+  Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -25,9 +29,20 @@ import { formatRupiah } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/dates";
 import { getCheckoutCalculation } from "@/lib/utils/pricing";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminBookingsPage() {
   const { t } = useLanguage();
+  const containerRef = useRef(null);
+
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
@@ -48,6 +63,8 @@ export default function AdminBookingsPage() {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(String(currentDate.getMonth() + 1)); // "1"-"12" or "all"
   const [selectedYear, setSelectedYear] = useState(String(currentDate.getFullYear())); // e.g. "2026" or "all"
+
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 20, stagger: 0.05, duration: 0.45 }, [filteredBookings, currentPage, activeTab]);
 
   useEffect(() => {
     if (selectedYear === "all") {
@@ -547,9 +564,9 @@ export default function AdminBookingsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div ref={containerRef} className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 flex-wrap">
+      <div className="flex justify-between items-center gap-4 flex-wrap anim-item">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3 text-rose-500" />
@@ -583,7 +600,7 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6">
+      <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6 anim-item">
         {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
           const tabMapping = {
             "Semua": t("admin_bookings_tab_all"),
@@ -612,7 +629,7 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex flex-col gap-4 bg-card border border-border p-4 rounded-2xl">
+      <div className="flex flex-col gap-4 bg-card border border-border p-4 rounded-2xl anim-item">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
           {/* Search bar */}
           <div className="relative w-full md:max-w-xs">
@@ -627,63 +644,130 @@ export default function AdminBookingsPage() {
           </div>
 
           {/* Selector group */}
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Year Selector */}
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Tahun:</span>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden text-foreground font-medium min-w-[90px]"
-              >
-                <option value="all">Semua</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-                <option value="2027">2027</option>
-                <option value="2028">2028</option>
-              </select>
-            </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0 hidden sm:block" />
 
-            {/* Month Selector */}
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Bulan:</span>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                disabled={selectedYear === "all"}
-                className="px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden text-foreground font-medium min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="all">Semua Bulan</option>
-                <option value="1">Januari</option>
-                <option value="2">Februari</option>
-                <option value="3">Maret</option>
-                <option value="4">April</option>
-                <option value="5">Mei</option>
-                <option value="6">Juni</option>
-                <option value="7">Juli</option>
-                <option value="8">Agustus</option>
-                <option value="9">September</option>
-                <option value="10">Oktober</option>
-                <option value="11">November</option>
-                <option value="12">Desember</option>
-              </select>
-            </div>
+            {/* Year Dropdown */}
+            {(() => {
+              const yearOptions = [
+                { value: "all", label: "Semua Tahun" },
+                { value: "2024", label: "2024" },
+                { value: "2025", label: "2025" },
+                { value: "2026", label: "2026" },
+                { value: "2027", label: "2027" },
+                { value: "2028", label: "2028" },
+              ];
+              const currentYearLabel = yearOptions.find(o => o.value === selectedYear)?.label ?? selectedYear;
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[110px] justify-between">
+                    <span className="text-muted-foreground font-normal mr-0.5">Tahun:</span>
+                    <span>{currentYearLabel}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
+                    <DropdownMenuLabel>Filter Tahun</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {yearOptions.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => setSelectedYear(opt.value)}
+                        className={selectedYear === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                      >
+                        {selectedYear === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedYear !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })()}
 
-            {/* Class Selector */}
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{t("admin_bookings_class_label")}</span>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden text-foreground font-medium min-w-[120px]"
-              >
-                <option value="Semua">Semua Kelas</option>
-                <option value="Basic">Basic</option>
-                <option value="Standard">Standard</option>
-                <option value="Premium">Premium</option>
-              </select>
-            </div>
+            {/* Month Dropdown */}
+            {(() => {
+              const monthOptions = [
+                { value: "all", label: "Semua Bulan" },
+                { value: "1", label: "Januari" },
+                { value: "2", label: "Februari" },
+                { value: "3", label: "Maret" },
+                { value: "4", label: "April" },
+                { value: "5", label: "Mei" },
+                { value: "6", label: "Juni" },
+                { value: "7", label: "Juli" },
+                { value: "8", label: "Agustus" },
+                { value: "9", label: "September" },
+                { value: "10", label: "Oktober" },
+                { value: "11", label: "November" },
+                { value: "12", label: "Desember" },
+              ];
+              const currentMonthLabel = monthOptions.find(o => o.value === selectedMonth)?.label ?? selectedMonth;
+              const isDisabled = selectedYear === "all";
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    disabled={isDisabled}
+                    className={`flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[140px] justify-between ${
+                      isDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                    }`}
+                  >
+                    <span className="text-muted-foreground font-normal mr-0.5">Bulan:</span>
+                    <span>{currentMonthLabel}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
+                    <DropdownMenuLabel>Filter Bulan</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {monthOptions.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => setSelectedMonth(opt.value)}
+                        className={selectedMonth === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                      >
+                        {selectedMonth === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedMonth !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })()}
+
+            {/* Class Dropdown */}
+            {(() => {
+              const classOptions = [
+                { value: "Semua", label: "Semua Kelas" },
+                { value: "Basic", label: "Basic" },
+                { value: "Standard", label: "Standard" },
+                { value: "Premium", label: "Premium" },
+              ];
+              const currentClassLabel = classOptions.find(o => o.value === selectedClass)?.label ?? selectedClass;
+              return (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[130px] justify-between">
+                    <span className="text-muted-foreground font-normal mr-0.5">Kelas:</span>
+                    <span>{currentClassLabel}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
+                    <DropdownMenuLabel>Filter Kelas</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {classOptions.map((opt) => (
+                      <DropdownMenuItem
+                        key={opt.value}
+                        onClick={() => setSelectedClass(opt.value)}
+                        className={selectedClass === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                      >
+                        {selectedClass === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedClass !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
+                        {opt.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -725,6 +809,7 @@ export default function AdminBookingsPage() {
                     <th className="p-4 sm:p-5">{t("admin_bookings_col_schedule")}</th>
                     <th className="p-4 sm:p-5">{t("admin_bookings_col_est_total")}</th>
                     <th className="p-4 sm:p-5">{t("admin_bookings_col_status")}</th>
+                    <th className="p-4 sm:p-5">Status Bayar</th>
                     <th className="p-4 sm:p-5 text-right">{t("admin_bookings_col_action")}</th>
                   </tr>
                 </thead>
@@ -732,7 +817,7 @@ export default function AdminBookingsPage() {
                   {paginatedBookings.map((b) => (
                     <tr
                       key={b.id}
-                      className="hover:bg-muted/15 transition-colors"
+                      className="hover:bg-muted/15 transition-colors anim-item"
                     >
                       <td className="p-4 sm:p-5 text-center">
                         {b.status === "Menunggu" ? (
@@ -789,6 +874,54 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="p-4 sm:p-5">
                         <BookingStatus status={b.status} />
+                      </td>
+                      <td className="p-4 sm:p-5">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full border cursor-pointer transition-all ${
+                            b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+                            b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' :
+                            b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' :
+                            'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                          }`}>
+                            <Wallet className="w-3 h-3" />
+                            {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Refund' : 'Belum'}
+                            <ChevronDown className="w-2.5 h-2.5" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="bottom" align="start" sideOffset={4}>
+                            {[
+                              { value: 'Unpaid', label: 'Belum Dibayar' },
+                              { value: 'Paid', label: 'Lunas' },
+                              { value: 'Failed', label: 'Gagal' },
+                              { value: 'Refunded', label: 'Dikembalikan' },
+                            ].map((opt) => (
+                              <DropdownMenuItem
+                                key={opt.value}
+                                onClick={async () => {
+                                  if (b.payment_status === opt.value) return;
+                                  try {
+                                    const res = await fetch(`/api/bookings/${b.id}/payment-status`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ paymentStatus: opt.value }),
+                                    });
+                                    if (!res.ok) {
+                                      const data = await res.json();
+                                      alert(data.error || 'Gagal mengubah status');
+                                      return;
+                                    }
+                                    fetchAllBookings();
+                                  } catch (err) {
+                                    alert(err.message || 'Terjadi kesalahan');
+                                  }
+                                }}
+                                className={b.payment_status === opt.value ? 'text-orange-600 dark:text-orange-400 font-bold' : ''}
+                              >
+                                {b.payment_status === opt.value && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                                {opt.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                       <td className="p-4 sm:p-5 text-right">
                         <div className="flex items-center justify-end gap-2.5">
@@ -865,7 +998,7 @@ export default function AdminBookingsPage() {
             )}
 
             {paginatedBookings.map((b) => (
-              <div key={b.id} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs">
+              <div key={b.id} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs anim-item">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     {b.status === "Menunggu" && (
@@ -908,6 +1041,18 @@ export default function AdminBookingsPage() {
                     {b.refund_amount > 0 && (
                       <span className="text-[10px] font-bold text-blue-500 block mt-0.5">Refund: -{formatRupiah(b.refund_amount)}</span>
                     )}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Status Bayar</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full mt-1 ${
+                      b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
+                      b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400' :
+                      b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400' :
+                      'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
+                    }`}>
+                      <Wallet className="w-3 h-3" />
+                      {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
+                    </span>
                   </div>
                 </div>
 
@@ -963,7 +1108,7 @@ export default function AdminBookingsPage() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border px-5 py-4 rounded-2xl">
+        <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border px-5 py-4 rounded-2xl anim-item">
           <p className="text-xs text-muted-foreground font-semibold">
             Menampilkan <span className="text-foreground">{Math.min(filteredBookings.length, (currentPage - 1) * itemsPerPage + 1)}</span> - <span className="text-foreground">{Math.min(filteredBookings.length, currentPage * itemsPerPage)}</span> dari <span className="text-foreground">{filteredBookings.length}</span> pesanan
           </p>

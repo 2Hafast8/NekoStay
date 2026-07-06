@@ -42,3 +42,6 @@ next-env.d.ts
 
 # documentation
 /docs
+
+# scratch/test scripts (may contain secrets)
+/scratch

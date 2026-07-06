@@ -3,14 +3,29 @@ import { Calendar, Cat, Layers, DollarSign, AlertTriangle, TrendingDown } from "
 import { BookingStatus } from "./BookingStatus";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
+import { useRef, useEffect } from "react";
 
 export function BookingCard({ booking, isAdmin = false }) {
   const detailHref = isAdmin
     ? `/admin/bookings/${booking.id}`
     : `/booking/${booking.id}`;
 
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced || !cardRef.current) return;
+    import("gsap").then(({ gsap }) => {
+      gsap.fromTo(
+        cardRef.current,
+        { opacity: 0, y: 20, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }
+      );
+    });
+  }, []);
+
   return (
-    <div className="relative group overflow-hidden bg-card text-card-foreground border border-border/80 hover:border-primary/40 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
+    <div ref={cardRef} className="relative group overflow-hidden bg-card text-card-foreground border border-border/80 hover:border-primary/40 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
       {/* Background soft gradient ornament */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 group-hover:scale-110 transition-transform duration-500" />
 

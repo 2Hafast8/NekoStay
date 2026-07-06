@@ -46,9 +46,28 @@ function Button({
   size = "default",
   ...props
 }) {
+  const handlePointerDown = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+    import("gsap").then(({ gsap }) => {
+      gsap.to(e.currentTarget, { scale: 0.96, duration: 0.12, ease: "power1.out", overwrite: "auto" });
+    });
+  };
+
+  const handlePointerUp = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+    import("gsap").then(({ gsap }) => {
+      gsap.to(e.currentTarget, { scale: 1, duration: 0.45, ease: "elastic.out(1.1, 0.35)", overwrite: "auto" });
+    });
+  };
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props} />
   );

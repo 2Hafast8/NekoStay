@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 import { formatRupiah } from "@/lib/utils/format";
 import { getBookingSummary } from "@/lib/utils/pricing";
+import { formatDate } from "@/lib/utils/dates";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 export default function NewBookingPage() {
   return (
@@ -74,6 +75,43 @@ function BookingFormContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [serverError, setServerError] = useState(null);
+  const [pastCats, setPastCats] = useState([]);
+
+  // Load past cats for Quick Cat Select (Heuristic 7: Flexibility and Efficiency)
+  useEffect(() => {
+    async function loadPastCats() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("cat_name, cat_gender, cat_age, cat_health_status, cat_favorite_food, cat_photo_url")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (data && !error) {
+        const uniqueCats = [];
+        const seenNames = new Set();
+        for (const item of data) {
+          const nameLower = item.cat_name.trim().toLowerCase();
+          if (!seenNames.has(nameLower)) {
+            seenNames.add(nameLower);
+            uniqueCats.push(item);
+          }
+        }
+        setPastCats(uniqueCats);
+      }
+    }
+    loadPastCats();
+  }, [supabase]);
+
+  // Dynamic minimum checkout date (Heuristic 5: Error Prevention)
+  const minCheckOutDate = useMemo(() => {
+    if (!checkInDate) return new Date().toISOString().split("T")[0];
+    const checkIn = new Date(checkInDate);
+    checkIn.setDate(checkIn.getDate() + 1);
+    return checkIn.toISOString().split("T")[0];
+  }, [checkInDate]);
 
   // Auto-fill class from query parameter if available
   useEffect(() => {
@@ -275,22 +313,34 @@ function BookingFormContent() {
         </p>
       </div>
 
-      {/* Stepper progress */}
+      {/* Stepper progress (Heuristic 1: Visibility of System Status) */}
       <div className="grid grid-cols-3 gap-2 border-b border-border/80 dark:border-zinc-800 pb-4 text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider">
         <div
           className={`flex items-center gap-2 pb-2 border-b-2 ${step >= 1 ? "border-primary text-primary" : "border-transparent"}`}
         >
-          <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px]">
-            1
-          </span>
+          {step > 1 ? (
+            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+              <Check className="w-3 h-3" />
+            </span>
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px]">
+              1
+            </span>
+          )}
           <span>{t("book_step_1")}</span>
         </div>
         <div
           className={`flex items-center gap-2 pb-2 border-b-2 ${step >= 2 ? "border-primary text-primary" : "border-transparent"}`}
         >
-          <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px]">
-            2
-          </span>
+          {step > 2 ? (
+            <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+              <Check className="w-3 h-3" />
+            </span>
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px]">
+              2
+            </span>
+          )}
           <span>{t("book_step_2")}</span>
         </div>
         <div
@@ -302,6 +352,25 @@ function BookingFormContent() {
           <span>{t("book_step_3")}</span>
         </div>
       </div>
+
+      {/* Persistent Cat details summary (Heuristic 6: Recognition rather than Recall) */}
+      {step > 1 && (
+        <div className="bg-primary/5 border border-primary/10 p-3.5 rounded-2xl flex items-center justify-between text-xs text-foreground dark:text-zinc-300 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <Cat className="w-4 h-4 text-primary shrink-0" />
+            <span>
+              {language === "en" ? "Booking for cat" : "Penitipan untuk kucing"}: <strong className="text-primary font-black">{catName}</strong> ({catGender === "Jantan" ? t("book_cat_gender_m") : t("book_cat_gender_f")}, {catAge})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="text-[10px] font-black uppercase text-primary hover:underline px-2.5 py-1 rounded bg-primary/10 transition-colors cursor-pointer"
+          >
+            {language === "en" ? "Change" : "Ubah"}
+          </button>
+        </div>
+      )}
 
       {serverError && (
         <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-sm font-semibold flex items-center gap-2">
@@ -317,6 +386,37 @@ function BookingFormContent() {
             <Cat className="w-5 h-5 text-primary" />
             <span>{language === "en" ? "Your Cat Details" : "Informasi Detail Kucing Anda"}</span>
           </div>
+
+          {pastCats.length > 0 && (
+            <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl space-y-2 animate-in slide-in-from-top-1 duration-200">
+              <label className="text-[10px] font-extrabold text-primary uppercase tracking-wider block">
+                ⚡ {language === "en" ? "Quick Select from Previous Bookings" : "Isi Cepat dari Riwayat Booking"}
+              </label>
+              <select
+                onChange={(e) => {
+                  const idx = e.target.value;
+                  if (idx !== "") {
+                    const cat = pastCats[idx];
+                    setCatName(cat.cat_name || "");
+                    setCatGender(cat.cat_gender || "Jantan");
+                    setCatAge(cat.cat_age || "");
+                    setCatHealth(cat.cat_health_status || "Sehat");
+                    setCatFood(cat.cat_favorite_food || "");
+                    if (cat.cat_photo_url) setCatPhotoUrl(cat.cat_photo_url);
+                  }
+                }}
+                defaultValue=""
+                className="w-full px-4 py-2.5 bg-card dark:bg-zinc-950 border border-border dark:border-zinc-800 rounded-xl text-xs font-semibold text-foreground focus:outline-hidden"
+              >
+                <option value="">-- {language === "en" ? "Select one of your cats..." : "Pilih salah satu kucing Anda..."} --</option>
+                {pastCats.map((cat, idx) => (
+                  <option key={idx} value={idx}>
+                    {cat.cat_name} ({cat.cat_gender === "Jantan" ? t("book_cat_gender_m") : t("book_cat_gender_f")} • {cat.cat_age})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="space-y-1.5">
@@ -400,6 +500,16 @@ function BookingFormContent() {
                 <option value="Sakit">{t("book_cat_health_sick")}</option>
                 <option value="Dalam Pengobatan">{t("book_cat_health_med")}</option>
               </select>
+              {catHealth !== "Sehat" && (
+                <p className="text-[10px] text-amber-500 font-semibold mt-1 flex items-center gap-1.5 bg-amber-500/5 p-2 border border-amber-500/10 rounded-lg">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>
+                    {language === "en" 
+                      ? "Special care applies. Please write feeding/medicine details in notes below."
+                      : "Berlaku perawatan khusus. Tulis detail pakan/obat di catatan tambahan."}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -542,7 +652,7 @@ function BookingFormContent() {
               <input
                 type="date"
                 value={checkOutDate}
-                min={checkInDate || new Date().toISOString().split("T")[0]}
+                min={minCheckOutDate}
                 onChange={(e) => setCheckOutDate(e.target.value)}
                 className="w-full px-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 cursor-pointer"
               />
@@ -745,11 +855,15 @@ function BookingFormContent() {
                 </div>
                 <div>
                   {t("book_checkin")}:{" "}
-                  <strong className="text-foreground dark:text-zinc-200">{checkInDate}</strong>
+                  <strong className="text-foreground dark:text-zinc-200">
+                    {checkInDate ? formatDate(checkInDate) : ""}
+                  </strong>
                 </div>
                 <div>
                   {t("book_checkout")}:{" "}
-                  <strong className="text-foreground dark:text-zinc-200">{checkOutDate}</strong>
+                  <strong className="text-foreground dark:text-zinc-200">
+                    {checkOutDate ? formatDate(checkOutDate) : ""}
+                  </strong>
                 </div>
               </div>
 

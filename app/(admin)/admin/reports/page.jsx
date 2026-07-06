@@ -1,20 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { HeartPulse, Cat, Search, Calendar, ChevronRight, ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function AdminReportsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [reports, setReports] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState("active"); // "active" or "all"
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const supabase = createClient();
+
+  const reportsListRef = useRef(null);
+  useGsapReveal(reportsListRef, { selector: ":scope > *", y: 24, stagger: 0.1, duration: 0.6 });
 
   useEffect(() => {
     setIsMounted(true);
@@ -29,6 +34,7 @@ export default function AdminReportsPage() {
             `
             *,
             bookings (
+              status,
               cat_name,
               profiles (full_name)
             )
@@ -54,14 +60,18 @@ export default function AdminReportsPage() {
     return status;
   };
 
-  const filteredReports = reports.filter(
-    (r) =>
+  const filteredReports = reports.filter((r) => {
+    if (filterMode === "active" && r.bookings?.status !== "Aktif") {
+      return false;
+    }
+    return (
       r.bookings?.cat_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.bookings?.profiles?.full_name
         .toLowerCase()
         .includes(searchQuery.toLowerCase()) ||
-      r.notes?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+      r.notes?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const reportsPerPage = 4;
   const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
@@ -96,16 +106,41 @@ export default function AdminReportsPage() {
         </p>
       </div>
 
-      {/* Search Filter */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-          placeholder={t("admin_rep_search")}
-          className="w-full pl-11 pr-4 py-3 bg-muted/40 border border-border rounded-xl text-sm focus:outline-hidden text-foreground font-medium"
-        />
+      {/* Search Filter & Tabs */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div className="relative w-full md:max-w-md">
+          <Search className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            placeholder={t("admin_rep_search")}
+            className="w-full pl-11 pr-4 py-3 bg-muted/40 border border-border rounded-xl text-sm focus:outline-hidden text-foreground font-medium"
+          />
+        </div>
+
+        <div className="flex bg-muted/50 p-1.5 rounded-xl border border-border/60 shrink-0 w-full md:w-auto">
+          <button
+            onClick={() => { setFilterMode("active"); setCurrentPage(1); }}
+            className={`flex-1 md:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              filterMode === "active"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {language === "en" ? "Active Bookings" : "Pesanan Aktif"}
+          </button>
+          <button
+            onClick={() => { setFilterMode("all"); setCurrentPage(1); }}
+            className={`flex-1 md:flex-initial px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              filterMode === "all"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {language === "en" ? "All Bookings History" : "Semua Riwayat Laporan"}
+          </button>
+        </div>
       </div>
 
       {/* Reports List */}
@@ -128,7 +163,7 @@ export default function AdminReportsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div ref={reportsListRef} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {paginatedReports.map((report) => (
               <div
                 key={report.id}

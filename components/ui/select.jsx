@@ -66,6 +66,34 @@ function SelectContent({
   alignItemWithTrigger = true,
   ...props
 }) {
+  const popupRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const el = popupRef.current;
+    if (!el) return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    import("gsap").then(({ gsap }) => {
+      // Animate select popup container
+      gsap.fromTo(el,
+        { scale: 0.95, opacity: 0, y: -6 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.24, ease: "power2.out" }
+      );
+
+      // Stagger items entry
+      const items = el.querySelectorAll(
+        '[data-slot="select-item"], [data-slot="select-label"]'
+      );
+      if (items.length > 0) {
+        gsap.fromTo(items,
+          { opacity: 0, x: -8 },
+          { opacity: 1, x: 0, duration: 0.28, stagger: 0.03, ease: "power2.out", delay: 0.04 }
+        );
+      }
+    });
+  }, []);
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -76,6 +104,7 @@ function SelectContent({
         alignItemWithTrigger={alignItemWithTrigger}
         className="isolate z-50">
         <SelectPrimitive.Popup
+          ref={popupRef}
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(

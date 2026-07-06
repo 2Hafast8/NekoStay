@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Settings, Check, HelpCircle, AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function AdminSettingsPage() {
   const { t, language } = useLanguage();
@@ -18,6 +19,9 @@ export default function AdminSettingsPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   const supabase = createClient();
+  const containerRef = useRef(null);
+
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 24, stagger: 0.1, duration: 0.55 }, [classes]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -109,9 +113,9 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div ref={containerRef} className="space-y-8 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="space-y-1">
+      <div className="space-y-1 anim-item">
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
           <Settings className="w-3 h-3 text-rose-500" />
           <span>{t("admin_set_badge")}</span>
@@ -152,7 +156,7 @@ export default function AdminSettingsPage() {
           {classes.map((cls) => (
             <div
               key={cls.id}
-              className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-between hover:border-primary/20 transition-all"
+              className="bg-card border border-border rounded-3xl p-6 flex flex-col justify-between hover:border-primary/20 transition-all anim-item"
             >
               <div className="space-y-4">
                 <div>
@@ -216,7 +220,7 @@ export default function AdminSettingsPage() {
       )}
 
       {/* Info Card */}
-      <div className="bg-muted/30 border border-border p-5 rounded-3xl flex gap-3.5 max-w-2xl text-xs sm:text-sm text-muted-foreground leading-relaxed">
+      <div className="bg-muted/30 border border-border p-5 rounded-3xl flex gap-3.5 max-w-2xl text-xs sm:text-sm text-muted-foreground leading-relaxed anim-item">
         <Info className="w-6 h-6 text-primary shrink-0 mt-0.5" />
         <div>
           <strong className="text-foreground block mb-0.5">

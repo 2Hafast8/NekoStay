@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2, Copy, Share2, Users, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -33,6 +34,9 @@ export default function ProfilePage() {
   const [copySuccess, setCopySuccess] = useState(false);
 
   const supabase = createClient();
+  const containerRef = useRef(null);
+
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 20, stagger: 0.1, duration: 0.5 });
 
   useEffect(() => {
     async function loadProfile() {
@@ -113,9 +117,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 mt-4">
+    <div ref={containerRef} className="max-w-2xl mx-auto space-y-8 mt-4">
       {/* Header */}
-      <div className="space-y-1">
+      <div className="space-y-1 anim-item">
         <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
           <Sparkles className="w-3 h-3" />
           <span>{language === "en" ? "Account Settings" : "Pengaturan Akun"}</span>
@@ -145,7 +149,7 @@ export default function ProfilePage() {
       )}
 
       {/* Main Profile Form */}
-      <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6">
+      <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
         <form onSubmit={handleUpdate} className="space-y-6">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
@@ -227,7 +231,7 @@ export default function ProfilePage() {
 
       {/* Referral Card */}
       {role !== "admin" && (
-        <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6">
+        <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
           <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-100 text-lg border-b border-border/60 dark:border-zinc-800/60 pb-3">
             <Gift className="w-5 h-5 text-primary" />
             <span>{t("ref_title")}</span>

@@ -19,6 +19,7 @@ Developed with a premium, responsive glassmorphism UI, a global dual-language sy
 *   **Feline Care Reports**: Track your cat's health, appetite, and mood daily. View status logs and photo updates posted directly by cat caretakers.
 *   **Referral & Loyalty Program**: Share personal referral codes with other cat lovers. Referrals save 10% on their first booking, and referrers collect rewards points (redeemable for stay discounts).
 *   **Unified Notifications Inbox**: Receive instant, in-app logs regarding check-in approvals, health reports, and check-out invoices.
+*   **Receipt Resending & QR Code Refresh**: Request a resend of booking receipts via email at any time, featuring dynamic regeneration and extension of one-time use offline payment QR codes.
 
 ### 👨‍💼 For Cat Boarding Businesses (Admin Control Center)
 *   **Analytical Executive Dashboard**: Monitor active revenue, boarded cats, pending approvals, average ratings, and stay distribution trends with real-time Recharts visual graphs.
@@ -27,6 +28,7 @@ Developed with a premium, responsive glassmorphism UI, a global dual-language sy
 *   **Dynamic Room Rate Configuration**: Manage room classes (Basic, Standard, Premium), list amenities, and set daily rates.
 *   **Outbox Notification Gateway**: Monitor outgoing communications with a simulated system outbox log separating WhatsApp notifications from system admin alerts.
 *   **Premium PDF Invoicing & Analytics Export**: Export bookings and financial summaries into a custom, styled PDF document (landscape format) complete with company branding, totals, and metadata.
+*   **Built-in QR Camera Scanner**: Verify offline payment receipts instantly via webcam or mobile camera scanning. The viewport is optimized for zero-leak layouts on both desktop and mobile screens.
 
 ---
 
@@ -45,10 +47,16 @@ Developed with a premium, responsive glassmorphism UI, a global dual-language sy
 | **Core Framework** | Next.js 16.2.6 (Turbopack) | Fast compilation and rendering optimization |
 | **Frontend UI** | React 19, Tailwind CSS v4 | Harmonious, high-performance styling |
 | **State Management** | Zustand 5 | Client-side persistent state for themes & language |
-| **Database & Auth** | Supabase | PostgreSQL schema, private files, and RLS policies |
+| **Database & Auth** | Supabase (`@supabase/supabase-js`, `@supabase/ssr`) | PostgreSQL schema, auth sessions, and RLS policies |
 | **Mailing Service** | Resend | Automatic check-in and reply email notifications |
+| **Animations** | GSAP (GreenSock Animation Platform) | Premium smooth magnetic CTA, looping marquee, and 3D card tilt |
+| **Form & Validation** | React Hook Form & Zod | Strict runtime schema parsing and interactive client/server validations |
+| **Analytics Charts** | Recharts | Professional visual data visualization for admin dashboard |
+| **Date Processing** | `date-fns` | Date arithmetic for checkout, late-fees, and refund math |
 | **Component Icons** | Lucide React | High-quality, modern SVG icon library |
 | **Reporting Tool** | jsPDF & jsPDF-Autotable | Dynamic client-side invoice and PDF report rendering |
+| **QR Code Engine** | `html5-qrcode` & `qrcode` | Interactive QR scanning and code generation |
+| **Payment Client** | `midtrans-client` | E-payment client integration client (sandbox/prod) |
 
 ---
 
@@ -69,12 +77,27 @@ cd NekoStay
 ```
 
 ### 3. Install Dependencies
+To install all project dependencies listed in `package.json`, run:
 ```bash
 npm install
 ```
 
+If you are setting up a fresh project structure or want to install the integration packages manually, you can install them by category:
+
+*   **Database & Auth**: `npm install @supabase/supabase-js @supabase/ssr`
+*   **Forms & Validation**: `npm install react-hook-form @hookform/resolvers zod`
+*   **Mailing, PDF & QR Codes**: `npm install resend jspdf jspdf-autotable qrcode html5-qrcode`
+*   **GSAP Animations**: `npm install gsap`
+*   **UI Components & Icons**: `npm install lucide-react next-themes sonner recharts`
+*   **State & Utility**: `npm install zustand date-fns midtrans-client`
+
+Or run this single command to install all major packages at once:
+```bash
+npm install @supabase/supabase-js @supabase/ssr react-hook-form @hookform/resolvers zod resend jspdf jspdf-autotable qrcode html5-qrcode gsap lucide-react next-themes sonner recharts zustand date-fns midtrans-client
+```
+
 ### 4. Configure Environment Variables
-Create a file named `.env.local` in the root directory and populate it with your environment keys:
+Create a file named `.env` in the root directory and populate it with your environment keys:
 ```env
 #environment variables for Supabase
 NEXT_PUBLIC_SUPABASE_URL=dummy-supabase-url
@@ -92,14 +115,26 @@ CRON_SECRET=random-string
 #environment variables for app building Localhost
 NEXT_PUBLIC_APP_URL=dummy-app-url
 
+#environment variables for Midtrans
+# Set to "true" for production, "false" for sandbox (default: false)
+MIDTRANS_IS_PRODUCTION=false
+NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=false
+MIDTRANS_SERVER_KEY=dummy-midtrans-server-key
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=dummy-midtrans-client-key
+
 ```
 
 ### 5. Setup Database Schemas
 Execute the SQL migration scripts located in the `supabase/` folder inside your Supabase SQL Editor. This sets up:
-*   `profiles`, `bookings`, `cat_reports`, `reviews`, `classes`, and `notifications` tables.
+*   `profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, and `reviews` tables.
+*   Booking payment columns (`payment_status`, `payment_token`, `payment_link_url`, `discount_amount`) for Midtrans integration.
+*   Referral system columns (`referral_code`, `referred_by`) with a unique-code generator and the `get_profile_by_referral()` lookup function.
 *   Database triggers for automatic profile creation on registration.
+*   Database triggers for automatic offline payment token generation when status transitions to 'Aktif'.
 *   Row-Level Security (RLS) policies to keep customer data isolated and secure.
 *   Initial room classes seeding data.
+
+> A daily cron job (`/api/cron/check-late`, defined in `vercel.json`) automatically flags overdue check-outs and accrues late fees. It is protected by the `CRON_SECRET` environment variable.
 
 ### 6. Run the Development Server
 ```bash
@@ -153,7 +188,7 @@ For commercial inquiries, white-labeling requests, customized features, or integ
 
 ---
 
-## 👤 Credits & Creator Portfolio
+## 👤 Credits & Creator
 This application was engineered and is maintained as a professional showcase development project.
 
 *   **Developer / Creator**: [Hafast2008]

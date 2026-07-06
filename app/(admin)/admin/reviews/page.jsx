@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { MessageSquare, Star, Send, Sparkles, User, Calendar, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
 
 export default function AdminReviewsPage() {
   const { t } = useLanguage();
@@ -22,6 +23,9 @@ export default function AdminReviewsPage() {
   const [replySuccess, setReplySuccess] = useState(null);
 
   const supabase = createClient();
+  const containerRef = useRef(null);
+
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 24, stagger: 0.08, duration: 0.5 }, [reviews, currentPage]);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -109,9 +113,9 @@ export default function AdminReviewsPage() {
   }
 
   return (
-    <div className="space-y-8 bg-background dark:bg-zinc-950 p-4 sm:p-6 transition-colors duration-300">
+    <div ref={containerRef} className="space-y-8 bg-background dark:bg-zinc-950 p-4 sm:p-6 transition-colors duration-300">
       {/* Header */}
-      <div className="space-y-1">
+      <div className="space-y-1 anim-item">
         <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
           <Sparkles className="w-3 h-3 text-rose-500" />
           <span>{t("admin_rev_badge")}</span>
@@ -143,7 +147,7 @@ export default function AdminReviewsPage() {
           ))}
         </div>
       ) : reviews.length === 0 ? (
-        <div className="bg-card border border-border dark:border-zinc-800 p-12 text-center rounded-3xl">
+        <div className="bg-card border border-border dark:border-zinc-800 p-12 text-center rounded-3xl anim-item">
           <MessageSquare className="w-12 h-12 text-muted-foreground/60 mx-auto mb-4" />
           <p className="text-sm font-semibold text-muted-foreground">
             {t("admin_rev_empty")}
@@ -159,7 +163,7 @@ export default function AdminReviewsPage() {
             return (
               <div
                 key={rev.id}
-                className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 hover:shadow-xs transition-shadow flex flex-col md:flex-row gap-6 justify-between items-start"
+                className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 hover:shadow-xs transition-shadow flex flex-col md:flex-row gap-6 justify-between items-start anim-item"
               >
                 <div className="space-y-3 flex-1">
                   {/* Rating Stars and Date */}
@@ -301,7 +305,7 @@ export default function AdminReviewsPage() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border dark:border-zinc-800 px-5 py-4 rounded-3xl mt-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border dark:border-zinc-800 px-5 py-4 rounded-3xl mt-6 anim-item">
               <p className="text-xs text-muted-foreground font-semibold">
                 {t("pager_showing")} <span className="text-foreground dark:text-zinc-200">{Math.min(reviews.length, (currentPage - 1) * reviewsPerPage + 1)}</span> - <span className="text-foreground dark:text-zinc-200">{Math.min(reviews.length, currentPage * reviewsPerPage)}</span> {t("pager_of")} <span className="text-foreground dark:text-zinc-200">{reviews.length}</span> {t("pager_reviews")}
               </p>

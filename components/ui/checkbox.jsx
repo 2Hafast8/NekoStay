@@ -1,9 +1,30 @@
 "use client"
 
+import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 
 import { cn } from "@/lib/utils"
 import { CheckIcon } from "lucide-react"
+
+function CheckboxIndicatorWrapper({ children }) {
+  const ref = React.useRef(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    import("gsap").then(({ gsap }) => {
+      gsap.fromTo(el,
+        { scale: 0.4, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(1.85)" }
+      );
+    });
+  }, []);
+
+  return <span ref={ref} className="block shrink-0">{children}</span>;
+}
 
 function Checkbox({
   className,
@@ -19,8 +40,10 @@ function Checkbox({
       {...props}>
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
-        className="grid place-content-center text-current transition-none [&>svg]:size-3.5">
-        <CheckIcon />
+        className="grid place-content-center text-current transition-none [&_svg]:size-3.5">
+        <CheckboxIndicatorWrapper>
+          <CheckIcon />
+        </CheckboxIndicatorWrapper>
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

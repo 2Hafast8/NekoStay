@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -94,6 +94,7 @@ export const dictionary = {
     side_all_bookings: "Semua Pesanan",
     side_cat_conditions: "Kondisi Kucing",
     side_customer_reviews: "Ulasan Pelanggan",
+    side_scan_qr: "Scan QR Pembayaran",
     side_rates_settings: "Kelas & Tarif",
     tab_home: "Beranda",
     tab_bookings: "Pesanan",
@@ -326,6 +327,7 @@ export const dictionary = {
     side_all_bookings: "All Bookings",
     side_cat_conditions: "Cat Conditions",
     side_customer_reviews: "Customer Reviews",
+    side_scan_qr: "Scan QR Payment",
     side_rates_settings: "Classes & Rates",
     tab_home: "Home",
     tab_bookings: "Bookings",
@@ -497,12 +499,14 @@ export function useLanguage() {
 
   const language = mounted ? store.language : "id";
 
+  const t = useCallback((key) => {
+    return dictionary[language]?.[key] || key;
+  }, [language]);
+
   return {
     language,
     setLanguage: store.setLanguage,
-    t: (key) => {
-      return dictionary[language]?.[key] || key;
-    },
+    t,
   };
 }
 

@@ -53,7 +53,7 @@ export async function POST(request) {
     let processedCount = 0
 
     if (action === 'approve') {
-      // Bulk update status to Aktif
+      // Bulk update status to Aktif (DB trigger otomatis generate offline_payment_token)
       const { error: updateError } = await supabase
         .from('bookings')
         .update({ status: 'Aktif' })
@@ -61,8 +61,14 @@ export async function POST(request) {
 
       if (updateError) throw updateError
 
+      // Re-fetch bookings setelah trigger berjalan (untuk mendapatkan token QR)
+      const { data: updatedBookings } = await supabase
+        .from('bookings')
+        .select('*, profiles (full_name, email)')
+        .in('id', validIds)
+
       // Process notifications & emails
-      for (const booking of validBookings) {
+      for (const booking of (updatedBookings || validBookings)) {
         // Create in-app notification
         await supabase.from('notifications').insert({
           user_id: booking.user_id,
@@ -82,7 +88,8 @@ export async function POST(request) {
               booking.profiles.full_name,
               booking.cat_name,
               booking.id,
-              'Aktif'
+              'Aktif',
+              booking
             )
           } catch (emailErr) {
             console.warn('[Bulk Route Warning] Resend status update failed:', emailErr.message)

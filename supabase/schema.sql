@@ -295,24 +295,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- ============================================================
--- 13. FUNGSI: cleanup_old_bookings()
---     Cron — bersihkan data pesanan lama otomatis
--- ============================================================
-CREATE OR REPLACE FUNCTION public.cleanup_old_bookings()
-RETURNS VOID AS $$
-BEGIN
-  -- 1. Hapus pesanan 'Selesai' lebih dari 2 jam
-  DELETE FROM public.bookings
-  WHERE status = 'Selesai'
-    AND updated_at < NOW() - INTERVAL '2 hours';
 
-  -- 2. Hapus pesanan 'Dibatalkan' lebih dari 1 hari
-  DELETE FROM public.bookings
-  WHERE status = 'Dibatalkan'
-    AND updated_at < NOW() - INTERVAL '1 day';
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
 -- 14. ROW LEVEL SECURITY (RLS)
@@ -410,9 +393,4 @@ CREATE POLICY "User create review for completed booking" ON public.reviews FOR I
 --   'SELECT public.check_late_bookings();'
 -- );
 
--- Jadwalkan pembersihan data pesanan lama setiap jam:
--- SELECT cron.schedule(
---   'cleanup-old-bookings-hourly',
---   '0 * * * *',
---   'SELECT public.cleanup_old_bookings();'
--- );
+

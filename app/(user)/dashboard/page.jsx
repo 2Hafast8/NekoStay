@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Cat,
@@ -9,19 +9,39 @@ import {
   LayoutDashboard,
   History,
   Clock,
+  HelpCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingCard } from "@/components/booking/BookingCard";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
+import { gsap } from "gsap";
 
 export default function UserDashboard() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
   const supabase = createClient();
+
+  // GSAP animation refs
+  const headerRef = useRef(null);
+  const statsRef = useRef(null);
+  const totalRef = useRef(null);
+  const activeRef = useRef(null);
+  const waitingRef = useRef(null);
+  const completedRef = useRef(null);
+
+  // Stagger reveals
+  useGsapReveal(headerRef, { selector: ":scope > *", y: 20, stagger: 0.12, duration: 0.55, delay: 0.1 });
+  useGsapReveal(statsRef, { selector: ":scope > *", y: 28, stagger: 0.1, duration: 0.55, start: "top 95%" });
 
   const fetchBookings = useCallback(
     async (uid) => {
@@ -63,12 +83,19 @@ export default function UserDashboard() {
   }, [supabase, fetchBookings]);
 
   useEffect(() => {
+    setCurrentPage(1);
     if (activeTab === "Semua") {
       setFilteredBookings(bookings);
     } else {
       setFilteredBookings(bookings.filter((b) => b.status === activeTab));
     }
   }, [activeTab, bookings]);
+
+  const totalPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
+  const paginatedBookings = filteredBookings.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const stats = {
     total: bookings.length,
@@ -77,10 +104,16 @@ export default function UserDashboard() {
     completed: bookings.filter((b) => b.status === "Selesai").length,
   };
 
+  // Count up stats
+  useGsapCounter(totalRef, stats.total);
+  useGsapCounter(activeRef, stats.active);
+  useGsapCounter(waitingRef, stats.waiting);
+  useGsapCounter(completedRef, stats.completed);
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
@@ -104,7 +137,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
           <div className="p-3 bg-secondary text-primary rounded-xl">
             <LayoutDashboard className="w-5 h-5" />
@@ -113,8 +146,8 @@ export default function UserDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
               {t("user_db_stat_total")}
             </span>
-            <span className="text-2xl font-black text-foreground">
-              {stats.total}
+            <span ref={totalRef} className="text-2xl font-black text-foreground">
+              0
             </span>
           </div>
         </div>
@@ -127,8 +160,8 @@ export default function UserDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
               {t("user_db_stat_active")}
             </span>
-            <span className="text-2xl font-black text-foreground">
-              {stats.active}
+            <span ref={activeRef} className="text-2xl font-black text-foreground">
+              0
             </span>
           </div>
         </div>
@@ -141,8 +174,8 @@ export default function UserDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
               {t("user_db_stat_pending")}
             </span>
-            <span className="text-2xl font-black text-foreground">
-              {stats.waiting}
+            <span ref={waitingRef} className="text-2xl font-black text-foreground">
+              0
             </span>
           </div>
         </div>
@@ -155,8 +188,8 @@ export default function UserDashboard() {
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
               {t("user_db_stat_completed")}
             </span>
-            <span className="text-2xl font-black text-foreground">
-              {stats.completed}
+            <span ref={completedRef} className="text-2xl font-black text-foreground">
+              0
             </span>
           </div>
         </div>
@@ -237,12 +270,188 @@ export default function UserDashboard() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredBookings.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} />
-          ))}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedBookings.map((booking) => (
+              <BookingCard key={booking.id} booking={booking} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-muted-foreground font-medium">
+                {language === "en"
+                  ? `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)} of ${filteredBookings.length} bookings`
+                  : `Menampilkan ${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)} dari ${filteredBookings.length} pesanan`}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === page
+                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                        : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* FAQ & Help Section (Heuristic 10: Help and Documentation) */}
+      <HelpSection language={language === "en" ? "en" : "id"} t={t} />
+    </div>
+  );
+}
+
+function GsapFaqItem({ item, isOpen, onClick }) {
+  const contentRef = useRef(null);
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const el = contentRef.current;
+    if (!el) return;
+
+    if (prefersReduced) {
+      el.style.height = isOpen ? "auto" : "0px";
+      el.style.opacity = isOpen ? "1" : "0";
+      return;
+    }
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      gsap.set(el, { height: isOpen ? "auto" : 0, opacity: isOpen ? 1 : 0 });
+      return;
+    }
+
+    if (isOpen) {
+      gsap.fromTo(
+        el,
+        { height: 0, opacity: 0 },
+        {
+          height: "auto",
+          opacity: 1,
+          duration: 0.35,
+          ease: "power2.out",
+          overwrite: "auto",
+        }
+      );
+    } else {
+      gsap.to(el, {
+        height: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.inOut",
+        overwrite: "auto",
+      });
+    }
+  }, [isOpen]);
+
+  return (
+    <div className="border border-border/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-muted/10 transition-colors">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left font-bold text-sm text-foreground hover:bg-muted/30 cursor-pointer transition-colors"
+      >
+        <span>{item.q}</span>
+        <ChevronDown 
+          className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} 
+        />
+      </button>
+      <div 
+        ref={contentRef} 
+        className="overflow-hidden"
+        style={{ height: 0, opacity: 0 }}
+      >
+        <div className="px-5 pb-4 text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed border-t border-border/30 pt-3">
+          {item.a}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HelpSection({ language, t }) {
+  const [openIndex, setOpenIndex] = useState(null);
+
+  const faqItems = [
+    {
+      q: language === "en" ? "How do I check in my cat?" : "Bagaimana cara penyerahan kucing?",
+      a: language === "en"
+        ? "Bring your cat along with their favorite food/toys to the NekoStay location on your scheduled check-in day. Our staff will register and double-check your cat's health status."
+        : "Bawa kucing Anda beserta pakan kesukaannya ke lokasi NekoStay pada hari check-in. Staf kami akan mendata dan memeriksa ulang kondisi kesehatan kucing sebelum masuk ke kandang."
+    },
+    {
+      q: language === "en" ? "How is the late checkout fee calculated?" : "Bagaimana denda keterlambatan dihitung?",
+      a: language === "en"
+        ? "If checkout is delayed past the scheduled date, an 8% compounding late fee is applied daily to protect class reservation slot availability. Please update us early if you're running late!"
+        : "Jika penjemputan terlambat dari jadwal, denda 8% akumulatif per hari akan dikenakan pada tarif harian untuk mengompensasi slot kandang. Harap hubungi admin jika Anda terpaksa terlambat."
+    },
+    {
+      q: language === "en" ? "How can I request changes to my booking?" : "Dapatkah saya mengubah jadwal atau detail pesanan?",
+      a: language === "en"
+        ? "For active bookings, you can request stay extensions or room class upgrades directly by clicking 'Contact Support (WhatsApp)' in your booking detail screen."
+        : "Untuk pesanan yang sedang berjalan (aktif), Anda dapat mengajukan perpanjangan hari atau perubahan kelas kamar secara mudah dengan mengklik tombol 'Hubungi Admin (WhatsApp)' di halaman detail pesanan."
+    },
+    {
+      q: language === "en" ? "Where can I view daily updates of my cat?" : "Di mana saya bisa melihat update harian kucing saya?",
+      a: language === "en"
+        ? "Open your booking card on this dashboard and select 'Lihat Detail'. Any health reports, appetite progress, and latest photos will be posted under the 'Riwayat Kondisi Kucing' section."
+        : "Buka kartu pesanan Anda di dashboard ini, lalu klik 'Lihat Detail'. Laporan kesehatan, status makan, dan foto terbaru si mpus akan di-update oleh staf kami di kolom 'Riwayat Kondisi Kucing'."
+    }
+  ];
+
+  return (
+    <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 mt-12 animate-in fade-in duration-300">
+      <div className="flex items-center gap-3 border-b border-border/60 dark:border-zinc-800/60 pb-4">
+        <div className="p-2 bg-primary/10 text-primary rounded-xl">
+          <HelpCircle className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-black text-foreground">
+            {language === "en" ? "Help Center & FAQ" : "Pusat Bantuan & Tanya Jawab"}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {language === "en" ? "Find answers to common questions about NekoStay boarding services" : "Temukan jawaban atas pertanyaan umum seputar layanan penitipan NekoStay"}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {faqItems.map((item, idx) => (
+          <GsapFaqItem
+            key={idx}
+            item={item}
+            isOpen={openIndex === idx}
+            onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

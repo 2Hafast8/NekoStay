@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Cat, Check, Heart, Shield, Users, Star } from "lucide-react";
+import { Cat, Check, Heart, Shield, Users, Star, Sparkles, Activity } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { createClient } from "@/lib/supabase/client";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGsapReveal } from "@/hooks/useGsapReveal";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export default function LandingPage() {
   const { language } = useLanguage();
@@ -16,8 +23,231 @@ export default function LandingPage() {
 
   const currentLanguage = mounted ? language : "id";
   const t = (key) => dictionary[currentLanguage]?.[key] || key;
-  
+
   const supabase = createClient();
+
+  // GSAP refs
+  const heroBadgeRef = useRef(null);
+  const heroTitleRef = useRef(null);
+  const heroDescRef = useRef(null);
+  const heroBtnsRef = useRef(null);
+  const heroStatsRef = useRef(null);
+  const heroImageRef = useRef(null);
+  const statCatsRef = useRef(null);
+  const statRatingRef = useRef(null);
+  const statVetRef = useRef(null);
+  const whyRef = useRef(null);
+  const pricingRef = useRef(null);
+  const reviewsRef = useRef(null);
+  const marqueeTrackRef = useRef(null);
+
+  // Section scroll-trigger reveals
+  useGsapReveal(whyRef, { stagger: 0.12, y: 40, duration: 0.7 });
+  useGsapReveal(pricingRef, { stagger: 0.15, y: 44, scale: 0.97, duration: 0.7 });
+  useGsapReveal(reviewsRef, { stagger: 0.13, y: 32, duration: 0.65 });
+
+  // Magnetic hover effect for CTA buttons
+  const handleMagneticMove = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+
+    gsap.to(btn, {
+      x: x * 0.28,
+      y: y * 0.28,
+      duration: 0.35,
+      ease: "power2.out",
+      overwrite: "auto",
+    });
+  };
+
+  const handleMagneticLeave = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    gsap.to(e.currentTarget, {
+      x: 0,
+      y: 0,
+      duration: 0.5,
+      ease: "power3.out",
+      overwrite: "auto",
+    });
+  };
+
+  // 3D Tilt effect for cards
+  const handleTiltMove = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    const card = e.currentTarget;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const xc = rect.width / 2;
+    const yc = rect.height / 2;
+    const dx = x - xc;
+    const dy = y - yc;
+
+    const rotX = -(dy / yc) * 6; // max 6 degrees
+    const rotY = (dx / xc) * 6;  // max 6 degrees
+
+    gsap.to(card, {
+      rotationX: rotX,
+      rotationY: rotY,
+      scale: 1.015,
+      transformPerspective: 1000,
+      ease: "power2.out",
+      duration: 0.3,
+      overwrite: "auto",
+    });
+  };
+
+  const handleTiltLeave = (e) => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    gsap.to(e.currentTarget, {
+      rotationX: 0,
+      rotationY: 0,
+      scale: 1,
+      ease: "power3.out",
+      duration: 0.5,
+      overwrite: "auto",
+    });
+  };
+
+  // Infinite Marquee loop
+  useEffect(() => {
+    if (!marqueeTrackRef.current) return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    const track = marqueeTrackRef.current;
+    const tl = gsap.to(track, {
+      xPercent: -50,
+      ease: "none",
+      duration: 22,
+      repeat: -1,
+    });
+
+    const handleMouseEnter = () => tl.pause();
+    const handleMouseLeave = () => tl.play();
+
+    track.addEventListener("mouseenter", handleMouseEnter);
+    track.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      tl.kill();
+      if (track) {
+        track.removeEventListener("mouseenter", handleMouseEnter);
+        track.removeEventListener("mouseleave", handleMouseLeave);
+      }
+    };
+  }, []);
+
+  const marqueeItems = [
+    {
+      icon: Shield,
+      text: currentLanguage === "en" ? "24/7 Veterinary Care" : "Siaga Dokter Hewan 24/7",
+    },
+    {
+      icon: Heart,
+      text: currentLanguage === "en" ? "Daily Condition Reports" : "Laporan Kondisi Harian",
+    },
+    {
+      icon: Star,
+      text: currentLanguage === "en" ? "Full AC Premium Rooms" : "Kamar AC Kelas Premium",
+    },
+    {
+      icon: Users,
+      text: currentLanguage === "en" ? "Certified Cat Caretakers" : "Pecinta Kucing Bersertifikat",
+    },
+    {
+      icon: Cat,
+      text: currentLanguage === "en" ? "Interactive Daily Playtime" : "Waktu Bermain Aktif Harian",
+    },
+    {
+      icon: Activity,
+      text: currentLanguage === "en" ? "Daily Health Checkups" : "Pemeriksaan Kesehatan Rutin",
+    },
+  ];
+
+  // Hero entrance timeline + image float
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    const ctx = gsap.context(() => {
+      // Entrance timeline
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.fromTo(heroBadgeRef.current,
+          { y: -20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5 }
+        )
+        .fromTo(heroTitleRef.current,
+          { y: 30, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.65 },
+          "-=0.2"
+        )
+        .fromTo(heroDescRef.current,
+          { y: 24, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.55 },
+          "-=0.3"
+        )
+        .fromTo(heroBtnsRef.current,
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5 },
+          "-=0.25"
+        )
+        .fromTo(heroStatsRef.current,
+          { y: 16, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5 },
+          "-=0.2"
+        )
+        .fromTo(heroImageRef.current,
+          { x: 40, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.75, ease: "power2.out" },
+          0.1
+        );
+
+      // Gentle float loop on hero image
+      gsap.to(heroImageRef.current, {
+        y: -14,
+        duration: 3.2,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        delay: 1,
+      });
+
+      // Number counters
+      const counterItems = [
+        { ref: statCatsRef, end: 1200, suffix: "+", decimals: 0, duration: 2 },
+        { ref: statRatingRef, end: 98.9, suffix: "%", decimals: 1, duration: 1.8 },
+      ];
+      counterItems.forEach(({ ref, end, suffix, decimals, duration }) => {
+        if (!ref.current) return;
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: end,
+          duration,
+          ease: "power2.out",
+          delay: 0.8,
+          onUpdate() {
+            if (ref.current)
+              ref.current.textContent = obj.val.toFixed(decimals) + suffix;
+          },
+        });
+      });
+    });
+
+    return () => ctx.revert();
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -87,7 +317,7 @@ export default function LandingPage() {
       price: 80000,
       description: getRoomDesc("Standard"),
       facilities: getFacilities("Standard"),
-      gradient: "from-primary/10 to-amber-500/10 hover:border-primary/40 border-primary/20 scale-102 shadow-xs dark:hover:border-primary/50 dark:from-primary/5 dark:to-amber-500/5",
+      gradient: "from-primary/10 to-amber-500/10 border-primary/20 scale-102 shadow-xs dark:from-primary/5 dark:to-amber-500/5",
     },
     {
       name: "Premium",
@@ -112,39 +342,43 @@ export default function LandingPage() {
           <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-center">
             {/* Left Content */}
             <div className="col-span-7 space-y-6 text-center lg:text-left">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs dark:bg-primary/20">
+              <div ref={heroBadgeRef} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs dark:bg-primary/20">
                 <SparkleIcon className="w-3.5 h-3.5 animate-spin-slow" />
                 <span>{t("hero_badge")}</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] dark:text-zinc-50">
+              <h1 ref={heroTitleRef} className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] dark:text-zinc-50">
                 {t("hero_title_1")}
                 <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
                   {t("hero_title_2")}
                 </span>
               </h1>
-              <p className="text-base sm:text-lg text-muted-foreground dark:text-zinc-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p ref={heroDescRef} className="text-base sm:text-lg text-muted-foreground dark:text-zinc-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
                 {t("hero_desc")}
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <div ref={heroBtnsRef} className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
                   href="/booking/new"
-                  className="px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/20 hover:scale-[1.01] active:scale-100 flex items-center justify-center gap-2"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
+                  className="px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/95 transition-colors shadow-md shadow-primary/20 hover:shadow-lg flex items-center justify-center gap-2"
                 >
                   <Cat className="w-5 h-5" />
                   {t("hero_cta_primary")}
                 </Link>
                 <Link
                   href="#services"
-                  className="px-8 py-4 rounded-2xl border border-border dark:border-zinc-850 bg-card dark:bg-zinc-900 font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-all flex items-center justify-center dark:text-zinc-200"
+                  onMouseMove={handleMagneticMove}
+                  onMouseLeave={handleMagneticLeave}
+                  className="px-8 py-4 rounded-2xl border border-border dark:border-zinc-850 bg-card dark:bg-zinc-900 font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-colors flex items-center justify-center dark:text-zinc-200"
                 >
                   {t("hero_cta_secondary")}
                 </Link>
               </div>
 
               {/* Stats */}
-              <div className="pt-8 grid grid-cols-3 gap-6 max-w-md mx-auto lg:mx-0 border-t border-border/80 dark:border-zinc-800/80">
+              <div ref={heroStatsRef} className="pt-8 grid grid-cols-3 gap-6 max-w-md mx-auto lg:mx-0 border-t border-border/80 dark:border-zinc-800/80">
                 <div>
-                  <p className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
+                  <p ref={statCatsRef} className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
                     1,200+
                   </p>
                   <p className="text-xs font-medium text-muted-foreground dark:text-zinc-400 mt-1">
@@ -152,15 +386,15 @@ export default function LandingPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
-                    99.8%
+                  <p ref={statRatingRef} className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
+                    98.9%
                   </p>
                   <p className="text-xs font-medium text-muted-foreground dark:text-zinc-400 mt-1">
                     {t("hero_stat_rating")}
                   </p>
                 </div>
                 <div>
-                  <p className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
+                  <p ref={statVetRef} className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
                     24/7
                   </p>
                   <p className="text-xs font-medium text-muted-foreground dark:text-zinc-400 mt-1">
@@ -171,7 +405,7 @@ export default function LandingPage() {
             </div>
 
             {/* Right Image Mockup / Visual */}
-            <div className="col-span-5 mt-12 lg:mt-0 relative flex justify-center">
+            <div ref={heroImageRef} className="col-span-5 mt-12 lg:mt-0 relative flex justify-center">
               <div className="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border-4 border-card dark:border-zinc-800 bg-gradient-to-tr from-primary/25 to-secondary dark:to-zinc-800 rotate-2 group hover:rotate-0 transition-transform duration-500">
                 <img
                   src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=600&auto=format&fit=crop"
@@ -198,6 +432,33 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Infinite Horizontal Marquee */}
+      <div className="w-full overflow-hidden bg-primary/5 dark:bg-zinc-900/30 py-4 border-y border-border/50 dark:border-zinc-800/50">
+        <div 
+          ref={marqueeTrackRef} 
+          className="flex whitespace-nowrap gap-12 w-max"
+        >
+          {/* Set 1 */}
+          <div className="flex shrink-0 items-center gap-12">
+            {marqueeItems.map((item, idx) => (
+              <span key={idx} className="flex items-center gap-2.5 text-sm font-extrabold text-foreground/80 dark:text-zinc-350 select-none">
+                <item.icon className="w-4 h-4 text-primary shrink-0" />
+                <span>{item.text}</span>
+              </span>
+            ))}
+          </div>
+          {/* Set 2 */}
+          <div className="flex shrink-0 items-center gap-12">
+            {marqueeItems.map((item, idx) => (
+              <span key={`dup-${idx}`} className="flex items-center gap-2.5 text-sm font-extrabold text-foreground/80 dark:text-zinc-350 select-none">
+                <item.icon className="w-4 h-4 text-primary shrink-0" />
+                <span>{item.text}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Why Choose Us */}
       <section className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -210,8 +471,12 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors">
+          <div ref={whyRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div 
+              onMouseMove={handleTiltMove}
+              onMouseLeave={handleTiltLeave}
+              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
+            >
               <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
                 <Shield className="w-6 h-6" />
               </div>
@@ -223,7 +488,11 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors">
+            <div 
+              onMouseMove={handleTiltMove}
+              onMouseLeave={handleTiltLeave}
+              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
+            >
               <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
                 <Heart className="w-6 h-6" />
               </div>
@@ -235,7 +504,11 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors">
+            <div 
+              onMouseMove={handleTiltMove}
+              onMouseLeave={handleTiltLeave}
+              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
+            >
               <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
                 <Users className="w-6 h-6" />
               </div>
@@ -260,11 +533,13 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div ref={pricingRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {classes.map((cls) => (
               <div
                 key={cls.name}
-                className={`relative bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-800 rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 ${cls.gradient}`}
+                onMouseMove={handleTiltMove}
+                onMouseLeave={handleTiltLeave}
+                className={`relative bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-800 rounded-3xl p-8 flex flex-col justify-between transition-colors duration-300 ${cls.gradient}`}
               >
                 {cls.name === "Standard" && (
                   <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground tracking-wider uppercase shadow-sm">
@@ -346,7 +621,7 @@ export default function LandingPage() {
                 : "Belum ada ulasan. Jadilah yang pertama memberikan ulasan setelah mpus pulang!"}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div ref={reviewsRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {reviews.map((rev) => (
                 <div 
                   key={rev.id} 

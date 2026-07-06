@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -16,11 +16,20 @@ import {
   Globe,
   Star,
   Settings,
+  ChevronDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "./NotificationBell";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "next-themes";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export function Navbar() {
   const router = useRouter();
@@ -34,10 +43,25 @@ export function Navbar() {
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const navRef = useRef(null);
 
   // Handle mounting to prevent hydration issues
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Navbar entrance animation
+  useEffect(() => {
+    if (!navRef.current) return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+    import("gsap").then(({ gsap }) => {
+      gsap.fromTo(
+        navRef.current,
+        { y: -30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.05 }
+      );
+    });
   }, []);
 
   useEffect(() => {
@@ -108,6 +132,7 @@ export function Navbar() {
 
   return (
     <header
+      ref={navRef}
       className={`sticky top-0 z-40 w-full transition-all duration-300 ${
         scrolled
           ? "bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-border/80 dark:border-zinc-800/80 shadow-xs"
@@ -196,21 +221,54 @@ export function Navbar() {
             <div className="flex items-center gap-3">
               <NotificationBell userId={user.id} />
 
-              <Link
-                href={role === "admin" ? "/admin/profile" : "/profile"}
-                className="p-2 hover:bg-muted dark:hover:bg-zinc-800 text-muted-foreground hover:text-foreground dark:text-zinc-400 dark:hover:text-zinc-100 rounded-xl transition-all duration-300 flex items-center gap-1.5 font-semibold text-sm"
-                title={t("nav_profile")}
-              >
-                <User className="w-4 h-4 text-primary" />
-              </Link>
-
-              <button
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border dark:border-zinc-800 bg-card dark:bg-zinc-900 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-900 transition-all cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                {t("nav_logout")}
-              </button>
+              {/* Avatar Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border dark:border-zinc-800 bg-card dark:bg-zinc-900 hover:bg-muted dark:hover:bg-zinc-800 transition-all duration-200 group"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground dark:text-zinc-200 max-w-[80px] truncate hidden lg:block">
+                    {user.email?.split("@")[0]}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="bottom" align="end" sideOffset={8}>
+                  <DropdownMenuLabel>
+                    {role === "admin" ? "Admin" : "Akun Saya"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => router.push(role === "admin" ? "/admin/dashboard" : "/dashboard")}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push(role === "admin" ? "/admin/profile" : "/profile")}
+                  >
+                    <User className="w-4 h-4" />
+                    {t("nav_profile")}
+                  </DropdownMenuItem>
+                  {role === "user" && (
+                    <DropdownMenuItem
+                      onClick={() => router.push("/booking/new")}
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      {t("nav_booking")}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    {t("nav_logout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
             <div className="flex items-center gap-3">
