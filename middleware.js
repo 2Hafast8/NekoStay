@@ -20,7 +20,11 @@ export async function middleware(request) {
   if (!user && (isProtectedPage || isAdminPage)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie.options);
+    });
+    return redirectResponse;
   }
 
   // Redirect to dashboard/admin if authenticated and trying to access auth pages
@@ -34,7 +38,11 @@ export async function middleware(request) {
     const url = request.nextUrl.clone();
     url.pathname =
       profile?.role === "admin" ? "/admin/dashboard" : "/dashboard";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie.options);
+    });
+    return redirectResponse;
   }
 
   // Double check admin role for /admin pages
@@ -48,7 +56,11 @@ export async function middleware(request) {
     if (profile?.role !== "admin") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie.options);
+      });
+      return redirectResponse;
     }
   }
 

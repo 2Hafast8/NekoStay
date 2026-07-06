@@ -77,6 +77,8 @@ export default function UserDashboard() {
       if (user) {
         setUserId(user.id);
         fetchBookings(user.id);
+      } else {
+        setIsLoading(false);
       }
     }
     loadUser();
