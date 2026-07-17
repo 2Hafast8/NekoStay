@@ -140,11 +140,14 @@ function DashboardContent() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadStatsAndLogs() {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        if (!isMounted) return;
         if (user?.email) {
           setAdminEmail(user.email);
         }
@@ -159,6 +162,7 @@ function DashboardContent() {
           )
           .order("created_at", { ascending: false });
 
+        if (!isMounted) return;
         if (error) throw error;
         setBookings(data);
 
@@ -178,6 +182,7 @@ function DashboardContent() {
           .order("created_at", { ascending: false })
           .limit(100);
 
+        if (!isMounted) return;
         if (!notifErr && notifs) {
           const uniqueLogs = [];
           const seen = new Set();
@@ -194,10 +199,26 @@ function DashboardContent() {
       } catch (err) {
         console.error("Error fetching admin stats & logs:", err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     }
     loadStatsAndLogs();
+
+    // Listen for auth state changes (token refresh, sign in/out)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        // Re-fetch data when session is restored/refreshed
+        loadStatsAndLogs();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   const calculateRevenue = () => {

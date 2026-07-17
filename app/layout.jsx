@@ -2,10 +2,62 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AutoReloadProvider } from "@/components/providers/AutoReloadProvider";
 import "./globals.css";
 
+const siteUrl = "https://nekostay.vercel.app";
+
 export const metadata = {
-  title: "NekoStay",
+  title: {
+    default: "NekoStay — Penitipan Kucing Premium",
+    template: "%s | NekoStay",
+  },
   description:
     "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+  keywords: [
+    "penitipan kucing",
+    "cat hotel",
+    "cat boarding",
+    "NekoStay",
+    "kucing",
+    "pet care",
+  ],
+  authors: [{ name: "NekoStay Team" }],
+  creator: "NekoStay",
+
+  // Open Graph — preview saat share link di WhatsApp, Facebook, dll
+  openGraph: {
+    type: "website",
+    locale: "id_ID",
+    url: siteUrl,
+    siteName: "NekoStay",
+    title: "NekoStay — Penitipan Kucing Premium",
+    description:
+      "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+    images: [
+      {
+        url: `${siteUrl}/favicon.ico`,
+        width: 512,
+        height: 512,
+        alt: "NekoStay Logo",
+      },
+    ],
+  },
+
+  // Twitter Card — preview saat share link di Twitter/X
+  twitter: {
+    card: "summary",
+    title: "NekoStay — Penitipan Kucing Premium",
+    description:
+      "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+    images: [`${siteUrl}/favicon.ico`],
+  },
+
+  // Favicon & Icon
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
+
+  metadataBase: new URL(siteUrl),
 };
 
 export default function RootLayout({ children }) {
@@ -23,4 +75,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-
