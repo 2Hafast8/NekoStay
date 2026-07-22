@@ -28,37 +28,20 @@ export function useUser() {
   useEffect(() => {
     let isMounted = true
 
-    async function getUser() {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (!isMounted) return
-        setUser(authUser)
-        await fetchProfile(authUser)
-      } catch (err) {
-        console.error('Error getting user:', err)
-      } finally {
-        if (isMounted) setLoading(false)
-      }
-    }
-    getUser()
-
-    // Listen for auth state changes (login, logout, token refresh)
+    // Listen for auth state changes (mount, login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return
       const currentUser = session?.user || null
       setUser(currentUser)
-      
-      if (event === 'SIGNED_OUT') {
-        setProfile(null)
-        setLoading(false)
-      } else if (currentUser) {
+
+      if (currentUser) {
         await fetchProfile(currentUser)
-        setLoading(false)
       } else {
-        setLoading(false)
+        setProfile(null)
       }
+      if (isMounted) setLoading(false)
     })
 
     return () => {

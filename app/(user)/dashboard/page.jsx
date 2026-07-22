@@ -72,25 +72,7 @@ export default function UserDashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadUser() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!isMounted) return;
-        if (user) {
-          setUserId(user.id);
-          fetchBookings(user.id);
-        } else {
-          setIsLoading(false);
-        }
-      } catch {
-        if (isMounted) setIsLoading(false);
-      }
-    }
-    loadUser();
-
-    // Listen for auth state changes (token refresh, sign in/out)
+    // Listen for auth state changes (mount, token refresh, sign in/out)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {

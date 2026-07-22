@@ -9,10 +9,11 @@ export function AutoReloadProvider() {
   const prevPathname = useRef(pathname);
 
   useEffect(() => {
+    // Only auto-refresh during local development if explicitly needed
+    if (process.env.NODE_ENV !== "development") return;
+
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname;
-      // Use Next.js soft refresh instead of hard reload
-      // This re-fetches server data without destroying the browser session/cookies
       const timer = setTimeout(() => {
         router.refresh();
       }, 1500);

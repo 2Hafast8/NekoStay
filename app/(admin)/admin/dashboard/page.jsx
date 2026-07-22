@@ -142,14 +142,10 @@ function DashboardContent() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadStatsAndLogs() {
+    async function loadStatsAndLogs(currentUser) {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!isMounted) return;
-        if (user?.email) {
-          setAdminEmail(user.email);
+        if (currentUser?.email) {
+          setAdminEmail(currentUser.email);
         }
 
         const { data, error } = await supabase
@@ -202,16 +198,18 @@ function DashboardContent() {
         if (isMounted) setIsLoading(false);
       }
     }
-    loadStatsAndLogs();
 
-    // Listen for auth state changes (token refresh, sign in/out)
+    // Listen for auth state changes (mount, token refresh, sign in/out)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       if (session?.user) {
-        // Re-fetch data when session is restored/refreshed
-        loadStatsAndLogs();
+        loadStatsAndLogs(session.user);
+      } else {
+        setBookings([]);
+        setOutgoingLogs([]);
+        setIsLoading(false);
       }
     });
 

@@ -65,42 +65,37 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
-    async function getUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      
-      if (user) {
+    let isMounted = true;
+
+    async function updateProfileRole(authUser) {
+      if (!authUser) {
+        if (isMounted) {
+          setUser(null);
+          setRole("user");
+        }
+        return;
+      }
+      if (isMounted) setUser(authUser);
+
+      try {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
-          .eq("id", user.id)
+          .eq("id", authUser.id)
           .single();
-        if (profile) {
+        if (isMounted && profile) {
           setRole(profile.role);
         }
+      } catch (err) {
+        console.error("Error fetching profile role:", err);
       }
-      setUser(user);
     }
-    getUser();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const currentUser = session?.user || null;
-      if (currentUser) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", currentUser.id)
-          .single();
-        if (profile) {
-          setRole(profile.role);
-        }
-      } else {
-        setRole("user");
-      }
-      setUser(currentUser);
+      updateProfileRole(currentUser);
     });
 
     const handleScroll = () => {
@@ -109,6 +104,7 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll);
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
       window.removeEventListener("scroll", handleScroll);
     };
