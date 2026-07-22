@@ -49,10 +49,13 @@ export default function RegisterPage() {
         }
       }
 
+      const appUrl = typeof window !== "undefined" ? window.location.origin : "https://nekostay.vercel.app";
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
+          emailRedirectTo: `${appUrl}/api/auth/callback?next=/dashboard`,
           data: {
             full_name: fullName,
             phone: phone,
