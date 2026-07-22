@@ -31,6 +31,15 @@ export const metadata = {
     title: "NekoStay — Penitipan Kucing Premium",
     description:
       "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+    images: [
+      {
+        url: `${siteUrl}/og-banner.jpg`,
+        width: 1200,
+        height: 675,
+        type: "image/jpeg",
+        alt: "NekoStay — Penitipan Kucing Premium",
+      },
+    ],
   },
 
   // Twitter Card — preview saat share link di Twitter/X
@@ -39,6 +48,7 @@ export const metadata = {
     title: "NekoStay — Penitipan Kucing Premium",
     description:
       "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+    images: [`${siteUrl}/og-banner.jpg`],
   },
 
   // Favicon & Icon
