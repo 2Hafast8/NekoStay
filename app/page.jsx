@@ -21,10 +21,25 @@ export default function LandingPage() {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+  // Dynamic CMS States
+  const [heroSettings, setHeroSettings] = useState(null);
+  const [whyUsList, setWhyUsList] = useState(null);
+  const [dbClasses, setDbClasses] = useState([]);
+
   const currentLanguage = mounted ? language : "id";
   const t = (key) => dictionary[currentLanguage]?.[key] || key;
 
   const supabase = createClient();
+
+  const ICON_MAP = {
+    Activity,
+    Heart,
+    Shield,
+    Users,
+    Star,
+    Sparkles,
+    Cat,
+  };
 
   // GSAP refs
   const heroBadgeRef = useRef(null);
@@ -264,8 +279,9 @@ export default function LandingPage() {
               full_name
             )
           `)
+          .gte("rating", 4)
           .order("created_at", { ascending: false })
-          .limit(3);
+          .limit(6);
 
         if (!error && data) {
           setReviews(data);
@@ -276,7 +292,34 @@ export default function LandingPage() {
         setLoadingReviews(false);
       }
     }
+
+    async function fetchLandingCMS() {
+      try {
+        const { data: settings } = await supabase
+          .from("landing_settings")
+          .select("*");
+
+        if (settings) {
+          settings.forEach((row) => {
+            if (row.id === "hero" && row.content) setHeroSettings(row.content);
+            if (row.id === "why_us" && Array.isArray(row.content))
+              setWhyUsList(row.content);
+          });
+        }
+
+        const { data: clsData } = await supabase
+          .from("classes")
+          .select("*")
+          .order("price_per_day", { ascending: true });
+
+        if (clsData && clsData.length > 0) setDbClasses(clsData);
+      } catch (err) {
+        console.error("Error loading dynamic CMS data:", err);
+      }
+    }
+
     fetchReviews();
+    fetchLandingCMS();
   }, [supabase]);
 
   // Standard facilities translations based on language
@@ -344,26 +387,30 @@ export default function LandingPage() {
             <div className="col-span-7 space-y-6 text-center lg:text-left">
               <div ref={heroBadgeRef} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs dark:bg-primary/20">
                 <SparkleIcon className="w-3.5 h-3.5 animate-spin-slow" />
-                <span>{t("hero_badge")}</span>
+                <span>{heroSettings?.badge || t("hero_badge")}</span>
               </div>
               <h1 ref={heroTitleRef} className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] dark:text-zinc-50">
-                {t("hero_title_1")}
-                <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
-                  {t("hero_title_2")}
-                </span>
+                {heroSettings?.title || (
+                  <>
+                    {t("hero_title_1")}{" "}
+                    <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
+                      {t("hero_title_2")}
+                    </span>
+                  </>
+                )}
               </h1>
               <p ref={heroDescRef} className="text-base sm:text-lg text-muted-foreground dark:text-zinc-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                {t("hero_desc")}
+                {heroSettings?.subtitle || t("hero_desc")}
               </p>
               <div ref={heroBtnsRef} className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
-                  href="/booking/new"
+                  href={heroSettings?.cta_link || "/booking/new"}
                   onMouseMove={handleMagneticMove}
                   onMouseLeave={handleMagneticLeave}
                   className="px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/95 transition-colors shadow-md shadow-primary/20 hover:shadow-lg flex items-center justify-center gap-2"
                 >
                   <Cat className="w-5 h-5" />
-                  {t("hero_cta_primary")}
+                  {heroSettings?.cta_text || t("hero_cta_primary")}
                 </Link>
                 <Link
                   href="#services"
@@ -408,7 +455,10 @@ export default function LandingPage() {
             <div ref={heroImageRef} className="col-span-5 mt-12 lg:mt-0 relative flex justify-center">
               <div className="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border-4 border-card dark:border-zinc-800 bg-gradient-to-tr from-primary/25 to-secondary dark:to-zinc-800 rotate-2 group hover:rotate-0 transition-transform duration-500">
                 <img
-                  src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=600&auto=format&fit=crop"
+                  src={
+                    heroSettings?.hero_image ||
+                    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=600&auto=format&fit=crop"
+                  }
                   alt="Cute Cat"
                   className="object-cover w-full h-full"
                 />
@@ -472,51 +522,49 @@ export default function LandingPage() {
           </div>
 
           <div ref={whyRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div 
-              onMouseMove={handleTiltMove}
-              onMouseLeave={handleTiltLeave}
-              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
-            >
-              <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
-                <Shield className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold dark:text-zinc-200">
-                {t("why_safe_title")}
-              </h3>
-              <p className="text-sm text-muted-foreground dark:text-zinc-450 leading-relaxed">
-                {t("why_safe_desc")}
-              </p>
-            </div>
-
-            <div 
-              onMouseMove={handleTiltMove}
-              onMouseLeave={handleTiltLeave}
-              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
-            >
-              <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
-                <Heart className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold dark:text-zinc-200">
-                {t("why_report_title")}
-              </h3>
-              <p className="text-sm text-muted-foreground dark:text-zinc-450 leading-relaxed">
-                {t("why_report_desc")}
-              </p>
-            </div>
-
-            <div 
-              onMouseMove={handleTiltMove}
-              onMouseLeave={handleTiltLeave}
-              className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
-            >
-              <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
-                <Users className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold dark:text-zinc-200">{t("why_staff_title")}</h3>
-              <p className="text-sm text-muted-foreground dark:text-zinc-450 leading-relaxed">
-                {t("why_staff_desc")}
-              </p>
-            </div>
+            {(whyUsList && whyUsList.length > 0
+              ? whyUsList
+              : [
+                  {
+                    id: "1",
+                    title: t("why_safe_title"),
+                    description: t("why_safe_desc"),
+                    icon: "Shield",
+                  },
+                  {
+                    id: "2",
+                    title: t("why_report_title"),
+                    description: t("why_report_desc"),
+                    icon: "Heart",
+                  },
+                  {
+                    id: "3",
+                    title: t("why_staff_title"),
+                    description: t("why_staff_desc"),
+                    icon: "Users",
+                  },
+                ]
+            ).map((item, idx) => {
+              const IconComp = ICON_MAP[item.icon] || Sparkles;
+              return (
+                <div
+                  key={item.id || idx}
+                  onMouseMove={handleTiltMove}
+                  onMouseLeave={handleTiltLeave}
+                  className="p-6 bg-background dark:bg-zinc-950 border border-border dark:border-zinc-900 rounded-2xl space-y-4 hover:border-primary/30 dark:hover:border-primary/20 transition-colors"
+                >
+                  <div className="p-3 bg-secondary dark:bg-zinc-900 text-primary rounded-xl w-fit">
+                    <IconComp className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-bold dark:text-zinc-200">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground dark:text-zinc-450 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -534,7 +582,22 @@ export default function LandingPage() {
           </div>
 
           <div ref={pricingRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {classes.map((cls) => (
+            {(dbClasses && dbClasses.length > 0
+              ? dbClasses.map((cls) => ({
+                  name: cls.name,
+                  price: cls.price_per_day,
+                  description: cls.description || getRoomDesc(cls.name),
+                  facilities: cls.facilities || getFacilities(cls.name),
+                  image_url: cls.image_url,
+                  gradient:
+                    cls.name === "Standard"
+                      ? "from-primary/10 to-amber-500/10 border-primary/20 scale-102 shadow-xs dark:from-primary/5 dark:to-amber-500/5"
+                      : cls.name === "Premium"
+                      ? "from-amber-600/10 to-yellow-600/10 hover:border-yellow-400 dark:hover:border-yellow-600/50 dark:from-amber-600/5 dark:to-yellow-600/5"
+                      : "from-amber-500/10 to-orange-500/10 hover:border-orange-300 dark:hover:border-orange-700/50 dark:from-amber-500/5 dark:to-orange-500/5",
+                }))
+              : classes
+            ).map((cls) => (
               <div
                 key={cls.name}
                 onMouseMove={handleTiltMove}
@@ -547,6 +610,16 @@ export default function LandingPage() {
                   </span>
                 )}
                 <div>
+                  {cls.image_url && (
+                    <div className="relative w-full h-40 rounded-2xl overflow-hidden mb-5 border border-border/80 shadow-xs">
+                      <img
+                        src={cls.image_url}
+                        alt={cls.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
                   <h3 className="text-xl font-extrabold text-foreground dark:text-zinc-100">
                     {cls.name}
                   </h3>

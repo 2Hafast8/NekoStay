@@ -22,10 +22,13 @@ export default function AdminReviewsPage() {
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [replySuccess, setReplySuccess] = useState(null);
 
+  // Filter rating state
+  const [selectedRating, setSelectedRating] = useState("all");
+
   const supabase = createClient();
   const containerRef = useRef(null);
 
-  useGsapReveal(containerRef, { selector: ".anim-item", y: 24, stagger: 0.08, duration: 0.5 }, [reviews, currentPage]);
+  useGsapReveal(containerRef, { selector: ".anim-item", y: 24, stagger: 0.08, duration: 0.5 }, [reviews, currentPage, selectedRating]);
 
   const loadReviews = useCallback(async () => {
     try {
@@ -95,9 +98,24 @@ export default function AdminReviewsPage() {
     }
   };
 
+  // Filter reviews by rating
+  const filteredReviews = reviews.filter((rev) => {
+    if (selectedRating === "all") return true;
+    return rev.rating === parseInt(selectedRating);
+  });
+
+  const starCounts = {
+    all: reviews.length,
+    5: reviews.filter((r) => r.rating === 5).length,
+    4: reviews.filter((r) => r.rating === 4).length,
+    3: reviews.filter((r) => r.rating === 3).length,
+    2: reviews.filter((r) => r.rating === 2).length,
+    1: reviews.filter((r) => r.rating === 1).length,
+  };
+
   const reviewsPerPage = 8;
-  const totalPages = Math.ceil(reviews.length / reviewsPerPage);
-  const paginatedReviews = reviews.slice(
+  const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
+  const paginatedReviews = filteredReviews.slice(
     (currentPage - 1) * reviewsPerPage,
     currentPage * reviewsPerPage
   );
@@ -128,6 +146,45 @@ export default function AdminReviewsPage() {
         </p>
       </div>
 
+      {/* Star Rating Filter Navigation Menu */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none anim-item">
+        {[
+          { value: "all", label: "Semua Bintang", count: starCounts.all },
+          { value: "5", label: "5 Bintang", stars: 5, count: starCounts[5] },
+          { value: "4", label: "4 Bintang", stars: 4, count: starCounts[4] },
+          { value: "3", label: "3 Bintang", stars: 3, count: starCounts[3] },
+          { value: "2", label: "2 Bintang", stars: 2, count: starCounts[2] },
+          { value: "1", label: "1 Bintang", stars: 1, count: starCounts[1] },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => {
+              setSelectedRating(tab.value);
+              setCurrentPage(1);
+            }}
+            className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              selectedRating === tab.value
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground dark:bg-zinc-900 dark:border-zinc-800"
+            }`}
+          >
+            {tab.stars && (
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+            )}
+            <span>{tab.label}</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                selectedRating === tab.value
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground dark:bg-zinc-800"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {errorMsg && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-450 rounded-2xl text-xs font-bold">
           {errorMsg}
@@ -146,11 +203,13 @@ export default function AdminReviewsPage() {
             <div key={n} className="h-32 bg-muted dark:bg-zinc-800 rounded-3xl" />
           ))}
         </div>
-      ) : reviews.length === 0 ? (
+      ) : filteredReviews.length === 0 ? (
         <div className="bg-card border border-border dark:border-zinc-800 p-12 text-center rounded-3xl anim-item">
           <MessageSquare className="w-12 h-12 text-muted-foreground/60 mx-auto mb-4" />
           <p className="text-sm font-semibold text-muted-foreground">
-            {t("admin_rev_empty")}
+            {selectedRating === "all"
+              ? t("admin_rev_empty")
+              : `Tidak ada ulasan dengan penilaian ${selectedRating} Bintang.`}
           </p>
         </div>
       ) : (

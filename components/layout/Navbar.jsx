@@ -159,32 +159,17 @@ export function Navbar() {
             {t("nav_home")}
           </Link>
           {user ? (
-            <>
-              <Link
-                href={role === "admin" ? "/admin/dashboard" : "/dashboard"}
-                className={`text-sm font-semibold transition-colors flex items-center gap-1.5 ${
-                  pathname.includes("/dashboard")
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                {t("nav_dashboard")}
-              </Link>
-              {role === "user" && (
-                <Link
-                  href="/booking/new"
-                  className={`text-sm font-semibold transition-colors flex items-center gap-1.5 ${
-                    pathname.includes("/booking/new")
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  {t("nav_booking")}
-                </Link>
-              )}
-            </>
+            <Link
+              href={role === "admin" ? "/admin/dashboard" : "/dashboard"}
+              className={`text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+                pathname.includes("/dashboard")
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground dark:text-zinc-400 dark:hover:text-zinc-100"
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              {t("nav_dashboard")}
+            </Link>
           ) : null}
         </nav>
 
@@ -372,7 +357,7 @@ export function Navbar() {
                     className="block px-3 py-2 rounded-lg text-base font-semibold hover:bg-muted dark:hover:bg-zinc-900 flex items-center gap-2"
                   >
                     <Settings className="w-5 h-5 text-primary" />
-                    Kelas & Tarif
+                    Pengaturan
                   </Link>
                   <Link
                     href="/admin/profile"
