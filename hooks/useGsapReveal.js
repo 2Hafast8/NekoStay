@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import { animate, utils } from "animejs";
 
 /**
  * useGsapReveal — Animates elements into view when they enter the viewport.
- * Supports stagger, custom easing, and respects prefers-reduced-motion.
+ * Now powered by Anime.js + IntersectionObserver (drop-in replacement for the GSAP version).
  *
  * @param {React.RefObject} containerRef - Ref to the container wrapping the animated elements
  * @param {Object} options
@@ -17,10 +14,9 @@ gsap.registerPlugin(ScrollTrigger);
  * @param {number}  [options.opacity]    - Initial opacity (default: 0)
  * @param {number}  [options.scale]      - Initial scale (default: 1, set < 1 for scale-in)
  * @param {number}  [options.duration]   - Animation duration in seconds (default: 0.65)
- * @param {number}  [options.stagger]    - Stagger delay between children (default: 0.1)
- * @param {number}  [options.delay]      - Delay before animation starts (default: 0)
- * @param {string}  [options.ease]       - GSAP ease string (default: "power3.out")
- * @param {string}  [options.start]      - ScrollTrigger start (default: "top 88%")
+ * @param {number}  [options.stagger]    - Stagger delay between children in seconds (default: 0.1)
+ * @param {number}  [options.delay]      - Delay before animation starts in seconds (default: 0)
+ * @param {string}  [options.start]      - Viewport trigger threshold (kept for API compat, maps to rootMargin)
  * @param {boolean} [options.once]       - Only trigger once (default: true)
  */
 export function useGsapReveal(containerRef, options = {}, deps = []) {
@@ -32,13 +28,11 @@ export function useGsapReveal(containerRef, options = {}, deps = []) {
     duration = 0.65,
     stagger = 0.1,
     delay = 0,
-    ease = "power3.out",
     start = "top 88%",
     once = true,
   } = options;
 
   useEffect(() => {
-    // Respect prefers-reduced-motion
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -50,35 +44,68 @@ export function useGsapReveal(containerRef, options = {}, deps = []) {
     const targets = el.querySelectorAll(selector);
     if (!targets.length) return;
 
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        targets,
-        { y, opacity, scale },
-        {
-          y: 0,
-          opacity: 1,
-          scale: 1,
-          duration,
-          stagger,
-          delay,
-          ease,
-          scrollTrigger: {
-            trigger: el,
-            start,
-            toggleActions: once
-              ? "play none none none"
-              : "play none none reverse",
-          },
-        }
-      );
-    }, el);
+    // Parse start string to rootMargin (e.g. "top 88%" → "0px 0px -12% 0px")
+    let rootMarginBottom = "-12%";
+    const match = start.match(/(\d+)%/);
+    if (match) {
+      const pct = parseInt(match[1], 10);
+      rootMarginBottom = `-${100 - pct}%`;
+    }
 
-    return () => ctx.revert();
-  }, [containerRef.current, selector, y, opacity, scale, duration, stagger, delay, ease, start, once, ...deps]);
+    // Set initial styles
+    targets.forEach((t) => {
+      t.style.opacity = String(opacity);
+      t.style.transform = `translateY(${y}px) scale(${scale})`;
+    });
+
+    let hasAnimated = false;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && (!once || !hasAnimated)) {
+            hasAnimated = true;
+
+            animate({
+              targets: Array.from(targets),
+              translateY: [y, 0],
+              opacity: [opacity, 1],
+              scale: [scale, 1],
+              duration: duration * 1000,
+              delay: utils.stagger(stagger * 1000, { start: delay * 1000 }),
+              easing: "easeOutCubic",
+              complete: () => {
+                // Clean up inline styles after animation
+                targets.forEach((t) => {
+                  t.style.transform = "";
+                  t.style.opacity = "";
+                });
+              },
+            });
+
+            if (once) {
+              observer.disconnect();
+            }
+          }
+        });
+      },
+      {
+        rootMargin: `0px 0px ${rootMarginBottom} 0px`,
+        threshold: 0,
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [containerRef.current, selector, y, opacity, scale, duration, stagger, delay, start, once, ...deps]);
 }
 
 /**
  * useGsapCounter — Animates a number counting up when element enters viewport.
+ * Now powered by Anime.js + IntersectionObserver.
  *
  * @param {React.RefObject} ref  - Ref to the element whose textContent will be updated
  * @param {number} target        - The final number to count to
@@ -105,24 +132,40 @@ export function useGsapCounter(ref, target, options = {}) {
       duration = 1.8,
     } = options;
 
-    const ctx = gsap.context(() => {
-      const obj = { val: 0 };
-      gsap.to(obj, {
-        val: target,
-        duration,
-        ease: "power2.out",
-        scrollTrigger: {
-          trigger: el,
-          start: "top 90%",
-          toggleActions: "play none none none",
-        },
-        onUpdate() {
-          el.textContent =
-            prefix + obj.val.toFixed(decimals) + suffix;
-        },
-      });
-    }, el);
+    let hasAnimated = false;
 
-    return () => ctx.revert();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAnimated) {
+            hasAnimated = true;
+
+            const obj = { val: 0 };
+            animate({
+              targets: obj,
+              val: target,
+              duration: duration * 1000,
+              easing: "easeOutQuad",
+              round: decimals === 0 ? 1 : false,
+              update: () => {
+                el.textContent = prefix + obj.val.toFixed(decimals) + suffix;
+              },
+            });
+
+            observer.disconnect();
+          }
+        });
+      },
+      {
+        rootMargin: "0px 0px -10% 0px",
+        threshold: 0,
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
   }, [ref, target, options]);
 }

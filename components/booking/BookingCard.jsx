@@ -15,12 +15,15 @@ export function BookingCard({ booking, isAdmin = false }) {
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced || !cardRef.current) return;
-    import("gsap").then(({ gsap }) => {
-      gsap.fromTo(
-        cardRef.current,
-        { opacity: 0, y: 20, scale: 0.97 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }
-      );
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: cardRef.current,
+        opacity: [0, 1],
+        translateY: [20, 0],
+        scale: [0.97, 1],
+        duration: 550,
+        easing: "easeOutCubic",
+      });
     });
   }, []);
 

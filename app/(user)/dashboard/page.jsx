@@ -14,11 +14,11 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { animate } from "animejs";
 import { createClient } from "@/lib/supabase/client";
 import { BookingCard } from "@/components/booking/BookingCard";
 import { useLanguage } from "@/hooks/useLanguage";
-import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
-import { gsap } from "gsap";
+import { useAnimeReveal } from "@/hooks/useAnimeReveal";
 
 export default function UserDashboard() {
   const { t, language } = useLanguage();
@@ -31,7 +31,7 @@ export default function UserDashboard() {
   const ITEMS_PER_PAGE = 6;
   const supabase = createClient();
 
-  // GSAP animation refs
+  // Animation refs
   const headerRef = useRef(null);
   const statsRef = useRef(null);
   const totalRef = useRef(null);
@@ -39,9 +39,9 @@ export default function UserDashboard() {
   const waitingRef = useRef(null);
   const completedRef = useRef(null);
 
-  // Stagger reveals
-  useGsapReveal(headerRef, { selector: ":scope > *", y: 20, stagger: 0.12, duration: 0.55, delay: 0.1 });
-  useGsapReveal(statsRef, { selector: ":scope > *", y: 28, stagger: 0.1, duration: 0.55, start: "top 95%" });
+  // Stagger reveals with Anime.js
+  useAnimeReveal(headerRef, { selector: ".anim-head", translateY: 20, stagger: 90, duration: 600 });
+  useAnimeReveal(statsRef, { selector: ".stat-card", translateY: 25, stagger: 80, duration: 650 });
 
   const fetchBookings = useCallback(
     async (uid) => {
@@ -72,7 +72,6 @@ export default function UserDashboard() {
   useEffect(() => {
     let isMounted = true;
 
-    // Listen for auth state changes (mount, token refresh, sign in/out)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -116,17 +115,31 @@ export default function UserDashboard() {
     completed: bookings.filter((b) => b.status === "Selesai").length,
   };
 
-  // Count up stats
-  useGsapCounter(totalRef, stats.total);
-  useGsapCounter(activeRef, stats.active);
-  useGsapCounter(waitingRef, stats.waiting);
-  useGsapCounter(completedRef, stats.completed);
+  // Anime.js Stat Counters Effect
+  useEffect(() => {
+    const counterObj = { total: 0, active: 0, waiting: 0, completed: 0 };
+    animate({
+      targets: counterObj,
+      total: stats.total,
+      active: stats.active,
+      waiting: stats.waiting,
+      completed: stats.completed,
+      duration: 1200,
+      easing: "easeOutExpo",
+      update: () => {
+        if (totalRef.current) totalRef.current.textContent = Math.round(counterObj.total);
+        if (activeRef.current) activeRef.current.textContent = Math.round(counterObj.active);
+        if (waitingRef.current) waitingRef.current.textContent = Math.round(counterObj.waiting);
+        if (completedRef.current) completedRef.current.textContent = Math.round(counterObj.completed);
+      },
+    });
+  }, [stats.total, stats.active, stats.waiting, stats.completed]);
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+        <div className="space-y-1 anim-head">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
             <span>{t("user_db_badge")}</span>
@@ -141,189 +154,151 @@ export default function UserDashboard() {
 
         <Link
           href="/booking/new"
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/95 transition-all shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-100 cursor-pointer w-fit"
+          className="anim-head inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-primary/95 text-primary-foreground font-bold text-xs rounded-2xl shadow-md hover:shadow-lg transition-all cursor-pointer shrink-0"
         >
-          <Plus className="w-4.5 h-4.5" />
-          {t("user_db_new_booking")}
+          <Plus className="w-4 h-4" />
+          <span>{t("user_db_btn_new")}</span>
         </Link>
       </div>
 
-      {/* Stats Section */}
-      <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-secondary text-primary rounded-xl">
+      {/* Stats Cards */}
+      <div ref={statsRef} className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+        <div className="stat-card bg-card border border-border p-5 rounded-3xl space-y-2 hover:border-primary/30 transition-all">
+          <div className="p-2.5 bg-primary/10 text-primary rounded-2xl w-fit">
             <LayoutDashboard className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              {t("user_db_stat_total")}
-            </span>
-            <span ref={totalRef} className="text-2xl font-black text-foreground">
+            <p ref={totalRef} className="text-2xl font-black text-foreground">
               0
-            </span>
+            </p>
+            <p className="text-xs text-muted-foreground font-bold">
+              {t("user_db_stat_total")}
+            </p>
           </div>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 rounded-xl">
+        <div className="stat-card bg-card border border-border p-5 rounded-3xl space-y-2 hover:border-amber-500/30 transition-all">
+          <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-2xl w-fit">
+            <Cat className="w-5 h-5" />
+          </div>
+          <div>
+            <p ref={activeRef} className="text-2xl font-black text-amber-500">
+              0
+            </p>
+            <p className="text-xs text-muted-foreground font-bold">
+              {t("user_db_stat_active")}
+            </p>
+          </div>
+        </div>
+
+        <div className="stat-card bg-card border border-border p-5 rounded-3xl space-y-2 hover:border-blue-500/30 transition-all">
+          <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-2xl w-fit">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              {t("user_db_stat_active")}
-            </span>
-            <span ref={activeRef} className="text-2xl font-black text-foreground">
+            <p ref={waitingRef} className="text-2xl font-black text-blue-500">
               0
-            </span>
+            </p>
+            <p className="text-xs text-muted-foreground font-bold">
+              {t("user_db_stat_waiting")}
+            </p>
           </div>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-500 rounded-xl">
-            <Clock className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              {t("user_db_stat_pending")}
-            </span>
-            <span ref={waitingRef} className="text-2xl font-black text-foreground">
-              0
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 text-blue-600 rounded-xl">
+        <div className="stat-card bg-card border border-border p-5 rounded-3xl space-y-2 hover:border-emerald-500/30 transition-all">
+          <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-2xl w-fit">
             <History className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
-              {t("user_db_stat_completed")}
-            </span>
-            <span ref={completedRef} className="text-2xl font-black text-foreground">
+            <p ref={completedRef} className="text-2xl font-black text-emerald-500">
               0
-            </span>
+            </p>
+            <p className="text-xs text-muted-foreground font-bold">
+              {t("user_db_stat_completed")}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6">
-        {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
-          const tabMapping = {
-            "Semua": t("user_db_tab_all"),
-            "Menunggu": t("user_db_tab_waiting"),
-            "Aktif": t("user_db_tab_active"),
-            "Selesai": t("user_db_tab_completed"),
-            "Dibatalkan": t("user_db_tab_cancelled")
-          };
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-4 text-sm font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
-                activeTab === tab
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tabMapping[tab]}
-              {activeTab === tab && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          );
-        })}
+      <div className="flex items-center gap-2 border-b border-border pb-3 overflow-x-auto">
+        {["Semua", "Aktif", "Menunggu", "Selesai", "Dibatalkan"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === tab
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      {/* Booking List */}
+      {/* Bookings Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="border border-border/60 rounded-3xl p-6 space-y-4 bg-card"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-muted animate-pulse" />
-                  <div className="space-y-2">
-                    <div className="h-4.5 w-24 bg-muted rounded-md animate-pulse" />
-                    <div className="h-3 w-16 bg-muted rounded-md animate-pulse" />
-                  </div>
-                </div>
-                <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
-              </div>
-              <div className="h-20 bg-muted/50 rounded-xl animate-pulse" />
-              <div className="h-10 bg-muted rounded-xl animate-pulse" />
-            </div>
+              className="h-56 bg-card border border-border rounded-3xl"
+            />
           ))}
         </div>
-      ) : filteredBookings.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-dashed border-border rounded-3xl p-8 max-w-xl mx-auto space-y-4">
+      ) : paginatedBookings.length === 0 ? (
+        <div className="bg-card border border-border p-12 text-center rounded-3xl space-y-4">
           <div className="p-4 bg-secondary text-primary rounded-full w-fit mx-auto">
             <Cat className="w-8 h-8" />
           </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-foreground">
-              {t("user_db_no_bookings")}
+          <div>
+            <h3 className="text-base font-extrabold text-foreground">
+              {t("user_db_empty_title")}
             </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("user_db_no_bookings_desc")}
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+              {t("user_db_empty_desc")}
             </p>
           </div>
-          {activeTab === "Semua" && (
-            <Link
-              href="/booking/new"
-              className="inline-flex px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer"
-            >
-              {t("user_db_new_booking")}
-            </Link>
-          )}
+          <Link
+            href="/booking/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl shadow-xs hover:bg-primary/95 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t("user_db_btn_new")}</span>
+          </Link>
         </div>
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
+            {paginatedBookings.map((b) => (
+              <BookingCard key={b.id} booking={b} />
             ))}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-muted-foreground font-medium">
-                {language === "en"
-                  ? `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)} of ${filteredBookings.length} bookings`
-                  : `Menampilkan ${(currentPage - 1) * ITEMS_PER_PAGE + 1}–${Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)} dari ${filteredBookings.length} pesanan`}
-              </span>
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Menampilkan {(currentPage - 1) * ITEMS_PER_PAGE + 1} -{" "}
+                {Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)}{" "}
+                dari {filteredBookings.length} pesanan
+              </p>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="p-2 rounded-xl border border-border hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      currentPage === page
-                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
-                        : "border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-
+                <span className="text-xs font-bold px-2 text-foreground">
+                  {currentPage} / {totalPages}
+                </span>
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="p-2 rounded-xl border border-border hover:bg-muted text-foreground disabled:opacity-40 cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -333,136 +308,93 @@ export default function UserDashboard() {
         </div>
       )}
 
-      {/* FAQ & Help Section (Heuristic 10: Help and Documentation) */}
-      <HelpSection language={language === "en" ? "en" : "id"} t={t} />
+      {/* FAQ Section */}
+      <div className="bg-card border border-border rounded-3xl p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-secondary text-primary rounded-2xl">
+            <HelpCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-base text-foreground">
+              {language === "en" ? "Frequently Asked Questions" : "Pertanyaan Umum (FAQ)"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {language === "en" ? "Common questions about cat boarding at NekoStay" : "Informasi penting mengenai layanan penitipan kucing NekoStay."}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {[
+            {
+              q: language === "en" ? "How do I check my cat's condition?" : "Bagaimana cara memantau kondisi kucing saya?",
+              a: language === "en" ? "You can click on any active booking card to see daily photo updates, notes from caretaker, and health status." : "Anda cukup mengklik salah satu pesanan aktif di atas untuk melihat foto harian, catatan perawat, serta status kesehatan kucing Anda.",
+            },
+            {
+              q: language === "en" ? "What foods are provided?" : "Makanan apa yang disediakan di NekoStay?",
+              a: language === "en" ? "We provide premium dry and wet food twice or thrice daily depending on room class. You can also bring custom food." : "Kami menyediakan pakan kering & basah kualitas premium sesuai paket kelas kamar. Anda juga dapat membawa makanan khusus dari rumah.",
+            },
+            {
+              q: language === "en" ? "How do I cancel or reschedule?" : "Bagaimana cara membatalkan atau mengubah tanggal penitipan?",
+              a: language === "en" ? "You can cancel active bookings via booking details page prior to check-in date or contact our admin via WhatsApp." : "Pembatalan dapat dilakukan langsung dari halaman detail pesanan sebelum H-1 check-in, atau dengan menghubungi admin via WhatsApp.",
+            },
+          ].map((item, idx) => (
+            <AnimeFaqItem key={idx} item={item} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function GsapFaqItem({ item, isOpen, onClick }) {
+function AnimeFaqItem({ item }) {
+  const [isOpen, setIsOpen] = useState(false);
   const contentRef = useRef(null);
-  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const el = contentRef.current;
     if (!el) return;
 
-    if (prefersReduced) {
-      el.style.height = isOpen ? "auto" : "0px";
-      el.style.opacity = isOpen ? "1" : "0";
-      return;
-    }
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      gsap.set(el, { height: isOpen ? "auto" : 0, opacity: isOpen ? 1 : 0 });
-      return;
-    }
-
     if (isOpen) {
-      gsap.fromTo(
-        el,
-        { height: 0, opacity: 0 },
-        {
-          height: "auto",
-          opacity: 1,
-          duration: 0.35,
-          ease: "power2.out",
-          overwrite: "auto",
-        }
-      );
+      animate({
+        targets: el,
+        height: [0, el.scrollHeight],
+        opacity: [0, 1],
+        duration: 350,
+        easing: "easeOutQuart",
+      });
     } else {
-      gsap.to(el, {
+      animate({
+        targets: el,
         height: 0,
         opacity: 0,
-        duration: 0.3,
-        ease: "power2.inOut",
-        overwrite: "auto",
+        duration: 300,
+        easing: "easeInQuart",
       });
     }
   }, [isOpen]);
 
   return (
-    <div className="border border-border/80 dark:border-zinc-800 rounded-xl overflow-hidden bg-muted/10 transition-colors">
+    <div className="border border-border/80 dark:border-zinc-800 rounded-2xl overflow-hidden bg-muted/10 transition-colors">
       <button
         type="button"
-        onClick={onClick}
+        onClick={() => setIsOpen(!isOpen)}
         className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left font-bold text-sm text-foreground hover:bg-muted/30 cursor-pointer transition-colors"
       >
         <span>{item.q}</span>
-        <ChevronDown 
-          className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} 
+        <ChevronDown
+          className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-      <div 
-        ref={contentRef} 
+
+      <div
+        ref={contentRef}
         className="overflow-hidden"
         style={{ height: 0, opacity: 0 }}
       >
-        <div className="px-5 pb-4 text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed border-t border-border/30 pt-3">
+        <p className="px-5 pb-4 text-xs text-muted-foreground leading-relaxed border-t border-border/40 pt-3">
           {item.a}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HelpSection({ language, t }) {
-  const [openIndex, setOpenIndex] = useState(null);
-
-  const faqItems = [
-    {
-      q: language === "en" ? "How do I check in my cat?" : "Bagaimana cara penyerahan kucing?",
-      a: language === "en"
-        ? "Bring your cat along with their favorite food/toys to the NekoStay location on your scheduled check-in day. Our staff will register and double-check your cat's health status."
-        : "Bawa kucing Anda beserta pakan kesukaannya ke lokasi NekoStay pada hari check-in. Staf kami akan mendata dan memeriksa ulang kondisi kesehatan kucing sebelum masuk ke kandang."
-    },
-    {
-      q: language === "en" ? "How is the late checkout fee calculated?" : "Bagaimana denda keterlambatan dihitung?",
-      a: language === "en"
-        ? "If checkout is delayed past the scheduled date, an 8% compounding late fee is applied daily to protect class reservation slot availability. Please update us early if you're running late!"
-        : "Jika penjemputan terlambat dari jadwal, denda 8% akumulatif per hari akan dikenakan pada tarif harian untuk mengompensasi slot kandang. Harap hubungi admin jika Anda terpaksa terlambat."
-    },
-    {
-      q: language === "en" ? "How can I request changes to my booking?" : "Dapatkah saya mengubah jadwal atau detail pesanan?",
-      a: language === "en"
-        ? "For active bookings, you can request stay extensions or room class upgrades directly by clicking 'Contact Support (WhatsApp)' in your booking detail screen."
-        : "Untuk pesanan yang sedang berjalan (aktif), Anda dapat mengajukan perpanjangan hari atau perubahan kelas kamar secara mudah dengan mengklik tombol 'Hubungi Admin (WhatsApp)' di halaman detail pesanan."
-    },
-    {
-      q: language === "en" ? "Where can I view daily updates of my cat?" : "Di mana saya bisa melihat update harian kucing saya?",
-      a: language === "en"
-        ? "Open your booking card on this dashboard and select 'Lihat Detail'. Any health reports, appetite progress, and latest photos will be posted under the 'Riwayat Kondisi Kucing' section."
-        : "Buka kartu pesanan Anda di dashboard ini, lalu klik 'Lihat Detail'. Laporan kesehatan, status makan, dan foto terbaru si mpus akan di-update oleh staf kami di kolom 'Riwayat Kondisi Kucing'."
-    }
-  ];
-
-  return (
-    <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 mt-12 animate-in fade-in duration-300">
-      <div className="flex items-center gap-3 border-b border-border/60 dark:border-zinc-800/60 pb-4">
-        <div className="p-2 bg-primary/10 text-primary rounded-xl">
-          <HelpCircle className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-lg font-black text-foreground">
-            {language === "en" ? "Help Center & FAQ" : "Pusat Bantuan & Tanya Jawab"}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {language === "en" ? "Find answers to common questions about NekoStay boarding services" : "Temukan jawaban atas pertanyaan umum seputar layanan penitipan NekoStay"}
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {faqItems.map((item, idx) => (
-          <GsapFaqItem
-            key={idx}
-            item={item}
-            isOpen={openIndex === idx}
-            onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-          />
-        ))}
+        </p>
       </div>
     </div>
   );

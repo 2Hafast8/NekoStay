@@ -15,11 +15,14 @@ function CheckboxIndicatorWrapper({ children }) {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    import("gsap").then(({ gsap }) => {
-      gsap.fromTo(el,
-        { scale: 0.4, opacity: 0 },
-        { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(1.85)" }
-      );
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: el,
+        scale: [0.4, 1],
+        opacity: [0, 1],
+        duration: 350,
+        easing: "easeOutBack",
+      });
     });
   }, []);
 

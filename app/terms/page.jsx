@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Cat, ArrowLeft, Shield, FileText, AlertTriangle, Users, CreditCard, Lock, RefreshCw, Mail } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { useLanguage } from "@/hooks/useLanguage";
-import { gsap } from "gsap";
+import { animate, utils } from "animejs";
 
 export default function TermsPage() {
   const { language } = useLanguage();
@@ -22,20 +22,26 @@ export default function TermsPage() {
 
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
+    if (prefersReduced || !mounted) return;
 
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.fromTo(headerRef.current, { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 })
-        .fromTo(
-          contentRef.current?.querySelectorAll(":scope > *"),
-          { y: 28, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.55, stagger: 0.1 },
-          "-=0.3"
-        );
+    animate({
+      targets: headerRef.current,
+      translateY: [-24, 0],
+      opacity: [0, 1],
+      duration: 600,
+      easing: "easeOutCubic",
     });
 
-    return () => ctx.revert();
+    if (contentRef.current) {
+      animate({
+        targets: contentRef.current.children,
+        translateY: [24, 0],
+        opacity: [0, 1],
+        duration: 700,
+        delay: utils.stagger(80),
+        easing: "easeOutCubic",
+      });
+    }
   }, [mounted]);
 
   const sections = isEn

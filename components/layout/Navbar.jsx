@@ -55,12 +55,15 @@ export function Navbar() {
     if (!navRef.current) return;
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
-    import("gsap").then(({ gsap }) => {
-      gsap.fromTo(
-        navRef.current,
-        { y: -30, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: 0.05 }
-      );
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: navRef.current,
+        translateY: [-24, 0],
+        opacity: [0, 1],
+        duration: 600,
+        easing: "easeOutCubic",
+        delay: 50,
+      });
     });
   }, []);
 

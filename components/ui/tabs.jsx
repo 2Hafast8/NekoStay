@@ -79,12 +79,18 @@ function TabsContent({
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    import("gsap").then(({ gsap }) => {
-      gsap.fromTo(
-        el,
-        { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", clearProps: "transform,opacity" }
-      );
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: el,
+        opacity: [0, 1],
+        translateY: [6, 0],
+        duration: 300,
+        easing: "easeOutQuad",
+        complete: () => {
+          el.style.transform = "";
+          el.style.opacity = "";
+        },
+      });
     });
   }, []);
 

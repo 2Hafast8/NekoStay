@@ -49,16 +49,26 @@ function Button({
   const handlePointerDown = (e) => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
-    import("gsap").then(({ gsap }) => {
-      gsap.to(e.currentTarget, { scale: 0.96, duration: 0.12, ease: "power1.out", overwrite: "auto" });
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: e.currentTarget,
+        scale: 0.95,
+        duration: 120,
+        easing: "easeOutQuad",
+      });
     });
   };
 
   const handlePointerUp = (e) => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
-    import("gsap").then(({ gsap }) => {
-      gsap.to(e.currentTarget, { scale: 1, duration: 0.45, ease: "elastic.out(1.1, 0.35)", overwrite: "auto" });
+    import("animejs").then(({ animate }) => {
+      animate({
+        targets: e.currentTarget,
+        scale: 1,
+        duration: 450,
+        easing: "easeOutElastic(1, 0.4)",
+      });
     });
   };
 

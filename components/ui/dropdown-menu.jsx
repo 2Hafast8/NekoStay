@@ -47,22 +47,30 @@ function DropdownMenuContent({
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    import("gsap").then(({ gsap }) => {
+    import("animejs").then(({ animate, utils }) => {
       // Animate container popup
-      gsap.fromTo(el,
-        { scale: 0.95, opacity: 0, y: -6 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.24, ease: "power2.out" }
-      );
+      animate({
+        targets: el,
+        scale: [0.95, 1],
+        opacity: [0, 1],
+        translateY: [-6, 0],
+        duration: 240,
+        easing: "easeOutQuad",
+      });
 
       // Stagger items entry
       const items = el.querySelectorAll(
         '[data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-label"]'
       );
       if (items.length > 0) {
-        gsap.fromTo(items,
-          { opacity: 0, x: -8 },
-          { opacity: 1, x: 0, duration: 0.28, stagger: 0.03, ease: "power2.out", delay: 0.04 }
-        );
+        animate({
+          targets: items,
+          opacity: [0, 1],
+          translateX: [-8, 0],
+          duration: 280,
+          delay: utils.stagger(30, { start: 40 }),
+          easing: "easeOutQuad",
+        });
       }
     });
   }, []);
