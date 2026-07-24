@@ -64,8 +64,7 @@ export function useAnimeReveal(
             }
 
             if (targetsToAnimate.length > 0) {
-              animate({
-                targets: targetsToAnimate,
+              animate(targetsToAnimate, {
                 translateY: [translateY, 0],
                 opacity: [0, 1],
                 duration,

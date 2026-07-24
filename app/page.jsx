@@ -66,8 +66,7 @@ export default function LandingPage() {
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
 
-    animate({
-      targets: btn,
+    animate(btn, {
       translateX: x * 0.28,
       translateY: y * 0.28,
       duration: 350,
@@ -79,8 +78,7 @@ export default function LandingPage() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    animate({
-      targets: e.currentTarget,
+    animate(e.currentTarget, {
       translateX: 0,
       translateY: 0,
       duration: 500,
@@ -106,8 +104,7 @@ export default function LandingPage() {
     const rotX = -(dy / yc) * 6;
     const rotY = (dx / xc) * 6;
 
-    animate({
-      targets: card,
+    animate(card, {
       rotateX: rotX,
       rotateY: rotY,
       scale: 1.02,
@@ -120,8 +117,7 @@ export default function LandingPage() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    animate({
-      targets: e.currentTarget,
+    animate(e.currentTarget, {
       rotateX: 0,
       rotateY: 0,
       scale: 1,
@@ -137,8 +133,7 @@ export default function LandingPage() {
     if (prefersReduced) return;
 
     const track = marqueeTrackRef.current;
-    const animation = animate({
-      targets: track,
+    const animation = animate(track, {
       translateX: ["0%", "-50%"],
       duration: 24000,
       easing: "linear",
@@ -193,14 +188,13 @@ export default function LandingPage() {
     if (prefersReduced) return;
 
     // Staggered entrance for Hero section items
-    animate({
-      targets: [
+    animate([
         heroBadgeRef.current,
         heroTitleRef.current,
         heroDescRef.current,
         heroBtnsRef.current,
         heroStatsRef.current,
-      ],
+      ], {
       translateY: [30, 0],
       opacity: [0, 1],
       duration: 800,
@@ -208,8 +202,7 @@ export default function LandingPage() {
       easing: "easeOutCubic",
     });
 
-    animate({
-      targets: heroImageRef.current,
+    animate(heroImageRef.current, {
       translateX: [40, 0],
       opacity: [0, 1],
       duration: 900,
@@ -219,8 +212,7 @@ export default function LandingPage() {
 
     // Number counters animation with Anime.js
     const counterObj = { cats: 0, rating: 0 };
-    animate({
-      targets: counterObj,
+    animate(counterObj, {
       cats: 1200,
       rating: 98.9,
       duration: 2200,

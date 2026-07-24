@@ -49,8 +49,7 @@ function DropdownMenuContent({
 
     import("animejs").then(({ animate, utils }) => {
       // Animate container popup
-      animate({
-        targets: el,
+      animate(el, {
         scale: [0.95, 1],
         opacity: [0, 1],
         translateY: [-6, 0],
@@ -63,8 +62,7 @@ function DropdownMenuContent({
         '[data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-label"]'
       );
       if (items.length > 0) {
-        animate({
-          targets: items,
+        animate(items, {
           opacity: [0, 1],
           translateX: [-8, 0],
           duration: 280,

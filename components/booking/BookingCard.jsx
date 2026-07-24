@@ -16,8 +16,7 @@ export function BookingCard({ booking, isAdmin = false }) {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced || !cardRef.current) return;
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: cardRef.current,
+      animate(cardRef.current, {
         opacity: [0, 1],
         translateY: [20, 0],
         scale: [0.97, 1],

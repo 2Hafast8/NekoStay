@@ -80,8 +80,7 @@ function TabsContent({
     if (prefersReduced) return;
 
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: el,
+      animate(el, {
         opacity: [0, 1],
         translateY: [6, 0],
         duration: 300,

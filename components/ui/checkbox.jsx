@@ -16,8 +16,7 @@ function CheckboxIndicatorWrapper({ children }) {
     if (prefersReduced) return;
 
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: el,
+      animate(el, {
         scale: [0.4, 1],
         opacity: [0, 1],
         duration: 350,

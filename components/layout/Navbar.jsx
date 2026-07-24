@@ -56,8 +56,7 @@ export function Navbar() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: navRef.current,
+      animate(navRef.current, {
         translateY: [-24, 0],
         opacity: [0, 1],
         duration: 600,

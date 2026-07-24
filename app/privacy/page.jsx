@@ -38,8 +38,7 @@ export default function PrivacyPage() {
     ).matches;
     if (prefersReduced || !mounted) return;
 
-    animate({
-      targets: headerRef.current,
+    animate(headerRef.current, {
       translateY: [-24, 0],
       opacity: [0, 1],
       duration: 600,
@@ -47,8 +46,7 @@ export default function PrivacyPage() {
     });
 
     if (contentRef.current) {
-      animate({
-        targets: contentRef.current.children,
+      animate(contentRef.current.children, {
         translateY: [24, 0],
         opacity: [0, 1],
         duration: 700,

@@ -66,8 +66,7 @@ export function useGsapReveal(containerRef, options = {}, deps = []) {
           if (entry.isIntersecting && (!once || !hasAnimated)) {
             hasAnimated = true;
 
-            animate({
-              targets: Array.from(targets),
+            animate(Array.from(targets), {
               translateY: [y, 0],
               opacity: [opacity, 1],
               scale: [scale, 1],
@@ -141,8 +140,7 @@ export function useGsapCounter(ref, target, options = {}) {
             hasAnimated = true;
 
             const obj = { val: 0 };
-            animate({
-              targets: obj,
+            animate(obj, {
               val: target,
               duration: duration * 1000,
               easing: "easeOutQuad",

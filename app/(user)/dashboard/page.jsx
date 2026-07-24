@@ -118,8 +118,7 @@ export default function UserDashboard() {
   // Anime.js Stat Counters Effect
   useEffect(() => {
     const counterObj = { total: 0, active: 0, waiting: 0, completed: 0 };
-    animate({
-      targets: counterObj,
+    animate(counterObj, {
       total: stats.total,
       active: stats.active,
       waiting: stats.waiting,
@@ -356,16 +355,14 @@ function AnimeFaqItem({ item }) {
     if (!el) return;
 
     if (isOpen) {
-      animate({
-        targets: el,
+      animate(el, {
         height: [0, el.scrollHeight],
         opacity: [0, 1],
         duration: 350,
         easing: "easeOutQuart",
       });
     } else {
-      animate({
-        targets: el,
+      animate(el, {
         height: 0,
         opacity: 0,
         duration: 300,

@@ -24,8 +24,7 @@ export default function TermsPage() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced || !mounted) return;
 
-    animate({
-      targets: headerRef.current,
+    animate(headerRef.current, {
       translateY: [-24, 0],
       opacity: [0, 1],
       duration: 600,
@@ -33,8 +32,7 @@ export default function TermsPage() {
     });
 
     if (contentRef.current) {
-      animate({
-        targets: contentRef.current.children,
+      animate(contentRef.current.children, {
         translateY: [24, 0],
         opacity: [0, 1],
         duration: 700,

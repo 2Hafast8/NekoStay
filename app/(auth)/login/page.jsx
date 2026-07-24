@@ -31,8 +31,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!cardRef.current) return;
 
-    animate({
-      targets: cardRef.current.querySelectorAll(".anim-item"),
+    animate(cardRef.current.querySelectorAll(".anim-item"), {
       translateY: [32, 0],
       opacity: [0, 1],
       duration: 800,
@@ -47,8 +46,7 @@ export default function LoginPage() {
 
     if (isPasswordFocused && !showPassword) {
       // Cover eyes with paws
-      animate({
-        targets: [catPawLeftRef.current, catPawRightRef.current],
+      animate([catPawLeftRef.current, catPawRightRef.current], {
         translateY: -34,
         translateX: (el, i) => (i === 0 ? 14 : -14),
         rotate: (el, i) => (i === 0 ? 15 : -15),
@@ -56,16 +54,14 @@ export default function LoginPage() {
         easing: "easeOutBack(2.0)",
       });
 
-      animate({
-        targets: catEyesRef.current,
+      animate(catEyesRef.current, {
         scaleY: 0.1,
         duration: 200,
         easing: "easeInOutQuad",
       });
     } else {
       // Uncover eyes
-      animate({
-        targets: [catPawLeftRef.current, catPawRightRef.current],
+      animate([catPawLeftRef.current, catPawRightRef.current], {
         translateY: 0,
         translateX: 0,
         rotate: 0,
@@ -73,8 +69,7 @@ export default function LoginPage() {
         easing: "easeOutElastic(1, 0.5)",
       });
 
-      animate({
-        targets: catEyesRef.current,
+      animate(catEyesRef.current, {
         scaleY: 1,
         duration: 200,
         easing: "easeInOutQuad",
@@ -87,16 +82,14 @@ export default function LoginPage() {
     if (!catEyesRef.current || isPasswordFocused) return;
 
     if (isEmailFocused) {
-      animate({
-        targets: catEyesRef.current,
+      animate(catEyesRef.current, {
         translateY: 4,
         translateX: 0,
         duration: 250,
         easing: "easeOutQuad",
       });
     } else {
-      animate({
-        targets: catEyesRef.current,
+      animate(catEyesRef.current, {
         translateY: 0,
         translateX: 0,
         duration: 300,
@@ -111,8 +104,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     // Button click spring bounce effect
-    animate({
-      targets: ".login-btn",
+    animate(".login-btn", {
       scale: [0.94, 1],
       duration: 400,
       easing: "easeOutElastic(1, 0.4)",
@@ -148,8 +140,7 @@ export default function LoginPage() {
       setErrorMsg(err.message || "Terjadi kesalahan sistem. Coba lagi.");
 
       // Shake card on error
-      animate({
-        targets: cardRef.current,
+      animate(cardRef.current, {
         translateX: [-10, 10, -8, 8, -4, 4, 0],
         duration: 500,
         easing: "easeInOutSine",

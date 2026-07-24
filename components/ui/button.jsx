@@ -50,8 +50,7 @@ function Button({
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: e.currentTarget,
+      animate(e.currentTarget, {
         scale: 0.95,
         duration: 120,
         easing: "easeOutQuad",
@@ -63,8 +62,7 @@ function Button({
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
     import("animejs").then(({ animate }) => {
-      animate({
-        targets: e.currentTarget,
+      animate(e.currentTarget, {
         scale: 1,
         duration: 450,
         easing: "easeOutElastic(1, 0.4)",

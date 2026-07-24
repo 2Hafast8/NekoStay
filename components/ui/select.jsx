@@ -76,8 +76,7 @@ function SelectContent({
 
     import("animejs").then(({ animate, utils }) => {
       // Animate select popup container
-      animate({
-        targets: el,
+      animate(el, {
         scale: [0.95, 1],
         opacity: [0, 1],
         translateY: [-6, 0],
@@ -90,8 +89,7 @@ function SelectContent({
         '[data-slot="select-item"], [data-slot="select-label"]'
       );
       if (items.length > 0) {
-        animate({
-          targets: items,
+        animate(items, {
           opacity: [0, 1],
           translateX: [-8, 0],
           duration: 280,
