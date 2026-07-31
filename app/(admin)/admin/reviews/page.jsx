@@ -272,13 +272,20 @@ export default function AdminReviewsPage() {
 
                   {/* Existing Reply Display */}
                   {hasReply && (
-                    <div className="bg-amber-500/5 dark:bg-amber-500/[0.02] border border-amber-500/10 p-4 rounded-2xl space-y-1.5 ml-4 md:ml-6">
-                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
-                        {t("admin_rev_response_title")}
-                      </span>
-                      <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed font-medium">
-                        {rev.reply_text}
-                      </p>
+                    <div className="space-y-2 ml-4 md:ml-6">
+                      {rev.reply_text.split("\n---\n").map((rText, rIdx) => (
+                        <div
+                          key={rIdx}
+                          className="bg-amber-500/5 dark:bg-amber-500/[0.02] border border-amber-500/10 p-4 rounded-2xl space-y-1"
+                        >
+                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                            {t("admin_rev_response_title")} #{rIdx + 1}
+                          </span>
+                          <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed font-medium">
+                            {rText}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   )}
 
@@ -289,7 +296,7 @@ export default function AdminReviewsPage() {
                       className="space-y-3 pt-2 ml-4 md:ml-6"
                     >
                       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                        {t("admin_rev_reply_email")}
+                        {t("admin_rev_reply_email")} (Balasan #{rev.reply_text ? rev.reply_text.split("\n---\n").length + 1 : 1}/3)
                       </label>
                       <textarea
                         value={replyText}
@@ -334,7 +341,7 @@ export default function AdminReviewsPage() {
                   </Link>
 
                   {(() => {
-                    const replyCount = rev.reply_count || (rev.reply_text ? 1 : 0);
+                    const replyCount = rev.reply_text ? rev.reply_text.split("\n---\n").length : 0;
                     const isMaxed = replyCount >= 3;
 
                     if (isMaxed) {
@@ -345,35 +352,17 @@ export default function AdminReviewsPage() {
                       );
                     }
 
-                    if (!hasReply && !isReplying) {
-                      return (
-                        <button
-                          onClick={() => {
-                            setReplyingToId(rev.id);
-                            setReplyText("");
-                          }}
-                          className="px-4 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer text-center"
-                        >
-                          {t("admin_rev_btn_reply")} ({replyCount}/3)
-                        </button>
-                      );
-                    }
-
-                    if (hasReply && !isReplying) {
-                      return (
-                        <button
-                          onClick={() => {
-                            setReplyingToId(rev.id);
-                            setReplyText(rev.reply_text);
-                          }}
-                          className="px-4 py-2.5 border border-border rounded-xl text-muted-foreground hover:text-foreground text-xs font-bold hover:bg-muted/10 transition-all cursor-pointer text-center"
-                        >
-                          {t("admin_rev_btn_edit")} ({replyCount}/3)
-                        </button>
-                      );
-                    }
-
-                    return null;
+                    return (
+                      <button
+                        onClick={() => {
+                          setReplyingToId(rev.id);
+                          setReplyText("");
+                        }}
+                        className="px-4 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer text-center"
+                      >
+                        {t("admin_rev_btn_reply")} ({replyCount}/3)
+                      </button>
+                    );
                   })()}
                 </div>
               </div>

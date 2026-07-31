@@ -54,17 +54,20 @@ export async function POST(request) {
       return NextResponse.json({ error: "Review tidak ditemukan untuk pesanan ini." }, { status: 404 });
     }
 
-    const currentCount = review.reply_count || (review.reply_text ? 1 : 0);
-    if (currentCount >= 3) {
+    const existingReplies = review.reply_text ? review.reply_text.split("\n---\n") : [];
+    if (existingReplies.length >= 3) {
       return NextResponse.json({ error: "Ulasan ini sudah dibalas maksimal 3 kali." }, { status: 400 });
     }
 
-    // 4. Update the reply_text and reply_count in DB
+    const newReplyText = review.reply_text
+      ? `${review.reply_text}\n---\n${replyText.trim()}`
+      : replyText.trim();
+
+    // 4. Update the reply_text in DB
     const { error: updateErr } = await supabase
       .from("reviews")
       .update({ 
-        reply_text: replyText.trim(),
-        reply_count: currentCount + 1,
+        reply_text: newReplyText,
       })
       .eq("booking_id", bookingId);
 

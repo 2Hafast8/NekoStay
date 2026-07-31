@@ -737,45 +737,70 @@ export default function AdminBookingDetailPage({ params }) {
                         Tidak ada ulasan tertulis.
                       </p>
                     )}
+
+                    {/* Existing Replies List */}
+                    {review.reply_text && (
+                      <div className="space-y-2 pt-2 border-t border-border/40">
+                        {review.reply_text.split("\n---\n").map((rText, rIdx) => (
+                          <div
+                            key={rIdx}
+                            className="bg-amber-500/5 dark:bg-amber-500/[0.02] border border-amber-500/10 p-3 rounded-xl space-y-1"
+                          >
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                              Balasan Admin #{rIdx + 1}
+                            </span>
+                            <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed font-medium">
+                              {rText}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Reply Form / Max status */}
-                  {(review.reply_count || (review.reply_text ? 1 : 0)) >= 3 ? (
-                    <div className="p-3 bg-muted/40 border border-border rounded-xl text-xs font-bold text-muted-foreground text-center">
-                      Sudah dibalas maksimal (3/3)
-                    </div>
-                  ) : (
-                    <form onSubmit={handleReplySubmit} className="space-y-3 pt-2">
-                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                        Balas Ulasan (Kirim via Email) - {(review.reply_count || (review.reply_text ? 1 : 0))}/3
-                      </label>
-                      <textarea
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Tulis balasan Anda ke pelanggan..."
-                        rows={3}
-                        className="w-full text-xs p-3.5 border border-border/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary dark:bg-zinc-950 dark:border-zinc-800"
-                        required
-                      />
-                      
-                      {replySuccess && (
-                        <p className="text-xs font-semibold text-emerald-600">
-                          {replySuccess}
-                        </p>
-                      )}
+                  {(() => {
+                    const replyCount = review.reply_text ? review.reply_text.split("\n---\n").length : 0;
+                    if (replyCount >= 3) {
+                      return (
+                        <div className="p-3 bg-muted/40 border border-border rounded-xl text-xs font-bold text-muted-foreground text-center">
+                          Sudah dibalas maksimal (3/3)
+                        </div>
+                      );
+                    }
+                    return (
+                      <form onSubmit={handleReplySubmit} className="space-y-3 pt-2">
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                          Balas Ulasan (Kirim via Email) - Balasan #{replyCount + 1}/3
+                        </label>
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Tulis balasan Anda ke pelanggan..."
+                          rows={3}
+                          className="w-full text-xs p-3.5 border border-border/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary dark:bg-zinc-950 dark:border-zinc-800"
+                          required
+                        />
+                        
+                        {replySuccess && (
+                          <p className="text-xs font-semibold text-emerald-600">
+                            {replySuccess}
+                          </p>
+                        )}
 
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={isSubmittingReply}
-                          className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        >
-                          {isSubmittingReply ? "Mengirim..." : "Kirim Balasan"}
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={isSubmittingReply}
+                            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            {isSubmittingReply ? "Mengirim..." : "Kirim Balasan"}
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </form>
+                    );
+                  })()}
                 </div>
               )}
             </div>
