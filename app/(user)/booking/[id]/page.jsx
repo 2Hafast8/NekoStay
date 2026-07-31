@@ -964,7 +964,14 @@ function BookingDetailContent({ id }) {
               {booking.discount_amount > 0 && (
                 <div className="flex justify-between text-emerald-600 dark:text-emerald-450 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
                   <span>{language === "en" ? "Referral Discount" : "Diskon Referral"}:</span>
-                  <span>-{formatRupiah(booking.discount_amount)}</span>
+                  <span>-{formatRupiah(booking.discount_amount - ((booking.points_used || 0) * 100))}</span>
+                </div>
+              )}
+
+              {booking.points_used > 0 && (
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold text-sm bg-amber-500/5 p-2 rounded-lg">
+                  <span>{language === "en" ? `Neko Points (${booking.points_used} Pts)` : `Poin Neko (${booking.points_used} Poin)`}:</span>
+                  <span>-{formatRupiah(booking.points_used * 100)}</span>
                 </div>
               )}
 

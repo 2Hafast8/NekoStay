@@ -860,7 +860,14 @@ export default function AdminBookingDetailPage({ params }) {
               {booking.discount_amount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
                   <span>Diskon Referral {booking.referral_code_used ? `(${booking.referral_code_used})` : ""}:</span>
-                  <span>-{formatRupiah(booking.discount_amount)}</span>
+                  <span>-{formatRupiah(booking.discount_amount - ((booking.points_used || 0) * 100))}</span>
+                </div>
+              )}
+
+              {booking.points_used > 0 && (
+                <div className="flex justify-between text-amber-600 font-bold text-sm bg-amber-500/5 p-2 rounded-lg">
+                  <span>Diskon Poin Neko ({booking.points_used} Poin):</span>
+                  <span>-{formatRupiah(booking.points_used * 100)}</span>
                 </div>
               )}
 

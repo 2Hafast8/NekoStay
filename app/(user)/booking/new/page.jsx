@@ -65,7 +65,7 @@ function BookingFormContent() {
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
 
-  // Referral states
+  // Referral & Points states
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
   const [appliedReferral, setAppliedReferral] = useState(null);
@@ -73,17 +73,31 @@ function BookingFormContent() {
   const [referralError, setReferralError] = useState(null);
   const [referralSuccess, setReferralSuccess] = useState(null);
 
+  // Points redemption states
+  const [userPoints, setUserPoints] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [serverError, setServerError] = useState(null);
   const [pastCats, setPastCats] = useState([]);
 
-  // Load past cats for Quick Cat Select (Heuristic 7: Flexibility and Efficiency)
+  // Load past cats and user points
   useEffect(() => {
-    async function loadPastCats() {
+    async function loadPastCatsAndPoints() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
+      // Fetch user profile for points
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("neko_points")
+        .eq("id", user.id)
+        .single();
+      if (profileData) {
+        setUserPoints(profileData.neko_points || 0);
+      }
+
       const { data, error } = await supabase
         .from("bookings")
         .select("cat_name, cat_gender, cat_age, cat_health_status, cat_favorite_food, cat_photo_url")
@@ -103,7 +117,7 @@ function BookingFormContent() {
         setPastCats(uniqueCats);
       }
     }
-    loadPastCats();
+    loadPastCatsAndPoints();
   }, [supabase]);
 
   // Dynamic minimum checkout date (Heuristic 5: Error Prevention)
@@ -186,15 +200,26 @@ function BookingFormContent() {
     const baseSummary = getBookingSummary(bookingClass, checkIn, checkOut);
     
     // Apply 10% discount if referral applied
-    const discount = appliedReferral ? Math.floor(baseSummary.totalCost * 0.1) : 0;
-    const finalTotal = baseSummary.totalCost - discount;
+    const referralDiscount = appliedReferral ? Math.floor(baseSummary.totalCost * 0.1) : 0;
+    
+    // Calculate Neko Points discount (1 point = Rp 100)
+    const maxRedeemableValue = baseSummary.totalCost - referralDiscount;
+    const maxRedeemablePoints = Math.floor(maxRedeemableValue / 100);
+    const pointsToUse = usePoints ? Math.min(userPoints, maxRedeemablePoints) : 0;
+    const pointsDiscount = pointsToUse * 100;
+
+    const discount = referralDiscount + pointsDiscount;
+    const finalTotal = Math.max(0, baseSummary.totalCost - discount);
 
     return {
       ...baseSummary,
+      referralDiscount,
+      pointsDiscount,
+      pointsToUse,
       discount,
       finalTotal,
     };
-  }, [bookingClass, checkInDate, checkOutDate, appliedReferral]);
+  }, [bookingClass, checkInDate, checkOutDate, appliedReferral, usePoints, userPoints]);
 
   const validateStep1 = () => {
     const errors = {};
@@ -248,6 +273,7 @@ function BookingFormContent() {
       ];
 
       const discount = pricingPreview?.discount || 0;
+      const pointsUsed = pricingPreview?.pointsToUse || 0;
 
       // Build booking insert data
       const bookingData = {
@@ -266,6 +292,7 @@ function BookingFormContent() {
         check_out_date: checkOutDate,
         status: "Menunggu",
         discount_amount: discount,
+        points_used: pointsUsed,
       };
 
       // Add referral info if a code was applied
@@ -283,7 +310,17 @@ function BookingFormContent() {
 
       if (error) throw error;
 
-      // Award 100 Neko Points to referral code owner if referral was used
+      // Deduct used Neko Points from user's profile
+      if (pointsUsed > 0) {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ neko_points: Math.max(0, userPoints - pointsUsed) })
+            .eq("id", user.id);
+        } catch (ptsErr) {
+          console.warn("[Warning] Deduct points error:", ptsErr.message);
+        }
+      }
       if (appliedReferral && referralOwnerId) {
         try {
           const pointRes = await fetch("/api/referral/award-points", {
@@ -750,6 +787,35 @@ function BookingFormContent() {
             )}
           </div>
 
+          {/* Neko Points Redemption Section */}
+          {userPoints > 0 && (
+            <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-950/30 p-4 rounded-2xl space-y-2">
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="useNekoPoints"
+                  checked={usePoints}
+                  onChange={(e) => setUsePoints(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded-md text-amber-500 focus:ring-amber-500 border-amber-300 dark:border-zinc-700 cursor-pointer"
+                />
+                <label htmlFor="useNekoPoints" className="text-xs space-y-1 cursor-pointer block select-none">
+                  <span className="font-extrabold text-foreground dark:text-zinc-200 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    {language === "en" ? "Use Neko Points" : "Gunakan Poin Neko"}
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black text-[10px]">
+                      {userPoints} Poin Tersedia
+                    </span>
+                  </span>
+                  <p className="text-muted-foreground dark:text-zinc-400 text-[11px] leading-relaxed">
+                    {language === "en"
+                      ? `Redeem your points for a discount (100 Points = Rp 10,000 discount).`
+                      : `Tukarkan Poin Neko Anda untuk potongan harga (100 Poin = Diskon Rp 10.000).`}
+                  </p>
+                </label>
+              </div>
+            </div>
+          )}
+
           {/* Pricing Preview Summary Box */}
           {pricingPreview && (
             <div className="bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 dark:border-emerald-950/20 p-5 rounded-2xl space-y-2">
@@ -771,10 +837,16 @@ function BookingFormContent() {
                     {pricingPreview.totalDays} {language === "en" ? "Days" : "Hari"}
                   </span>
                 </div>
-                {appliedReferral && (
+                {pricingPreview.referralDiscount > 0 && (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
                     <span>{t("book_discount_referral")} (10%):</span>
-                    <span>-{formatRupiah(pricingPreview.discount)}</span>
+                    <span>-{formatRupiah(pricingPreview.referralDiscount)}</span>
+                  </div>
+                )}
+                {pricingPreview.pointsDiscount > 0 && (
+                  <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold">
+                    <span>Diskon Poin Neko ({pricingPreview.pointsToUse} Poin):</span>
+                    <span>-{formatRupiah(pricingPreview.pointsDiscount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-border/50 dark:border-zinc-800/50 pt-2 text-base font-extrabold text-foreground dark:text-zinc-150">
@@ -908,10 +980,16 @@ function BookingFormContent() {
                       {pricingPreview.totalDays} {language === "en" ? "Days" : "Hari"}
                     </span>
                   </div>
-                  {appliedReferral && (
+                  {pricingPreview.referralDiscount > 0 && (
                     <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
                       <span>{t("book_discount_referral")} (10%):</span>
-                      <span>-{formatRupiah(pricingPreview.discount)}</span>
+                      <span>-{formatRupiah(pricingPreview.referralDiscount)}</span>
+                    </div>
+                  )}
+                  {pricingPreview.pointsDiscount > 0 && (
+                    <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
+                      <span>Diskon Poin Neko ({pricingPreview.pointsToUse} Poin):</span>
+                      <span>-{formatRupiah(pricingPreview.pointsDiscount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-base font-extrabold text-foreground dark:text-zinc-150 border-t border-border/50 dark:border-zinc-850/50 pt-2">
