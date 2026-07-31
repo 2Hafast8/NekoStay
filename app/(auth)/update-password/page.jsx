@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cat, KeyRound, Sparkles, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Cat, KeyRound, Sparkles, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function UpdatePasswordPage() {
@@ -12,8 +12,27 @@ export default function UpdatePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [isExpired, setIsExpired] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const supabase = createClient();
+
+  useEffect(() => {
+    // Check hash or search params for expired / invalid link errors
+    if (typeof window !== "undefined") {
+      const fullUrl = window.location.href;
+      if (
+        fullUrl.includes("otp_expired") ||
+        fullUrl.includes("access_denied") ||
+        fullUrl.includes("invalid") ||
+        fullUrl.includes("expired")
+      ) {
+        setIsExpired(true);
+        setErrorMsg(
+          "Tautan email pemulihan telah kadaluarsa atau sudah pernah digunakan. Silakan minta tautan baru."
+        );
+      }
+    }
+  }, []);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -78,9 +97,20 @@ export default function UpdatePasswordPage() {
         </div>
 
         {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMsg}</span>
+          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            {isExpired && (
+              <Link
+                href="/forgot-password"
+                className="mt-2 w-full py-2 bg-rose-600 text-white rounded-lg font-bold text-center block hover:bg-rose-700 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Minta Link Pemulihan Baru
+              </Link>
+            )}
           </div>
         )}
 
