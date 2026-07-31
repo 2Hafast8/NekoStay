@@ -69,6 +69,7 @@ function BookingFormContent() {
   const [referralCodeInput, setReferralCodeInput] = useState("");
   const [isVerifyingReferral, setIsVerifyingReferral] = useState(false);
   const [appliedReferral, setAppliedReferral] = useState(null);
+  const [referralOwnerId, setReferralOwnerId] = useState(null);
   const [referralError, setReferralError] = useState(null);
   const [referralSuccess, setReferralSuccess] = useState(null);
 
@@ -134,6 +135,7 @@ function BookingFormContent() {
     setReferralError(null);
     setReferralSuccess(null);
     setAppliedReferral(null);
+    setReferralOwnerId(null);
 
     try {
       const res = await fetch(`/api/referral/verify?code=${code}`);
@@ -141,6 +143,7 @@ function BookingFormContent() {
 
       if (data.valid) {
         setAppliedReferral(code);
+        setReferralOwnerId(data.ownerId);
         setReferralSuccess(
           language === "en" 
             ? `Referral valid! 10% discount applied (by ${data.ownerName})` 
@@ -163,6 +166,7 @@ function BookingFormContent() {
   // Clear applied referral
   const handleRemoveReferral = () => {
     setAppliedReferral(null);
+    setReferralOwnerId(null);
     setReferralSuccess(null);
     setReferralCodeInput("");
   };
@@ -245,30 +249,59 @@ function BookingFormContent() {
 
       const discount = pricingPreview?.discount || 0;
 
+      // Build booking insert data
+      const bookingData = {
+        user_id: user.id,
+        cat_name: catName,
+        cat_gender: catGender,
+        cat_age: catAge,
+        cat_health_status: catHealth,
+        cat_favorite_food: catFood || null,
+        cat_is_pregnant: catGender === "Betina" ? isPregnant : false,
+        cat_notes: catNotes || null,
+        cat_photo_url: catPhotoUrl || null,
+        class: bookingClass,
+        price_per_day: pricePerDay,
+        check_in_date: checkInDate,
+        check_out_date: checkOutDate,
+        status: "Menunggu",
+        discount_amount: discount,
+      };
+
+      // Add referral info if a code was applied
+      if (appliedReferral && referralOwnerId) {
+        bookingData.referral_code_used = appliedReferral;
+        bookingData.referral_owner_id = referralOwnerId;
+      }
+
       // Insert booking record
       const { data: booking, error } = await supabase
         .from("bookings")
-        .insert({
-          user_id: user.id,
-          cat_name: catName,
-          cat_gender: catGender,
-          cat_age: catAge,
-          cat_health_status: catHealth,
-          cat_favorite_food: catFood || null,
-          cat_is_pregnant: catGender === "Betina" ? isPregnant : false,
-          cat_notes: catNotes || null,
-          cat_photo_url: catPhotoUrl || null,
-          class: bookingClass,
-          price_per_day: pricePerDay,
-          check_in_date: checkInDate,
-          check_out_date: checkOutDate,
-          status: "Menunggu",
-          discount_amount: discount,
-        })
+        .insert(bookingData)
         .select()
         .single();
 
       if (error) throw error;
+
+      // Award 100 Neko Points to referral code owner if referral was used
+      if (appliedReferral && referralOwnerId) {
+        try {
+          const pointRes = await fetch("/api/referral/award-points", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ownerId: referralOwnerId,
+              bookingId: booking.id,
+              points: 100,
+            }),
+          });
+          if (!pointRes.ok) {
+            console.warn("[Warning] Failed to award referral points");
+          }
+        } catch (pointErr) {
+          console.warn("[Warning] Award points error:", pointErr.message);
+        }
+      }
 
       // Insert in-app notification for admin securely via RPC
       const adminNotifTitle = language === "en" ? "New Boarding Booking" : "Pesanan Penitipan Baru";

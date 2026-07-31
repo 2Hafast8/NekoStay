@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const [userId, setUserId] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [referredCount, setReferredCount] = useState(0);
+  const [nekoPoints, setNekoPoints] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -59,8 +60,9 @@ export default function ProfilePage() {
           setPhone(profile.phone || "");
           setRole(profile.role || "");
           setReferralCode(profile.referral_code || "");
+          setNekoPoints(profile.neko_points || 0);
           
-          // Fetch referred friends count
+          // Fetch referred friends count (registrations)
           const { count, error: countErr } = await supabase
             .from("profiles")
             .select("id", { count: "exact", head: true })
@@ -296,7 +298,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <p className="text-xl font-black text-foreground dark:text-zinc-200">
-                    {referredCount * 100}
+                    {nekoPoints}
                   </p>
                   <p className="text-[10px] font-medium text-muted-foreground dark:text-zinc-400">
                     {language === "en" ? "Total Points" : "Total Poin Neko"}
