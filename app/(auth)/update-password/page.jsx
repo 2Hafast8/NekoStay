@@ -52,14 +52,34 @@ export default function UpdatePasswordPage() {
     setIsLoading(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+
       const { error } = await supabase.auth.updateUser({
         password: password,
       });
 
       if (error) throw error;
 
+      // Trigger server-side notification & security email via Resend
+      try {
+        await fetch("/api/auth/notify-password-changed", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({
+            userId: user?.id,
+            email: user?.email,
+          }),
+        });
+      } catch (notifErr) {
+        console.warn("[Warning] Password change notification error:", notifErr.message);
+      }
+
       setSuccessMsg(
-        "Password berhasil diperbarui! Anda akan diarahkan ke halaman login sebentar lagi.",
+        "Password berhasil diperbarui! Email notifikasi keamanan & notifikasi aplikasi telah dikirim. Anda akan diarahkan ke halaman login...",
       );
       setTimeout(() => {
         router.push("/login");

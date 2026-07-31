@@ -342,6 +342,8 @@ function ChangePasswordCard({ language }) {
   const [successMsg, setSuccessMsg] = useState(null);
   const supabase = createClient();
 
+  const cardRef = useRef(null);
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -368,19 +370,42 @@ function ChangePasswordCard({ language }) {
     setIsSubmitting(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (error) throw error;
 
+      // 1. Instantly update UI success state and clear inputs
       setSuccessMsg(
         language === "en"
-          ? "Password updated successfully!"
-          : "Password berhasil diperbarui!"
+          ? "Password updated successfully! A security email and in-app notification have been sent."
+          : "Password berhasil diperbarui! Email notifikasi keamanan & notifikasi aplikasi telah dikirim ke akun Anda."
       );
       setNewPassword("");
       setConfirmPassword("");
+      setIsSubmitting(false);
+
+      // Smooth scroll to alert card
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // 2. Trigger notification API non-blockingly in background
+      fetch("/api/auth/notify-password-changed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          email: user?.email,
+        }),
+      }).catch((notifErr) => {
+        console.warn("[Warning] Background password change notification error:", notifErr.message);
+      });
     } catch (err) {
       setErrorMsg(
         err.message ||
@@ -388,28 +413,27 @@ function ChangePasswordCard({ language }) {
             ? "Failed to update password."
             : "Gagal memperbarui password.")
       );
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
+    <div ref={cardRef} className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
       <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-100 text-lg border-b border-border/60 dark:border-zinc-800/60 pb-3">
         <Sparkles className="w-5 h-5 text-primary" />
         <span>{language === "en" ? "Keamanan & Ganti Password" : "Keamanan & Ganti Password"}</span>
       </div>
 
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
           <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-4 text-xs font-bold flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
