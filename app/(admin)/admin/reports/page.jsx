@@ -36,7 +36,7 @@ export default function AdminReportsPage() {
             bookings (
               status,
               cat_name,
-              profiles (full_name)
+              profiles:user_id (full_name)
             )
           `,
           )

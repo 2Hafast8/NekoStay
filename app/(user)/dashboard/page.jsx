@@ -51,7 +51,7 @@ export default function UserDashboard() {
           .select(
             `
           *,
-          profiles (full_name, phone)
+          profiles:user_id (full_name, phone)
         `,
           )
           .eq("user_id", uid)

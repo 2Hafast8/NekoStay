@@ -98,7 +98,7 @@ export default function AdminBookingsPage() {
         .select(
           `
           *,
-          profiles (full_name, phone)
+          profiles:user_id (full_name, phone)
         `
         );
 

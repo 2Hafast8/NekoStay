@@ -153,7 +153,7 @@ function DashboardContent() {
           .select(
             `
             *,
-            profiles (full_name, phone)
+            profiles:user_id (full_name, phone)
           `,
           )
           .order("created_at", { ascending: false });

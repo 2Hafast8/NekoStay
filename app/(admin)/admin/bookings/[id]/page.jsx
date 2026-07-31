@@ -84,7 +84,7 @@ export default function AdminBookingDetailPage({ params }) {
         .select(
           `
           *,
-          profiles (id, full_name, phone)
+          profiles:user_id (id, full_name, phone)
         `,
         )
         .eq("id", id)

@@ -58,7 +58,7 @@ export async function PUT(request, { params }) {
       .from("bookings")
       .select(`
         *,
-        profiles (full_name, email)
+        profiles:user_id (full_name, email)
       `)
       .eq("id", id)
       .single();

@@ -32,7 +32,7 @@ export async function GET(request) {
       .from('bookings')
       .select(`
         *,
-        profiles (email, full_name)
+        profiles:user_id (email, full_name)
       `)
       .eq('status', 'Aktif')
       .lt('check_out_date', todayStr)

@@ -41,7 +41,7 @@ export async function POST(request, { params }) {
       .from('bookings')
       .select(`
         *,
-        profiles (full_name, phone, email)
+        profiles:user_id (full_name, phone, email)
       `)
       .eq('id', id)
       .single()
@@ -52,7 +52,7 @@ export async function POST(request, { params }) {
         .from('bookings')
         .select(`
           *,
-          profiles (full_name, phone)
+          profiles:user_id (full_name, phone)
         `)
         .eq('id', id)
         .single()

@@ -24,7 +24,7 @@ export async function POST(request) {
     // 3. Cari booking berdasarkan token
     const { data: booking, error: fetchError } = await supabaseAdmin
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('*, profiles:user_id (full_name, email)')
       .eq('offline_payment_token', token)
       .single();
 

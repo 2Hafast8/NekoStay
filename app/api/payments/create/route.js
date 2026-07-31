@@ -23,7 +23,7 @@ export async function POST(request) {
     // 3. Ambil detail booking dan profile
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email, phone)')
+      .select('*, profiles:user_id (full_name, email, phone)')
       .eq('id', bookingId)
       .eq('user_id', user.id)
       .single();

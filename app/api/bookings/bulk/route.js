@@ -39,7 +39,7 @@ export async function POST(request) {
     // 3. Fetch selected bookings to process
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('*, profiles:user_id (full_name, email)')
       .in('id', ids)
 
     if (bookingsError) throw bookingsError
@@ -64,7 +64,7 @@ export async function POST(request) {
       // Re-fetch bookings setelah trigger berjalan (untuk mendapatkan token QR)
       const { data: updatedBookings } = await supabase
         .from('bookings')
-        .select('*, profiles (full_name, email)')
+        .select('*, profiles:user_id (full_name, email)')
         .in('id', validIds)
 
       // Process notifications & emails

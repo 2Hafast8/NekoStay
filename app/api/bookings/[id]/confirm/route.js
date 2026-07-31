@@ -60,7 +60,7 @@ export async function POST(request, { params }) {
     // Re-fetch booking lengkap setelah trigger berjalan (untuk mendapatkan token QR)
     const { data: updatedBooking } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('*, profiles:user_id (full_name, email)')
       .eq('id', id)
       .single()
 

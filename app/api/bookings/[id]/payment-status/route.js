@@ -35,7 +35,7 @@ export async function PATCH(request, { params }) {
     // 3. Ambil booking saat ini
     const { data: booking, error: fetchError } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('*, profiles:user_id (full_name, email)')
       .eq('id', id)
       .single();
 

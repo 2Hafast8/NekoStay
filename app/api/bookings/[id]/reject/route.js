@@ -34,7 +34,7 @@ export async function POST(request, { params }) {
     // Get booking with profiles
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('*, profiles (full_name, email)')
+      .select('*, profiles:user_id (full_name, email)')
       .eq('id', id)
       .single()
 

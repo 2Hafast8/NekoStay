@@ -97,7 +97,7 @@ function BookingDetailContent({ id }) {
         .select(
           `
           *,
-          profiles (full_name, phone)
+          profiles:user_id (full_name, phone)
         `,
         )
         .eq("id", id)
