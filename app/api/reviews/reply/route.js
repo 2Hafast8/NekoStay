@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendReviewReply } from "@/lib/email/resend";
 
 export async function POST(request) {
@@ -32,8 +33,11 @@ export async function POST(request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Use admin client (service_role) to bypass RLS for DB operations
+    const adminDb = createAdminClient();
+
     // 3. Fetch review with booking details and user profile
-    const { data: review, error: reviewErr } = await supabase
+    const { data: review, error: reviewErr } = await adminDb
       .from("reviews")
       .select(`
         *,
@@ -63,15 +67,19 @@ export async function POST(request) {
       ? `${review.reply_text}\n---\n${replyText.trim()}`
       : replyText.trim();
 
-    // 4. Update the reply_text in DB
-    const { error: updateErr } = await supabase
+    // 4. Update the reply_text in DB (using admin client to bypass RLS)
+    const { data: updateData, error: updateErr } = await adminDb
       .from("reviews")
       .update({ 
         reply_text: newReplyText,
       })
-      .eq("booking_id", bookingId);
+      .eq("booking_id", bookingId)
+      .select();
 
     if (updateErr) throw updateErr;
+    if (!updateData || updateData.length === 0) {
+      throw new Error("Gagal menyimpan balasan ke database.");
+    }
 
     // 5. Send Email via Resend
     const ownerEmail = review.bookings?.profiles?.email;
