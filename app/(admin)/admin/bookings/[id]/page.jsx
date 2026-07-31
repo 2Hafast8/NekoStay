@@ -739,37 +739,43 @@ export default function AdminBookingDetailPage({ params }) {
                     )}
                   </div>
 
-                  {/* Reply Form */}
-                  <form onSubmit={handleReplySubmit} className="space-y-3 pt-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                      Balas Ulasan (Kirim via Email)
-                    </label>
-                    <textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Tulis balasan Anda ke pelanggan..."
-                      rows={3}
-                      className="w-full text-xs p-3.5 border border-border/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary dark:bg-zinc-950 dark:border-zinc-800"
-                      required
-                    />
-                    
-                    {replySuccess && (
-                      <p className="text-xs font-semibold text-emerald-600">
-                        {replySuccess}
-                      </p>
-                    )}
-
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={isSubmittingReply}
-                        className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        {isSubmittingReply ? "Mengirim..." : "Kirim Balasan"}
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
+                  {/* Reply Form / Max status */}
+                  {(review.reply_count || (review.reply_text ? 1 : 0)) >= 3 ? (
+                    <div className="p-3 bg-muted/40 border border-border rounded-xl text-xs font-bold text-muted-foreground text-center">
+                      Sudah dibalas maksimal (3/3)
                     </div>
-                  </form>
+                  ) : (
+                    <form onSubmit={handleReplySubmit} className="space-y-3 pt-2">
+                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                        Balas Ulasan (Kirim via Email) - {(review.reply_count || (review.reply_text ? 1 : 0))}/3
+                      </label>
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        placeholder="Tulis balasan Anda ke pelanggan..."
+                        rows={3}
+                        className="w-full text-xs p-3.5 border border-border/80 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary dark:bg-zinc-950 dark:border-zinc-800"
+                        required
+                      />
+                      
+                      {replySuccess && (
+                        <p className="text-xs font-semibold text-emerald-600">
+                          {replySuccess}
+                        </p>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={isSubmittingReply}
+                          className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isSubmittingReply ? "Mengirim..." : "Kirim Balasan"}
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )}
             </div>
@@ -826,6 +832,13 @@ export default function AdminBookingDetailPage({ params }) {
                 <span>{formatRupiah(booking.estimated_total)}</span>
               </div>
 
+              {booking.discount_amount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
+                  <span>Diskon Referral:</span>
+                  <span>-{formatRupiah(booking.discount_amount)}</span>
+                </div>
+              )}
+
               {booking.late_fee_total > 0 && (
                 <div className="flex justify-between text-rose-600 font-bold text-sm bg-rose-500/5 p-2 rounded-lg">
                   <span>Denda Terlambat:</span>
@@ -840,13 +853,14 @@ export default function AdminBookingDetailPage({ params }) {
                 </div>
               )}
 
-              <div className="flex justify-between pt-2 font-black text-foreground text-lg">
+              <div className="flex justify-between pt-2 font-black text-foreground text-lg border-t border-border/60">
                 <span>Total Akhir:</span>
                 <span className="text-emerald-600">
                   {formatRupiah(
-                    booking.estimated_total +
-                      booking.late_fee_total -
-                      booking.refund_amount,
+                    booking.estimated_total -
+                      (booking.discount_amount || 0) +
+                      (booking.late_fee_total || 0) -
+                      (booking.refund_amount || 0),
                   )}
                 </span>
               </div>

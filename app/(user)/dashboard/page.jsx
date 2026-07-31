@@ -410,8 +410,29 @@ function GsapFaqItem({ item, isOpen, onClick }) {
 
 function HelpSection({ language, t }) {
   const [openIndex, setOpenIndex] = useState(null);
+  const [dbFaqs, setDbFaqs] = useState(null);
 
-  const faqItems = [
+  useEffect(() => {
+    async function loadFaqs() {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("landing_settings")
+          .select("content")
+          .eq("id", "faqs")
+          .single();
+
+        if (data?.content && Array.isArray(data.content) && data.content.length > 0) {
+          setDbFaqs(data.content);
+        }
+      } catch (err) {
+        // Fallback to defaults on error
+      }
+    }
+    loadFaqs();
+  }, []);
+
+  const defaultFaqItems = [
     {
       q: language === "en" ? "How do I check in my cat?" : "Bagaimana cara penyerahan kucing?",
       a: language === "en"
@@ -437,6 +458,8 @@ function HelpSection({ language, t }) {
         : "Buka kartu pesanan Anda di dashboard ini, lalu klik 'Lihat Detail'. Laporan kesehatan, status makan, dan foto terbaru si mpus akan di-update oleh staf kami di kolom 'Riwayat Kondisi Kucing'."
     }
   ];
+
+  const faqItems = dbFaqs || defaultFaqItems;
 
   return (
     <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 mt-12 animate-in fade-in duration-300">

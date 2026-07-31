@@ -76,9 +76,32 @@ const AVAILABLE_ICONS = [
   { name: "Cat", label: "Kucing", icon: Cat },
 ];
 
+const DEFAULT_FAQS = [
+  {
+    id: "1",
+    q: "Bagaimana cara penyerahan kucing?",
+    a: "Bawa kucing Anda beserta pakan kesukaannya ke lokasi NekoStay pada hari check-in. Staf kami akan mendata dan memeriksa ulang kondisi kesehatan kucing sebelum masuk ke kandang.",
+  },
+  {
+    id: "2",
+    q: "Bagaimana denda keterlambatan dihitung?",
+    a: "Jika penjemputan terlambat dari jadwal, denda 8% akumulatif per hari akan dikenakan pada tarif harian untuk mengompensasi slot kandang. Harap hubungi admin jika Anda terpaksa terlambat.",
+  },
+  {
+    id: "3",
+    q: "Dapatkah saya mengubah jadwal atau detail pesanan?",
+    a: "Untuk pesanan yang sedang berjalan (aktif), Anda dapat mengajukan perpanjangan hari atau perubahan kelas kamar secara mudah dengan mengklik tombol 'Hubungi Admin (WhatsApp)' di halaman detail pesanan.",
+  },
+  {
+    id: "4",
+    q: "Di mana saya bisa melihat update harian kucing saya?",
+    a: "Buka kartu pesanan Anda di dashboard ini, lalu klik 'Lihat Detail'. Laporan kesehatan, status makan, dan foto terbaru si mpus akan di-update oleh staf kami di kolom 'Riwayat Kondisi Kucing'.",
+  },
+];
+
 export default function AdminSettingsPage() {
   const { t, language } = useLanguage();
-  const [activeTab, setActiveTab] = useState("rooms"); // 'rooms' | 'hero' | 'why_us' | 'reset'
+  const [activeTab, setActiveTab] = useState("rooms"); // 'rooms' | 'hero' | 'why_us' | 'faqs' | 'reset'
   const [classes, setClasses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -96,6 +119,10 @@ export default function AdminSettingsPage() {
   // Why Choose Us state
   const [whyUsItems, setWhyUsItems] = useState(DEFAULT_WHY_US);
   const [isSavingWhyUs, setIsSavingWhyUs] = useState(false);
+
+  // FAQ state
+  const [faqItems, setFaqItems] = useState(DEFAULT_FAQS);
+  const [isSavingFaqs, setIsSavingFaqs] = useState(false);
 
   // Alert msgs
   const [successMsg, setSuccessMsg] = useState(null);
@@ -134,7 +161,7 @@ export default function AdminSettingsPage() {
           setRoomImages(initialImages);
         }
 
-        // 2. Fetch Landing Settings (Hero & Why Us)
+        // 2. Fetch Landing Settings (Hero, Why Us, FAQs)
         const { data: landingData, error: landingErr } = await supabase
           .from("landing_settings")
           .select("*");
@@ -146,6 +173,9 @@ export default function AdminSettingsPage() {
             }
             if (row.id === "why_us" && Array.isArray(row.content)) {
               setWhyUsItems(row.content);
+            }
+            if (row.id === "faqs" && Array.isArray(row.content)) {
+              setFaqItems(row.content);
             }
           });
         }
@@ -263,6 +293,48 @@ export default function AdminSettingsPage() {
     setWhyUsItems(updated);
   };
 
+  // FAQ Helpers & Handlers
+  const handleSaveFaqs = async () => {
+    setIsSavingFaqs(true);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.from("landing_settings").upsert({
+        id: "faqs",
+        content: faqItems,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      setSuccessMsg("Daftar FAQ (Tanya Jawab) berhasil disimpan!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal menyimpan daftar FAQ.");
+    } finally {
+      setIsSavingFaqs(false);
+    }
+  };
+
+  const handleAddFaqItem = () => {
+    const newItem = {
+      id: Date.now().toString(),
+      q: "Pertanyaan Baru?",
+      a: "Tuliskan jawaban lengkap untuk pertanyaan di sini.",
+    };
+    setFaqItems([...faqItems, newItem]);
+  };
+
+  const handleUpdateFaqItem = (index, field, value) => {
+    const updated = [...faqItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setFaqItems(updated);
+  };
+
+  const handleDeleteFaqItem = (index) => {
+    const updated = faqItems.filter((_, i) => i !== index);
+    setFaqItems(updated);
+  };
+
   // Handle Reset to Default
   const handleResetToDefault = async () => {
     if (
@@ -289,9 +361,16 @@ export default function AdminSettingsPage() {
         updated_at: new Date().toISOString(),
       });
 
+      await supabase.from("landing_settings").upsert({
+        id: "faqs",
+        content: DEFAULT_FAQS,
+        updated_at: new Date().toISOString(),
+      });
+
       setHeroForm(DEFAULT_HERO);
       setWhyUsItems(DEFAULT_WHY_US);
-      setSuccessMsg("Seluruh konten Landing Page berhasil dikembalikan ke tampilan awal bawaan!");
+      setFaqItems(DEFAULT_FAQS);
+      setSuccessMsg("Seluruh konten Landing Page & FAQ berhasil dikembalikan ke tampilan awal bawaan!");
     } catch (err) {
       setErrorMsg(err.message || "Gagal melakukan reset.");
     } finally {
@@ -375,6 +454,18 @@ export default function AdminSettingsPage() {
         >
           <LayoutGrid className="w-4 h-4" />
           Keunggulan (Why Choose Us)
+        </button>
+
+        <button
+          onClick={() => setActiveTab("faqs")}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === "faqs"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Info className="w-4 h-4" />
+          Kelola FAQ (Tanya Jawab)
         </button>
 
         <button
@@ -739,6 +830,97 @@ export default function AdminSettingsPage() {
                 <Check className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3.5: Kelola FAQ */}
+      {activeTab === "faqs" && (
+        <div className="bg-card border border-border p-6 sm:p-8 rounded-3xl space-y-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-border pb-4 flex-wrap gap-4">
+            <div>
+              <h3 className="font-extrabold text-lg text-foreground">
+                Kelola FAQ & Tanya Jawab Dashboard
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Tambah, edit, atau hapus daftar pertanyaan umum yang ditampilkan di dashboard pengguna.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddFaqItem}
+              className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah FAQ Baru
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {faqItems.map((item, index) => (
+              <div
+                key={item.id || index}
+                className="p-5 border border-border rounded-2xl bg-muted/10 space-y-3 relative group"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-black text-primary uppercase tracking-wider">
+                    FAQ #{index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteFaqItem(index)}
+                    className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                    title="Hapus FAQ"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                      Pertanyaan
+                    </label>
+                    <input
+                      type="text"
+                      value={item.q}
+                      onChange={(e) =>
+                        handleUpdateFaqItem(index, "q", e.target.value)
+                      }
+                      placeholder="Judul Pertanyaan..."
+                      className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-hidden font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                      Jawaban
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={item.a}
+                      onChange={(e) =>
+                        handleUpdateFaqItem(index, "a", e.target.value)
+                      }
+                      placeholder="Penjelasan/Jawaban lengkap..."
+                      className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-hidden leading-relaxed font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 border-t border-border flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveFaqs}
+              disabled={isSavingFaqs}
+              className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md cursor-pointer flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSavingFaqs ? "Memperbarui..." : "Simpan Semua FAQ"}
+              <Check className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

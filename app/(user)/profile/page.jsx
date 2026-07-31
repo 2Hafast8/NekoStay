@@ -275,9 +275,9 @@ export default function ProfilePage() {
             <h3 className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
               {t("ref_stats_title")}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 bg-muted/30 dark:bg-zinc-950/20 border border-border dark:border-zinc-850 rounded-2xl flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+                <div className="p-2.5 bg-primary/10 text-primary rounded-xl shrink-0">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
@@ -291,26 +291,175 @@ export default function ProfilePage() {
               </div>
 
               <div className="p-4 bg-muted/30 dark:bg-zinc-950/20 border border-border dark:border-zinc-850 rounded-2xl flex items-center gap-3">
-                <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+                <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xl font-black text-foreground dark:text-zinc-200">
+                    {referredCount * 100}
+                  </p>
+                  <p className="text-[10px] font-medium text-muted-foreground dark:text-zinc-400">
+                    {language === "en" ? "Total Points" : "Total Poin Neko"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-muted/30 dark:bg-zinc-950/20 border border-border dark:border-zinc-850 rounded-2xl flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-xl shrink-0">
                   <Gift className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="text-xl font-black text-foreground dark:text-zinc-200">
-                    {referredCount * 1}
+                    10%
                   </p>
                   <p className="text-[10px] font-medium text-muted-foreground dark:text-zinc-400">
-                    {t("ref_stats_points")}
+                    {language === "en" ? "Discount / Referral" : "Diskon per Teman"}
                   </p>
                 </div>
               </div>
             </div>
             
             <p className="text-[10px] text-muted-foreground dark:text-zinc-500 italic mt-1 text-center sm:text-left">
-              * {t("ref_stats_points_desc")}
+              * {language === "en" ? "Every friend registering with your referral code gives them a 10% discount on their first booking and grants you 100 Neko Points." : "Setiap teman yang mendaftar dengan kode Anda mendapatkan diskon 10% dan Anda memperoleh 100 Poin Neko."}
             </p>
           </div>
         </div>
       )}
+
+      {/* Change Password Card */}
+      <ChangePasswordCard language={language} />
+    </div>
+  );
+}
+
+function ChangePasswordCard({ language }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
+  const supabase = createClient();
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (newPassword.length < 8) {
+      setErrorMsg(
+        language === "en"
+          ? "Password must be at least 8 characters long."
+          : "Password minimal 8 karakter."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg(
+        language === "en"
+          ? "Password confirmation does not match."
+          : "Konfirmasi password baru tidak cocok."
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(
+        language === "en"
+          ? "Password updated successfully!"
+          : "Password berhasil diperbarui!"
+      );
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setErrorMsg(
+        err.message ||
+          (language === "en"
+            ? "Failed to update password."
+            : "Gagal memperbarui password.")
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6 anim-item">
+      <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-100 text-lg border-b border-border/60 dark:border-zinc-800/60 pb-3">
+        <Sparkles className="w-5 h-5 text-primary" />
+        <span>{language === "en" ? "Keamanan & Ganti Password" : "Keamanan & Ganti Password"}</span>
+      </div>
+
+      {errorMsg && (
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleChangePassword} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+              {language === "en" ? "New Password" : "Password Baru"}
+            </label>
+            <input
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+              {language === "en" ? "Confirm New Password" : "Konfirmasi Password Baru"}
+            </label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {isSubmitting
+              ? language === "en"
+                ? "Updating Password..."
+                : "Memperbarui Password..."
+              : language === "en"
+              ? "Update Password"
+              : "Ganti Password"}
+            <Check className="w-4 h-4" />
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

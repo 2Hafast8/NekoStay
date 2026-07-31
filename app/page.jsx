@@ -266,9 +266,11 @@ export default function LandingPage() {
 
   useEffect(() => {
     setMounted(true);
+    const client = createClient();
+
     async function fetchReviews() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from("reviews")
           .select(`
             id,
@@ -295,7 +297,7 @@ export default function LandingPage() {
 
     async function fetchLandingCMS() {
       try {
-        const { data: settings } = await supabase
+        const { data: settings } = await client
           .from("landing_settings")
           .select("*");
 
@@ -307,7 +309,7 @@ export default function LandingPage() {
           });
         }
 
-        const { data: clsData } = await supabase
+        const { data: clsData } = await client
           .from("classes")
           .select("*")
           .order("price_per_day", { ascending: true });
@@ -320,7 +322,7 @@ export default function LandingPage() {
 
     fetchReviews();
     fetchLandingCMS();
-  }, [supabase]);
+  }, []);
 
   // Standard facilities translations based on language
   const getFacilities = (className) => {

@@ -333,29 +333,48 @@ export default function AdminReviewsPage() {
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Link>
 
-                  {!hasReply && !isReplying && (
-                    <button
-                      onClick={() => {
-                        setReplyingToId(rev.id);
-                        setReplyText("");
-                      }}
-                      className="px-4 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer text-center"
-                    >
-                      {t("admin_rev_btn_reply")}
-                    </button>
-                  )}
+                  {(() => {
+                    const replyCount = rev.reply_count || (rev.reply_text ? 1 : 0);
+                    const isMaxed = replyCount >= 3;
 
-                  {hasReply && !isReplying && (
-                    <button
-                      onClick={() => {
-                        setReplyingToId(rev.id);
-                        setReplyText(rev.reply_text);
-                      }}
-                      className="px-4 py-2.5 border border-border rounded-xl text-muted-foreground hover:text-foreground text-xs font-bold hover:bg-muted/10 transition-all cursor-pointer text-center"
-                    >
-                      {t("admin_rev_btn_edit")}
-                    </button>
-                  )}
+                    if (isMaxed) {
+                      return (
+                        <div className="px-4 py-2.5 bg-muted/40 border border-border rounded-xl text-muted-foreground text-xs font-bold text-center">
+                          Sudah dibalas maksimal (3/3)
+                        </div>
+                      );
+                    }
+
+                    if (!hasReply && !isReplying) {
+                      return (
+                        <button
+                          onClick={() => {
+                            setReplyingToId(rev.id);
+                            setReplyText("");
+                          }}
+                          className="px-4 py-2.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer text-center"
+                        >
+                          {t("admin_rev_btn_reply")} ({replyCount}/3)
+                        </button>
+                      );
+                    }
+
+                    if (hasReply && !isReplying) {
+                      return (
+                        <button
+                          onClick={() => {
+                            setReplyingToId(rev.id);
+                            setReplyText(rev.reply_text);
+                          }}
+                          className="px-4 py-2.5 border border-border rounded-xl text-muted-foreground hover:text-foreground text-xs font-bold hover:bg-muted/10 transition-all cursor-pointer text-center"
+                        >
+                          {t("admin_rev_btn_edit")} ({replyCount}/3)
+                        </button>
+                      );
+                    }
+
+                    return null;
+                  })()}
                 </div>
               </div>
             );
