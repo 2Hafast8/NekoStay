@@ -25,7 +25,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { WaInteractiveModal } from "@/components/booking/WaInteractiveModal";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
@@ -67,7 +66,6 @@ function BookingDetailContent({ id }) {
   
   // Cancel dialog states
   const [isCancelOpen, setIsCancelOpen] = useState(false);
-  const [isWaModalOpen, setIsWaModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -1016,14 +1014,22 @@ function BookingDetailContent({ id }) {
                   ? "To extend the boarding period or upgrade/downgrade cage class, please contact our support via WhatsApp."
                   : "Untuk memperpanjang hari penitipan atau mengganti kelas kamar, silakan hubungi admin kami melalui WhatsApp."}
               </p>
-              <button
-                type="button"
-                onClick={() => setIsWaModalOpen(true)}
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={async () => {
+                  try {
+                    await fetch(`/api/bookings/${booking.id}/wa-request-change`, { method: "POST" });
+                  } catch (e) {
+                    console.error("Gagal mengirim notif WA:", e);
+                  }
+                }}
                 className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
               >
                 <PhoneCall className="w-4 h-4" />
                 {language === "en" ? "Contact Support (WhatsApp)" : "Hubungi Admin (WhatsApp)"}
-              </button>
+              </a>
             </div>
           )}
 
@@ -1076,13 +1082,6 @@ function BookingDetailContent({ id }) {
           />
         </div>
       </ConfirmDialog>
-      {/* Interactive WhatsApp Change Request Modal */}
-      <WaInteractiveModal
-        isOpen={isWaModalOpen}
-        onClose={() => setIsWaModalOpen(false)}
-        booking={booking}
-        adminPhone={process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "628123456789"}
-      />
     </div>
   );
 }

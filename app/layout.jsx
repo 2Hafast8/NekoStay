@@ -1,6 +1,7 @@
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AutoReloadProvider } from "@/components/providers/AutoReloadProvider";
 import { BrandColorProvider } from "@/components/providers/BrandColorProvider";
+import { AuthRecoveryRedirect } from "@/components/providers/AuthRecoveryRedirect";
 import "./globals.css";
 
 const siteUrl = "https://nekostay.vercel.app";
@@ -72,6 +73,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <BrandColorProvider>
             <AutoReloadProvider />
+            <AuthRecoveryRedirect />
             {children}
           </BrandColorProvider>
         </ThemeProvider>

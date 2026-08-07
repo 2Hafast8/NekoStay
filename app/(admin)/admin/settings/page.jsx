@@ -29,7 +29,6 @@ import {
   ToggleLeft,
   ToggleRight,
   Palette,
-  Calendar,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah } from "@/lib/utils/format";
@@ -242,16 +241,6 @@ export default function AdminSettingsPage() {
   const { primaryHex, setPrimaryHex } = useBrandColor();
   const [isSavingBrandColor, setIsSavingBrandColor] = useState(false);
 
-  // WhatsApp & Auto-Reply state
-  const [waSettings, setWaSettings] = useState({
-    admin_phone: "628123456789",
-    auto_reply_enabled: true,
-    greeting_template: "Halo! Terima kasih telah menghubungi NekoStay. Silakan pilih opsi perubahan pesanan Anda di bawah ini:",
-    date_change_template: "🗓️ Untuk perubahan tanggal check-in / check-out atau perpanjangan hari menginap.",
-    class_change_template: "🏨 Untuk perpindahan / upgrade kelas kamar (Standard, Deluxe, Executive, VIP).",
-  });
-  const [isSavingWa, setIsSavingWa] = useState(false);
-
   // Alert msgs
   const [successMsg, setSuccessMsg] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -320,38 +309,12 @@ export default function AdminSettingsPage() {
           if (row.id === "brand_color" && row.content?.primary_hex) {
             setPrimaryHex(row.content.primary_hex);
           }
-          if (row.id === "whatsapp" && row.content) {
-            setWaSettings({ ...waSettings, ...row.content });
-          }
         });
       }
     } catch (err) {
       console.error("Error loading settings:", err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Save WhatsApp Settings
-  const handleSaveWaSettings = async (e) => {
-    e.preventDefault();
-    setIsSavingWa(true);
-    setSuccessMsg(null);
-    setErrorMsg(null);
-
-    try {
-      const { error } = await supabase.from("landing_settings").upsert({
-        id: "whatsapp",
-        content: waSettings,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-      setSuccessMsg("Pengaturan WhatsApp & Tamplate Balasan Otomatis berhasil disimpan!");
-    } catch (err) {
-      setErrorMsg(err.message || "Gagal menyimpan pengaturan WhatsApp.");
-    } finally {
-      setIsSavingWa(false);
     }
   };
 
@@ -811,18 +774,6 @@ export default function AdminSettingsPage() {
         >
           <Palette className="w-4 h-4" />
           <span>Warna Brand Website</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("whatsapp")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "whatsapp"
-              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
-              : "bg-muted/40 text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
-          }`}
-        >
-          <Phone className="w-4 h-4 text-emerald-500" />
-          <span>WhatsApp & Balasan Otomatis</span>
         </button>
 
         <button
@@ -1780,150 +1731,6 @@ export default function AdminSettingsPage() {
               className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSavingBrandColor ? "Menyimpan Warna..." : "Simpan Warna Brand Website"}
-              <Check className="w-4 h-4" />
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* TAB: WHATSAPP & BALASAN OTOMATIS */}
-      {activeTab === "whatsapp" && (
-        <form onSubmit={handleSaveWaSettings} className="space-y-8">
-          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 sm:p-8 rounded-3xl space-y-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-border/60 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Phone className="w-5 h-5 text-emerald-500" />
-                  <h3 className="font-extrabold text-lg text-foreground dark:text-zinc-100">
-                    Pengaturan WhatsApp & Tamplate Balasan Otomatis
-                  </h3>
-                </div>
-                <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                  Atur nomor WhatsApp admin, serta teks tamplate balasan otomatis yang akan dikirimkan saat user menghubungi via tombol &quot;Hubungi Admin (WhatsApp)&quot; di halaman detail pesanan.
-                </p>
-              </div>
-            </div>
-
-            {/* Admin Phone */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <Phone className="w-3.5 h-3.5" />
-                <span>Nomor WhatsApp Admin (Format Internasional)</span>
-              </label>
-              <input
-                type="text"
-                value={waSettings.admin_phone}
-                onChange={(e) => setWaSettings({ ...waSettings, admin_phone: e.target.value })}
-                placeholder="628123456789"
-                className="w-full max-w-sm px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground font-mono"
-              />
-              <span className="text-[10px] text-muted-foreground italic block">
-                *Tanpa tanda &quot;+&quot; atau spasi. Contoh: 628123456789
-              </span>
-            </div>
-
-            {/* Auto-Reply Toggle */}
-            <div className="flex items-center gap-4 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setWaSettings({ ...waSettings, auto_reply_enabled: !waSettings.auto_reply_enabled })}
-                className="cursor-pointer"
-              >
-                {waSettings.auto_reply_enabled ? (
-                  <ToggleRight className="w-8 h-8 text-emerald-500" />
-                ) : (
-                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
-                )}
-              </button>
-              <div>
-                <span className="text-xs font-extrabold text-foreground dark:text-zinc-100 block">
-                  Sistem Interactive Messages Aktif
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Saat aktif, user akan melihat modal interaktif &quot;Pilih Jenis Perubahan&quot; sebelum diarahkan ke WhatsApp. Pesan terstruktur dikirim otomatis.
-                </span>
-              </div>
-            </div>
-
-            {/* Template Messages */}
-            <div className="space-y-5 pt-4 border-t border-border/60">
-              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-100">
-                Tamplate Teks Balasan & Pesan Interaktif
-              </h4>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground dark:text-zinc-200">
-                  Teks Salam Pembuka (Greeting)
-                </label>
-                <textarea
-                  rows={2}
-                  value={waSettings.greeting_template}
-                  onChange={(e) => setWaSettings({ ...waSettings, greeting_template: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Tamplate Opsi: Ubah Tanggal / Perpanjangan</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={waSettings.date_change_template}
-                    onChange={(e) => setWaSettings({ ...waSettings, date_change_template: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-primary" />
-                    <span>Tamplate Opsi: Ubah Kelas Kamar</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={waSettings.class_change_template}
-                    onChange={(e) => setWaSettings({ ...waSettings, class_change_template: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Live Preview */}
-            <div className="space-y-3 pt-4 border-t border-border/60">
-              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-100">
-                Pratinjau Pesan WhatsApp (Live Preview)
-              </h4>
-              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl p-5 space-y-3">
-                <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-xs border border-emerald-100 dark:border-emerald-900/30 space-y-2">
-                  <p className="text-xs text-foreground dark:text-zinc-200 font-medium leading-relaxed whitespace-pre-wrap">
-                    💬 *PERMINTAAN PERUBAHAN PESANAN NEKOSTAY*{"\n"}
-                    -------{"\n"}
-                    📌 *ID Booking*: abc12345{"\n"}
-                    🐾 *Nama Kucing*: Mochi{"\n"}
-                    🏨 *Kelas Kamar*: Standard{"\n"}
-                    📅 *Jadwal*: 01 Aug 2026 - 05 Aug 2026{"\n\n"}
-                    🔘 *TIPE PERUBAHAN*: {waSettings.date_change_template || "🗓️ Ubah Tanggal"}{"\n\n"}
-                    {waSettings.greeting_template}
-                  </p>
-                </div>
-                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 italic block">
-                  *Contoh pratinjau — data pesanan asli akan terisi otomatis dari data booking user.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
-              type="submit"
-              disabled={isSavingWa}
-              className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSavingWa ? "Menyimpan..." : "Simpan Pengaturan WhatsApp"}
               <Check className="w-4 h-4" />
             </button>
           </div>

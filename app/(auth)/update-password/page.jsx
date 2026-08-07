@@ -11,15 +11,21 @@ export default function UpdatePasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   const [isExpired, setIsExpired] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
   const supabase = createClient();
 
   useEffect(() => {
-    // Check hash or search params for expired / invalid link errors
-    if (typeof window !== "undefined") {
+    const initAuth = async () => {
+      if (typeof window === "undefined") return;
+
       const fullUrl = window.location.href;
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get("code");
+
+      // Check URL for expiration/error flags
       if (
         fullUrl.includes("otp_expired") ||
         fullUrl.includes("access_denied") ||
@@ -30,9 +36,40 @@ export default function UpdatePasswordPage() {
         setErrorMsg(
           "Tautan email pemulihan telah kadaluarsa atau sudah pernah digunakan. Silakan minta tautan baru."
         );
+        setIsVerifying(false);
+        return;
       }
-    }
-  }, []);
+
+      // If PKCE code is present in query, exchange code for session
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.warn("Code exchange error:", error.message);
+            setIsExpired(true);
+            setErrorMsg(
+              "Kode verifikasi tidak valid atau telah kadaluarsa. Silakan minta tautan baru."
+            );
+          }
+        } catch (err) {
+          console.warn("Code exchange exception:", err);
+        }
+      }
+
+      // Verify active session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !code && !window.location.hash.includes("access_token")) {
+        setIsExpired(true);
+        setErrorMsg(
+          "Sesi pemulihan tidak ditemukan. Silakan klik tautan dari email pemulihan atau minta tautan baru."
+        );
+      }
+
+      setIsVerifying(false);
+    };
+
+    initAuth();
+  }, [supabase]);
 
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
@@ -141,7 +178,15 @@ export default function UpdatePasswordPage() {
           </div>
         )}
 
-        <form onSubmit={handleUpdatePassword} className="space-y-4">
+        {isVerifying ? (
+          <div className="py-12 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto" />
+            <p className="text-xs text-muted-foreground font-semibold">
+              Memverifikasi tautan pemulihan sandi...
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               Password Baru
@@ -185,6 +230,7 @@ export default function UpdatePasswordPage() {
             <ArrowRight className="w-4.5 h-4.5" />
           </button>
         </form>
+        )}
       </div>
     </div>
   );
