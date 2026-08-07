@@ -28,11 +28,14 @@ import {
   DollarSign,
   ToggleLeft,
   ToggleRight,
+  Palette,
+  Calendar,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ImageUpload } from "@/components/shared/ImageUpload";
+import { useBrandColor } from "@/components/providers/BrandColorProvider";
 
 const DEFAULT_HERO = {
   badge_id: "Penitipan Kucing Premium",
@@ -126,6 +129,59 @@ const AVAILABLE_ICONS = [
   { name: "Cat", label: "Kucing", icon: Cat },
 ];
 
+function hslToHex(h, s, l) {
+  l /= 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function hexToHSL(hex) {
+  if (!hex || typeof hex !== "string") return { h: 24, s: 95, l: 53 };
+  hex = hex.replace("#", "");
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  if (hex.length !== 6) return { h: 24, s: 95, l: 53 };
+  const r = parseInt(hex.substring(0, 2), 16) / 255 || 0;
+  const g = parseInt(hex.substring(2, 4), 16) / 255 || 0;
+  const b = parseInt(hex.substring(4, 6), 16) / 255 || 0;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+function getBrandShades(primaryHex) {
+  const { h, s, l } = hexToHSL(primaryHex);
+  return [
+    { shade: "50", hex: hslToHex(h, s, 97), desc: "Background sangat terang" },
+    { shade: "100", hex: hslToHex(h, s, 92), desc: "Background card ringan" },
+    { shade: "200", hex: hslToHex(h, s, 83), desc: "Border, divider" },
+    { shade: "300", hex: hslToHex(h, s, 73), desc: "Hover state" },
+    { shade: "400", hex: hslToHex(h, s, 61), desc: "Secondary accent" },
+    { shade: "500", hex: primaryHex, desc: "PRIMARY — brand utama", isPrimary: true },
+    { shade: "600", hex: hslToHex(h, s, Math.max(10, l - 5)), desc: "Primary hover", isHover: true },
+    { shade: "700", hex: hslToHex(h, s, Math.max(10, l - 12)), desc: "Primary pressed" },
+    { shade: "800", hex: hslToHex(h, s, 32), desc: "Teks di atas bg terang" },
+    { shade: "900", hex: hslToHex(h, s, 24), desc: "Teks dark" },
+    { shade: "950", hex: hslToHex(h, s, 14), desc: "Teks dark pekat" },
+  ];
+}
+
 export default function AdminSettingsPage() {
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState("rooms"); // 'rooms' | 'promos' | 'hero' | 'why_us' | 'faqs' | 'contact' | 'reset'
@@ -181,6 +237,20 @@ export default function AdminSettingsPage() {
   // Contact & Map state
   const [contactForm, setContactForm] = useState(DEFAULT_CONTACT);
   const [isSavingContact, setIsSavingContact] = useState(false);
+
+  // Brand Color state
+  const { primaryHex, setPrimaryHex } = useBrandColor();
+  const [isSavingBrandColor, setIsSavingBrandColor] = useState(false);
+
+  // WhatsApp & Auto-Reply state
+  const [waSettings, setWaSettings] = useState({
+    admin_phone: "628123456789",
+    auto_reply_enabled: true,
+    greeting_template: "Halo! Terima kasih telah menghubungi NekoStay. Silakan pilih opsi perubahan pesanan Anda di bawah ini:",
+    date_change_template: "🗓️ Untuk perubahan tanggal check-in / check-out atau perpanjangan hari menginap.",
+    class_change_template: "🏨 Untuk perpindahan / upgrade kelas kamar (Standard, Deluxe, Executive, VIP).",
+  });
+  const [isSavingWa, setIsSavingWa] = useState(false);
 
   // Alert msgs
   const [successMsg, setSuccessMsg] = useState(null);
@@ -247,12 +317,64 @@ export default function AdminSettingsPage() {
           if (row.id === "contact" && row.content) {
             setContactForm({ ...DEFAULT_CONTACT, ...row.content });
           }
+          if (row.id === "brand_color" && row.content?.primary_hex) {
+            setPrimaryHex(row.content.primary_hex);
+          }
+          if (row.id === "whatsapp" && row.content) {
+            setWaSettings({ ...waSettings, ...row.content });
+          }
         });
       }
     } catch (err) {
       console.error("Error loading settings:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Save WhatsApp Settings
+  const handleSaveWaSettings = async (e) => {
+    e.preventDefault();
+    setIsSavingWa(true);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.from("landing_settings").upsert({
+        id: "whatsapp",
+        content: waSettings,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      setSuccessMsg("Pengaturan WhatsApp & Tamplate Balasan Otomatis berhasil disimpan!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal menyimpan pengaturan WhatsApp.");
+    } finally {
+      setIsSavingWa(false);
+    }
+  };
+
+  // Save Brand Color
+  const handleSaveBrandColor = async (e) => {
+    e.preventDefault();
+    setIsSavingBrandColor(true);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.from("landing_settings").upsert({
+        id: "brand_color",
+        content: { primary_hex: primaryHex },
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      setSuccessMsg("Warna brand utama website berhasil disimpan & diterapkan!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal menyimpan warna brand.");
+    } finally {
+      setIsSavingBrandColor(false);
     }
   };
 
@@ -677,6 +799,30 @@ export default function AdminSettingsPage() {
         >
           <MapPin className="w-4 h-4" />
           <span>Kontak & Peta Footer</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("color")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "color"
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          <span>Warna Brand Website</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("whatsapp")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "whatsapp"
+              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
+          }`}
+        >
+          <Phone className="w-4 h-4 text-emerald-500" />
+          <span>WhatsApp & Balasan Otomatis</span>
         </button>
 
         <button
@@ -1458,6 +1604,326 @@ export default function AdminSettingsPage() {
               className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSavingContact ? "Menyimpan..." : "Simpan Informasi Kontak & Peta"}
+              <Check className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB: WARNA BRAND WEBSITE */}
+      {activeTab === "color" && (
+        <form onSubmit={handleSaveBrandColor} className="space-y-8">
+          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 sm:p-8 rounded-3xl space-y-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-primary" />
+                  <h3 className="font-extrabold text-lg text-foreground dark:text-zinc-100">
+                    Pengaturan Skema Warna Brand & Aksesori Website
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                  Ubah warna utama (*Primary Color*) menggunakan Color Wheel Picker di bawah. Warna dasar ini akan secara otomatis dikalkulasikan ke 10 tingkatan pecahan warna (*brand shades 50–950*), tombol aksen, hover state, dan efek highlight di seluruh website.
+                </p>
+              </div>
+            </div>
+
+            {/* Color Picker & Presets */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Color Wheel Selector */}
+              <div className="space-y-4 bg-muted/20 dark:bg-zinc-950/40 p-5 rounded-2xl border border-border/60">
+                <label className="text-xs font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider block">
+                  Pilih Warna Primary (Color Wheel)
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="color"
+                    value={primaryHex}
+                    onChange={(e) => setPrimaryHex(e.target.value)}
+                    className="w-16 h-16 rounded-2xl cursor-pointer border-2 border-border p-1 bg-card shadow-sm hover:scale-105 transition-transform"
+                  />
+                  <div className="space-y-1 flex-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Kode HEX Warna</span>
+                    <input
+                      type="text"
+                      value={primaryHex}
+                      onChange={(e) => setPrimaryHex(e.target.value)}
+                      placeholder="#f97316"
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl text-sm font-black text-foreground uppercase tracking-widest font-mono shadow-inner"
+                    />
+                  </div>
+                </div>
+
+                {/* Preset Color Swatches */}
+                <div className="space-y-2 pt-2 border-t border-border/60">
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    Preset Warna Pilihan Cepat:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { name: "Default Orange", hex: "#f97316" },
+                      { name: "Sapphire Blue", hex: "#3b82f6" },
+                      { name: "Emerald Green", hex: "#10b981" },
+                      { name: "Royal Purple", hex: "#8b5cf6" },
+                      { name: "Sunset Rose", hex: "#f43f5e" },
+                      { name: "Warm Amber", hex: "#f59e0b" },
+                      { name: "Cyber Teal", hex: "#14b8a6" },
+                      { name: "Deep Indigo", hex: "#6366f1" },
+                    ].map((p) => (
+                      <button
+                        key={p.hex}
+                        type="button"
+                        onClick={() => setPrimaryHex(p.hex)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          primaryHex.toLowerCase() === p.hex.toLowerCase()
+                            ? "border-foreground ring-2 ring-primary bg-card"
+                            : "border-border/60 bg-card/60 hover:bg-card"
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full shadow-xs shrink-0" style={{ backgroundColor: p.hex }} />
+                        <span className="text-[11px]">{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live UI Components Preview */}
+              <div className="space-y-4 bg-muted/20 dark:bg-zinc-950/40 p-5 rounded-2xl border border-border/60">
+                <span className="text-xs font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider block">
+                  Pratinjau Langsung (Live UI Preview)
+                </span>
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-3">
+                    <button type="button" className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-md shadow-primary/20">
+                      Tombol Utama (Primary)
+                    </button>
+                    <button type="button" className="px-4 py-2.5 rounded-xl bg-secondary text-secondary-foreground text-xs font-bold">
+                      Tombol Sekunder (Secondary)
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Kotak Highlight / Badge Notifikasi</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-black">
+                      AKTIF
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Generated Color Shades Breakdown Table */}
+            <div className="space-y-3 pt-4 border-t border-border/60">
+              <div>
+                <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-100">
+                  Hasil Konversi Pecahan Warna (Brand Shades 50–950)
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Pecahan warna ini dihitung otomatis dari warna Primary yang Anda pilih.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {getBrandShades(primaryHex).map((s) => (
+                  <div
+                    key={s.shade}
+                    className={`p-3 rounded-2xl border transition-all flex flex-col justify-between space-y-2 ${
+                      s.isPrimary
+                        ? "border-primary ring-2 ring-primary/40 bg-card shadow-sm"
+                        : "border-border/60 bg-muted/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-foreground font-mono">
+                        {s.shade}
+                      </span>
+                      {s.isPrimary && (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          PRIMARY
+                        </span>
+                      )}
+                      {s.isHover && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          HOVER
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className="h-10 w-full rounded-xl border border-black/10 shadow-inner flex items-center justify-center"
+                      style={{ backgroundColor: s.hex }}
+                    />
+
+                    <div>
+                      <span className="text-[11px] font-bold text-foreground font-mono block">
+                        {s.hex}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground line-clamp-1 block">
+                        {s.desc}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-border/60">
+            <button
+              type="submit"
+              disabled={isSavingBrandColor}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSavingBrandColor ? "Menyimpan Warna..." : "Simpan Warna Brand Website"}
+              <Check className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB: WHATSAPP & BALASAN OTOMATIS */}
+      {activeTab === "whatsapp" && (
+        <form onSubmit={handleSaveWaSettings} className="space-y-8">
+          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 sm:p-8 rounded-3xl space-y-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-emerald-500" />
+                  <h3 className="font-extrabold text-lg text-foreground dark:text-zinc-100">
+                    Pengaturan WhatsApp & Tamplate Balasan Otomatis
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                  Atur nomor WhatsApp admin, serta teks tamplate balasan otomatis yang akan dikirimkan saat user menghubungi via tombol &quot;Hubungi Admin (WhatsApp)&quot; di halaman detail pesanan.
+                </p>
+              </div>
+            </div>
+
+            {/* Admin Phone */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5" />
+                <span>Nomor WhatsApp Admin (Format Internasional)</span>
+              </label>
+              <input
+                type="text"
+                value={waSettings.admin_phone}
+                onChange={(e) => setWaSettings({ ...waSettings, admin_phone: e.target.value })}
+                placeholder="628123456789"
+                className="w-full max-w-sm px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground font-mono"
+              />
+              <span className="text-[10px] text-muted-foreground italic block">
+                *Tanpa tanda &quot;+&quot; atau spasi. Contoh: 628123456789
+              </span>
+            </div>
+
+            {/* Auto-Reply Toggle */}
+            <div className="flex items-center gap-4 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setWaSettings({ ...waSettings, auto_reply_enabled: !waSettings.auto_reply_enabled })}
+                className="cursor-pointer"
+              >
+                {waSettings.auto_reply_enabled ? (
+                  <ToggleRight className="w-8 h-8 text-emerald-500" />
+                ) : (
+                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
+                )}
+              </button>
+              <div>
+                <span className="text-xs font-extrabold text-foreground dark:text-zinc-100 block">
+                  Sistem Interactive Messages Aktif
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Saat aktif, user akan melihat modal interaktif &quot;Pilih Jenis Perubahan&quot; sebelum diarahkan ke WhatsApp. Pesan terstruktur dikirim otomatis.
+                </span>
+              </div>
+            </div>
+
+            {/* Template Messages */}
+            <div className="space-y-5 pt-4 border-t border-border/60">
+              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-100">
+                Tamplate Teks Balasan & Pesan Interaktif
+              </h4>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground dark:text-zinc-200">
+                  Teks Salam Pembuka (Greeting)
+                </label>
+                <textarea
+                  rows={2}
+                  value={waSettings.greeting_template}
+                  onChange={(e) => setWaSettings({ ...waSettings, greeting_template: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Tamplate Opsi: Ubah Tanggal / Perpanjangan</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={waSettings.date_change_template}
+                    onChange={(e) => setWaSettings({ ...waSettings, date_change_template: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    <span>Tamplate Opsi: Ubah Kelas Kamar</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={waSettings.class_change_template}
+                    onChange={(e) => setWaSettings({ ...waSettings, class_change_template: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="space-y-3 pt-4 border-t border-border/60">
+              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-100">
+                Pratinjau Pesan WhatsApp (Live Preview)
+              </h4>
+              <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl p-5 space-y-3">
+                <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-xs border border-emerald-100 dark:border-emerald-900/30 space-y-2">
+                  <p className="text-xs text-foreground dark:text-zinc-200 font-medium leading-relaxed whitespace-pre-wrap">
+                    💬 *PERMINTAAN PERUBAHAN PESANAN NEKOSTAY*{"\n"}
+                    -------{"\n"}
+                    📌 *ID Booking*: abc12345{"\n"}
+                    🐾 *Nama Kucing*: Mochi{"\n"}
+                    🏨 *Kelas Kamar*: Standard{"\n"}
+                    📅 *Jadwal*: 01 Aug 2026 - 05 Aug 2026{"\n\n"}
+                    🔘 *TIPE PERUBAHAN*: {waSettings.date_change_template || "🗓️ Ubah Tanggal"}{"\n\n"}
+                    {waSettings.greeting_template}
+                  </p>
+                </div>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 italic block">
+                  *Contoh pratinjau — data pesanan asli akan terisi otomatis dari data booking user.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-border/60">
+            <button
+              type="submit"
+              disabled={isSavingWa}
+              className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSavingWa ? "Menyimpan..." : "Simpan Pengaturan WhatsApp"}
               <Check className="w-4 h-4" />
             </button>
           </div>

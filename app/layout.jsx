@@ -1,5 +1,6 @@
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AutoReloadProvider } from "@/components/providers/AutoReloadProvider";
+import { BrandColorProvider } from "@/components/providers/BrandColorProvider";
 import "./globals.css";
 
 const siteUrl = "https://nekostay.vercel.app";
@@ -69,8 +70,10 @@ export default function RootLayout({ children }) {
         suppressHydrationWarning
       >
         <ThemeProvider>
-          <AutoReloadProvider />
-          {children}
+          <BrandColorProvider>
+            <AutoReloadProvider />
+            {children}
+          </BrandColorProvider>
         </ThemeProvider>
       </body>
     </html>

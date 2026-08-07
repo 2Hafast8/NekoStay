@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BookingCard } from "@/components/booking/BookingCard";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
+import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
 import { gsap } from "gsap";
 
 export default function UserDashboard() {
@@ -283,7 +284,18 @@ export default function UserDashboard() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          {/* Mobile View: GSAP Interactive Card Slider */}
+          <div className="block sm:hidden">
+            <GsapCardSlider
+              items={paginatedBookings}
+              renderItem={(booking) => (
+                <BookingCard booking={booking} />
+              )}
+            />
+          </div>
+
+          {/* Desktop View: Grid Layout */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {paginatedBookings.map((booking) => (
               <BookingCard key={booking.id} booking={booking} />
             ))}

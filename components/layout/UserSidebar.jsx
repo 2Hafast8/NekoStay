@@ -19,7 +19,7 @@ export function UserSidebar() {
     <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-zinc-950 text-foreground dark:text-zinc-200 border-r border-border dark:border-zinc-800/80 p-5 space-y-6 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto z-20">
       {/* Brand Header */}
       <div className="flex items-center gap-3 pb-5 border-b border-border dark:border-zinc-800/80">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary via-orange-500 to-amber-500 flex items-center justify-center text-primary-foreground shadow-md shadow-primary/20 shrink-0 font-black text-lg">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary via-brand-via to-brand-to flex items-center justify-center text-primary-foreground shadow-md shadow-primary/20 shrink-0 font-black text-lg">
           <Cat className="w-5 h-5" />
         </div>
         <div className="overflow-hidden">

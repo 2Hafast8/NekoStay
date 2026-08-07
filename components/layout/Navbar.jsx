@@ -141,7 +141,7 @@ export function Navbar() {
           <div className="p-2 bg-primary text-primary-foreground rounded-xl shadow-sm transition-transform duration-300 group-hover:rotate-6">
             <Cat className="w-5 h-5" />
           </div>
-          <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-transparent">
+          <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-primary to-brand-to bg-clip-text text-transparent">
             NekoStay
           </span>
         </Link>

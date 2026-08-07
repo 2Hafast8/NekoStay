@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -401,7 +402,7 @@ export default function LandingPage() {
                 {(heroSettings?.[currentLanguage === 'en' ? 'title_en' : 'title_id']) || (
                   <>
                     {t("hero_title_1")}{" "}
-                    <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-primary via-brand-via to-brand-to bg-clip-text text-transparent">
                       {t("hero_title_2")}
                     </span>
                   </>
@@ -589,90 +590,93 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div ref={pricingRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {(dbClasses && dbClasses.length > 0
-              ? dbClasses.map((cls) => ({
-                  name: cls.name,
-                  price: cls.price_per_day,
-                  description: cls.description || getRoomDesc(cls.name),
-                  facilities: cls.facilities || getFacilities(cls.name),
-                  image_url: cls.image_url,
-                  gradient:
-                    cls.name === "Standard"
-                      ? "from-primary/10 to-amber-500/10 border-primary/20 scale-102 shadow-xs dark:from-primary/5 dark:to-amber-500/5"
-                      : cls.name === "Premium"
-                      ? "from-amber-600/10 to-yellow-600/10 hover:border-yellow-400 dark:hover:border-yellow-600/50 dark:from-amber-600/5 dark:to-yellow-600/5"
-                      : "from-amber-500/10 to-orange-500/10 hover:border-orange-300 dark:hover:border-orange-700/50 dark:from-amber-500/5 dark:to-orange-500/5",
-                }))
-              : classes
-            ).map((cls) => (
-              <div
-                key={cls.name}
-                onMouseMove={handleTiltMove}
-                onMouseLeave={handleTiltLeave}
-                className={`relative bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-800 rounded-3xl p-8 flex flex-col justify-between transition-colors duration-300 ${cls.gradient}`}
-              >
-                {cls.name === "Standard" && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground tracking-wider uppercase shadow-sm">
-                    {t("room_popular")}
-                  </span>
-                )}
-                <div>
-                  {cls.image_url && (
-                    <div className="relative w-full h-40 rounded-2xl overflow-hidden mb-5 border border-border/80 shadow-xs">
-                      <img
-                        src={cls.image_url}
-                        alt={cls.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+          <div ref={pricingRef}>
+            <GsapCardSlider
+              items={
+                dbClasses && dbClasses.length > 0
+                  ? dbClasses.map((cls) => ({
+                      name: cls.name,
+                      price: cls.price_per_day,
+                      description: cls.description || getRoomDesc(cls.name),
+                      facilities: cls.facilities || getFacilities(cls.name),
+                      image_url: cls.image_url,
+                      gradient:
+                        cls.name === "Standard"
+                          ? "from-primary/10 to-amber-500/10 border-primary/20 shadow-md dark:from-primary/5 dark:to-amber-500/5"
+                          : cls.name === "Premium"
+                          ? "from-amber-600/10 to-yellow-600/10 dark:from-amber-600/5 dark:to-yellow-600/5"
+                          : "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5",
+                    }))
+                  : classes
+              }
+              renderItem={(cls, idx, isActive) => (
+                <div
+                  onMouseMove={handleTiltMove}
+                  onMouseLeave={handleTiltLeave}
+                  className={`relative bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-colors duration-300 shadow-xl ${cls.gradient}`}
+                >
+                  {cls.name === "Standard" && (
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground tracking-wider uppercase shadow-sm">
+                      {t("room_popular")}
+                    </span>
                   )}
+                  <div>
+                    {cls.image_url && (
+                      <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden mb-5 border border-border/80 shadow-xs">
+                        <img
+                          src={cls.image_url}
+                          alt={cls.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
 
-                  <h3 className="text-xl font-extrabold text-foreground dark:text-zinc-100">
-                    {cls.name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-2 leading-relaxed">
-                    {cls.description}
-                  </p>
+                    <h3 className="text-xl font-extrabold text-foreground dark:text-zinc-100">
+                      {cls.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-2 leading-relaxed line-clamp-2">
+                      {cls.description}
+                    </p>
 
-                  <div className="mt-5 flex items-baseline gap-1 text-foreground dark:text-zinc-100">
-                    <span className="text-3xl font-extrabold">
-                      {formatRupiah(cls.price)}
-                    </span>
-                    <span className="text-xs text-muted-foreground dark:text-zinc-400 font-semibold">
-                      {t("room_per_day")}
-                    </span>
+                    <div className="mt-5 flex items-baseline gap-1 text-foreground dark:text-zinc-100">
+                      <span className="text-2xl sm:text-3xl font-extrabold">
+                        {formatRupiah(cls.price)}
+                      </span>
+                      <span className="text-xs text-muted-foreground dark:text-zinc-400 font-semibold">
+                        {t("room_per_day")}
+                      </span>
+                    </div>
+
+                    <ul className="mt-5 space-y-2.5 border-t border-border/50 dark:border-zinc-800/50 pt-5">
+                      {cls.facilities.map((fac) => (
+                        <li
+                          key={fac}
+                          className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground dark:text-zinc-400"
+                        >
+                          <div className="p-0.5 rounded-full bg-primary/10 text-primary">
+                            <Check className="w-3.5 h-3.5" />
+                          </div>
+                          <span>{fac}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
-                  <ul className="mt-6 space-y-3.5 border-t border-border/50 dark:border-zinc-800/50 pt-6">
-                    {cls.facilities.map((fac) => (
-                      <li
-                        key={fac}
-                        className="flex items-center gap-3 text-sm text-muted-foreground dark:text-zinc-400"
-                      >
-                        <div className="p-0.5 rounded-full bg-primary/10 text-primary">
-                          <Check className="w-3.5 h-3.5" />
-                        </div>
-                        <span>{fac}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-6">
+                    <Link
+                      href={`/booking/new?class=${cls.name}`}
+                      className={`block w-full text-center py-3 rounded-2xl text-xs font-bold transition-all shadow-xs ${
+                        cls.name === "Standard"
+                          ? "bg-primary text-primary-foreground hover:bg-primary/95"
+                          : "bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-muted dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {t("room_select")} {cls.name}
+                    </Link>
+                  </div>
                 </div>
-
-                <div className="mt-8">
-                  <Link
-                    href={`/booking/new?class=${cls.name}`}
-                    className={`block w-full text-center py-3 rounded-2xl text-xs font-bold transition-all shadow-xs ${
-                      cls.name === "Standard"
-                        ? "bg-primary text-primary-foreground hover:bg-primary/95"
-                        : "bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-muted dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {t("room_select")} {cls.name}
-                  </Link>
-                </div>
-              </div>
-            ))}
+              )}
+            />
           </div>
         </div>
       </section>

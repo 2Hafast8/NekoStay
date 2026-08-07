@@ -166,7 +166,7 @@ export default function TermsPage() {
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground dark:text-zinc-50">
             {isEn ? "Terms & " : "Syarat & "}
-            <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary via-brand-via to-brand-to bg-clip-text text-transparent">
               {isEn ? "Conditions" : "Ketentuan"}
             </span>
           </h1>
