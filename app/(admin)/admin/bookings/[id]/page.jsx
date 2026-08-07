@@ -857,10 +857,24 @@ export default function AdminBookingDetailPage({ params }) {
                 <span>{formatRupiah(booking.estimated_total)}</span>
               </div>
 
+              {booking.referral_code_used && (
+                <div className="flex justify-between text-emerald-600 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
+                  <span>Diskon Referral ({booking.referral_code_used}):</span>
+                  <span>Diskon Diterapkan</span>
+                </div>
+              )}
+
+              {booking.promo_code_used && (
+                <div className="flex justify-between text-violet-600 font-bold text-sm bg-violet-500/5 p-2 rounded-lg">
+                  <span>Diskon Promo ({booking.promo_code_used}):</span>
+                  <span>Diskon Promo</span>
+                </div>
+              )}
+
               {booking.discount_amount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
-                  <span>Diskon Referral {booking.referral_code_used ? `(${booking.referral_code_used})` : ""}:</span>
-                  <span>-{formatRupiah(booking.discount_amount - ((booking.points_used || 0) * 100))}</span>
+                  <span>Total Potongan Diskon:</span>
+                  <span>-{formatRupiah(booking.discount_amount)}</span>
                 </div>
               )}
 

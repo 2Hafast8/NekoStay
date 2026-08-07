@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Cat, Check, Heart, Shield, Users, Star, Sparkles, Activity } from "lucide-react";
+import { Cat, Check, Heart, Shield, Users, Star, Sparkles, Activity, Mail, Phone, MapPin, Clock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
@@ -25,6 +25,8 @@ export default function LandingPage() {
   const [heroSettings, setHeroSettings] = useState(null);
   const [whyUsList, setWhyUsList] = useState(null);
   const [dbClasses, setDbClasses] = useState([]);
+  const [contactInfo, setContactInfo] = useState(null);
+  const [faqItems, setFaqItems] = useState([]);
 
   const currentLanguage = mounted ? language : "id";
   const t = (key) => dictionary[currentLanguage]?.[key] || key;
@@ -54,12 +56,14 @@ export default function LandingPage() {
   const whyRef = useRef(null);
   const pricingRef = useRef(null);
   const reviewsRef = useRef(null);
+  const faqRef = useRef(null);
   const marqueeTrackRef = useRef(null);
 
   // Section scroll-trigger reveals
   useGsapReveal(whyRef, { stagger: 0.12, y: 40, duration: 0.7 });
   useGsapReveal(pricingRef, { stagger: 0.15, y: 44, scale: 0.97, duration: 0.7 });
   useGsapReveal(reviewsRef, { stagger: 0.13, y: 32, duration: 0.65 });
+  useGsapReveal(faqRef, { stagger: 0.1, y: 30, duration: 0.6 });
 
   // Magnetic hover effect for CTA buttons
   const handleMagneticMove = (e) => {
@@ -306,6 +310,8 @@ export default function LandingPage() {
             if (row.id === "hero" && row.content) setHeroSettings(row.content);
             if (row.id === "why_us" && Array.isArray(row.content))
               setWhyUsList(row.content);
+            if (row.id === "contact" && row.content) setContactInfo(row.content);
+            if (row.id === "faqs" && Array.isArray(row.content)) setFaqItems(row.content);
           });
         }
 
@@ -383,16 +389,16 @@ export default function LandingPage() {
         <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full bg-primary/10 dark:bg-primary/5 blur-3xl -z-10" />
         <div className="absolute top-1/3 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-amber-500/10 dark:bg-amber-500/5 blur-3xl -z-10" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 relative">
           <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-center">
             {/* Left Content */}
             <div className="col-span-7 space-y-6 text-center lg:text-left">
               <div ref={heroBadgeRef} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs dark:bg-primary/20">
                 <SparkleIcon className="w-3.5 h-3.5 animate-spin-slow" />
-                <span>{heroSettings?.badge || t("hero_badge")}</span>
+                <span>{(heroSettings?.[currentLanguage === 'en' ? 'badge_en' : 'badge_id']) || t("hero_badge")}</span>
               </div>
               <h1 ref={heroTitleRef} className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] dark:text-zinc-50">
-                {heroSettings?.title || (
+                {(heroSettings?.[currentLanguage === 'en' ? 'title_en' : 'title_id']) || (
                   <>
                     {t("hero_title_1")}{" "}
                     <span className="bg-gradient-to-r from-primary via-orange-500 to-amber-600 bg-clip-text text-transparent">
@@ -402,7 +408,7 @@ export default function LandingPage() {
                 )}
               </h1>
               <p ref={heroDescRef} className="text-base sm:text-lg text-muted-foreground dark:text-zinc-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                {heroSettings?.subtitle || t("hero_desc")}
+                {(heroSettings?.[currentLanguage === 'en' ? 'subtitle_en' : 'subtitle_id']) || t("hero_desc")}
               </p>
               <div ref={heroBtnsRef} className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link
@@ -412,7 +418,7 @@ export default function LandingPage() {
                   className="px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold hover:bg-primary/95 transition-colors shadow-md shadow-primary/20 hover:shadow-lg flex items-center justify-center gap-2"
                 >
                   <Cat className="w-5 h-5" />
-                  {heroSettings?.cta_text || t("hero_cta_primary")}
+                  {(heroSettings?.[currentLanguage === 'en' ? 'cta_text_en' : 'cta_text_id']) || t("hero_cta_primary")}
                 </Link>
                 <Link
                   href="#services"
@@ -513,7 +519,7 @@ export default function LandingPage() {
 
       {/* Why Choose Us */}
       <section className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
               {t("why_title")}
@@ -559,10 +565,10 @@ export default function LandingPage() {
                     <IconComp className="w-6 h-6" />
                   </div>
                   <h3 className="text-lg font-bold dark:text-zinc-200">
-                    {item.title}
+                    {item[currentLanguage === 'en' ? 'title_en' : 'title_id'] || item.title}
                   </h3>
                   <p className="text-sm text-muted-foreground dark:text-zinc-450 leading-relaxed">
-                    {item.description}
+                    {item[currentLanguage === 'en' ? 'description_en' : 'description_id'] || item.description}
                   </p>
                 </div>
               );
@@ -573,7 +579,7 @@ export default function LandingPage() {
 
       {/* Pricing / Services Section */}
       <section id="services" className="py-16 sm:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
               {t("room_title")}
@@ -673,7 +679,7 @@ export default function LandingPage() {
 
       {/* Reviews Section */}
       <section className="py-16 sm:py-24 bg-card dark:bg-zinc-900/20 border-t border-border/60 dark:border-zinc-900/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
               {language === "en" ? "What Pet Owners Say" : "Apa Kata Pemilik Mpus"}
@@ -732,29 +738,156 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-border dark:border-zinc-900 bg-card dark:bg-zinc-950 py-12 text-center text-sm text-muted-foreground dark:text-zinc-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <Cat className="w-5 h-5 text-primary" />
-            <span className="font-extrabold text-foreground dark:text-zinc-150">NekoStay</span>
+      {/* FAQ Section */}
+      {faqItems.length > 0 && (
+        <section className="py-16 sm:py-24 border-t border-border/60 dark:border-zinc-900/60">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center space-y-3 mb-16">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
+                {currentLanguage === 'en' ? 'Frequently Asked Questions' : 'Pertanyaan yang Sering Diajukan'}
+              </h2>
+              <p className="text-muted-foreground dark:text-zinc-400 max-w-xl mx-auto text-sm sm:text-base">
+                {currentLanguage === 'en'
+                  ? 'Find answers to common questions about our cat boarding services.'
+                  : 'Temukan jawaban untuk pertanyaan umum tentang layanan penitipan kucing kami.'}
+              </p>
+            </div>
+
+            <div ref={faqRef} className="space-y-4">
+              {faqItems.map((faq, idx) => (
+                <FaqAccordion
+                  key={faq.id || idx}
+                  question={faq[currentLanguage === 'en' ? 'q_en' : 'q_id']}
+                  answer={faq[currentLanguage === 'en' ? 'a_en' : 'a_id']}
+                />
+              ))}
+            </div>
           </div>
-          <p>
-            © {new Date().getFullYear()} NekoStay. {language === "en" ? "All rights reserved." : "Seluruh hak cipta dilindungi."}
-          </p>
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <Link
-              href="/terms"
-              className="hover:text-foreground dark:hover:text-zinc-300 transition-colors"
-            >
-              {language === "en" ? "Terms & Conditions" : "Syarat & Ketentuan"}
-            </Link>
-            <Link
-              href="/privacy"
-              className="hover:text-foreground dark:hover:text-zinc-300 transition-colors"
-            >
-              {language === "en" ? "Privacy Policy" : "Kebijakan Privasi"}
-            </Link>
+        </section>
+      )}
+
+      {/* Footer */}
+      <footer className="mt-auto border-t border-border dark:border-zinc-900 bg-card dark:bg-zinc-950">
+        {/* Main Footer Content */}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
+            {/* Brand Column */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="flex items-center gap-2">
+                <Cat className="w-6 h-6 text-primary" />
+                <span className="text-xl font-extrabold text-foreground dark:text-zinc-100">NekoStay</span>
+              </div>
+              <p className="text-sm text-muted-foreground dark:text-zinc-400 leading-relaxed max-w-xs">
+                {currentLanguage === 'en'
+                  ? 'Premium cat boarding with daily reports, 24/7 vet on standby, and automatic pricing calculation.'
+                  : 'Penitipan kucing premium dengan laporan harian, dokter hewan siaga 24/7, dan kalkulasi harga otomatis.'}
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider">
+                {currentLanguage === 'en' ? 'Quick Links' : 'Tautan Cepat'}
+              </h4>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/booking/new" className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {currentLanguage === 'en' ? 'Book Now' : 'Pesan Sekarang'}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#services" className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {currentLanguage === 'en' ? 'Room Classes' : 'Kelas Kamar'}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {currentLanguage === 'en' ? 'Terms & Conditions' : 'Syarat & Ketentuan'}
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {currentLanguage === 'en' ? 'Privacy Policy' : 'Kebijakan Privasi'}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contact Info */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider">
+                {currentLanguage === 'en' ? 'Contact Us' : 'Hubungi Kami'}
+              </h4>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <Mail className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <a href={`mailto:${contactInfo?.email || 'care@nekostay.com'}`} className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {contactInfo?.email || 'care@nekostay.com'}
+                  </a>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Phone className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <a href={`tel:${(contactInfo?.phone || '+62 812-3456-7890').replace(/\s/g, '')}`} className="text-sm text-muted-foreground dark:text-zinc-400 hover:text-primary transition-colors">
+                    {contactInfo?.phone || '+62 812-3456-7890'}
+                  </a>
+                </li>
+                <li className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <span className="text-sm text-muted-foreground dark:text-zinc-400">
+                    {contactInfo?.[currentLanguage === 'en' ? 'address_en' : 'address_id'] || 'Jl. Kucing Bahagia No. 12, Jakarta Selatan'}
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Clock className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <span className="text-sm text-muted-foreground dark:text-zinc-400">
+                    {contactInfo?.[currentLanguage === 'en' ? 'hours_en' : 'hours_id'] || 'Senin - Minggu: 08:00 - 20:00 WIB'}
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Google Map Embed */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider">
+                {currentLanguage === 'en' ? 'Find Us' : 'Temukan Kami'}
+              </h4>
+              <div className="rounded-2xl overflow-hidden border border-border dark:border-zinc-800 shadow-sm">
+                <iframe
+                  src={contactInfo?.google_map_url || 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3966.275727196024!2d106.80498707572886!3d-6.227339793760775!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14d31481f33%3A0xb3047a0640f09918!2sSenayan%20City!5e0!3m2!1sid!2sid!4v1700000000000!5m2!1sid!2sid'}
+                  width="100%"
+                  height="200"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="NekoStay Location"
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="border-t border-border/60 dark:border-zinc-900/60 py-6">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-center">
+            <p className="text-xs text-muted-foreground dark:text-zinc-500">
+              © {new Date().getFullYear()} NekoStay. {currentLanguage === 'en' ? 'All rights reserved.' : 'Seluruh hak cipta dilindungi.'}
+            </p>
+            <div className="flex items-center gap-4 text-xs font-semibold">
+              <Link
+                href="/terms"
+                className="text-muted-foreground dark:text-zinc-500 hover:text-foreground dark:hover:text-zinc-300 transition-colors"
+              >
+                {currentLanguage === 'en' ? 'Terms & Conditions' : 'Syarat & Ketentuan'}
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-muted-foreground dark:text-zinc-500 hover:text-foreground dark:hover:text-zinc-300 transition-colors"
+              >
+                {currentLanguage === 'en' ? 'Privacy Policy' : 'Kebijakan Privasi'}
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
@@ -781,5 +914,60 @@ function SparkleIcon(props) {
       <path d="m18 6-12 12" />
       <path d="m6 6 12 12" />
     </svg>
+  );
+}
+
+function FaqAccordion({ question, answer }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const contentRef = useRef(null);
+
+  const toggle = () => {
+    setIsOpen(!isOpen);
+    if (contentRef.current) {
+      if (!isOpen) {
+        gsap.to(contentRef.current, {
+          height: 'auto',
+          opacity: 1,
+          duration: 0.35,
+          ease: 'power2.out',
+        });
+      } else {
+        gsap.to(contentRef.current, {
+          height: 0,
+          opacity: 0,
+          duration: 0.25,
+          ease: 'power2.in',
+        });
+      }
+    }
+  };
+
+  return (
+    <div className="border border-border dark:border-zinc-800 rounded-2xl overflow-hidden hover:border-primary/30 dark:hover:border-primary/20 transition-colors">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between p-5 text-left cursor-pointer"
+      >
+        <span className="text-sm font-bold text-foreground dark:text-zinc-200 pr-4">
+          {question}
+        </span>
+        <svg
+          className={`w-5 h-5 text-muted-foreground dark:text-zinc-500 shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      <div
+        ref={contentRef}
+        style={{ height: 0, opacity: 0, overflow: 'hidden' }}
+      >
+        <div className="px-5 pb-5 text-sm text-muted-foreground dark:text-zinc-400 leading-relaxed">
+          {answer}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Info,
+  Ticket,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
@@ -76,6 +77,13 @@ function BookingFormContent() {
   // Points redemption states
   const [userPoints, setUserPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
+
+  // Promo code states
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [isVerifyingPromo, setIsVerifyingPromo] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState(null); // { code, title, discountAmount, discountType, discountValue }
+  const [promoError, setPromoError] = useState(null);
+  const [promoSuccess, setPromoSuccess] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -185,6 +193,47 @@ function BookingFormContent() {
     setReferralCodeInput("");
   };
 
+  // Handle promo code verification
+  const handleVerifyPromo = async () => {
+    const code = promoCodeInput.trim().toUpperCase();
+    if (!code) return;
+
+    setIsVerifyingPromo(true);
+    setPromoError(null);
+    setPromoSuccess(null);
+    setAppliedPromo(null);
+
+    try {
+      const total = pricingPreview?.totalCost || 0;
+      const res = await fetch(`/api/promos/verify?code=${code}&class=${bookingClass}&total=${total}`);
+      const data = await res.json();
+
+      if (data.valid) {
+        setAppliedPromo({
+          code: data.code,
+          title: data.title,
+          discountAmount: data.discountAmount,
+          discountType: data.discountType,
+          discountValue: data.discountValue,
+        });
+        setPromoSuccess(data.message);
+      } else {
+        setPromoError(data.message || (language === "en" ? "Invalid promo code" : "Kode promo tidak valid"));
+      }
+    } catch (err) {
+      setPromoError(language === "en" ? "Failed to verify promo code" : "Gagal memverifikasi kode promo");
+    } finally {
+      setIsVerifyingPromo(false);
+    }
+  };
+
+  // Remove applied promo
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoSuccess(null);
+    setPromoCodeInput("");
+  };
+
   // Pricing preview calculation
   const pricingPreview = useMemo(() => {
     if (!checkInDate || !checkOutDate) return null;
@@ -201,25 +250,29 @@ function BookingFormContent() {
     
     // Apply 10% discount if referral applied
     const referralDiscount = appliedReferral ? Math.floor(baseSummary.totalCost * 0.1) : 0;
+
+    // Apply promo code discount
+    const promoDiscount = appliedPromo?.discountAmount || 0;
     
     // Calculate Neko Points discount (1 point = Rp 100)
-    const maxRedeemableValue = baseSummary.totalCost - referralDiscount;
-    const maxRedeemablePoints = Math.floor(maxRedeemableValue / 100);
+    const maxRedeemableValue = baseSummary.totalCost - referralDiscount - promoDiscount;
+    const maxRedeemablePoints = Math.floor(Math.max(0, maxRedeemableValue) / 100);
     const pointsToUse = usePoints ? Math.min(userPoints, maxRedeemablePoints) : 0;
     const pointsDiscount = pointsToUse * 100;
 
-    const discount = referralDiscount + pointsDiscount;
+    const discount = referralDiscount + promoDiscount + pointsDiscount;
     const finalTotal = Math.max(0, baseSummary.totalCost - discount);
 
     return {
       ...baseSummary,
       referralDiscount,
+      promoDiscount,
       pointsDiscount,
       pointsToUse,
       discount,
       finalTotal,
     };
-  }, [bookingClass, checkInDate, checkOutDate, appliedReferral, usePoints, userPoints]);
+  }, [bookingClass, checkInDate, checkOutDate, appliedReferral, appliedPromo, usePoints, userPoints]);
 
   const validateStep1 = () => {
     const errors = {};
@@ -301,6 +354,11 @@ function BookingFormContent() {
         bookingData.referral_owner_id = referralOwnerId;
       }
 
+      // Add promo info if a promo code was applied
+      if (appliedPromo) {
+        bookingData.promo_code_used = appliedPromo.code;
+      }
+
       // Insert booking record
       const { data: booking, error } = await supabase
         .from("bookings")
@@ -337,6 +395,17 @@ function BookingFormContent() {
           }
         } catch (pointErr) {
           console.warn("[Warning] Award points error:", pointErr.message);
+        }
+      }
+
+      // Increment promo used_count
+      if (appliedPromo) {
+        try {
+          await supabase.rpc("increment_promo_used_count", {
+            promo_code_param: appliedPromo.code,
+          });
+        } catch (promoErr) {
+          console.warn("[Warning] Increment promo usage error:", promoErr.message);
         }
       }
 
@@ -787,6 +856,58 @@ function BookingFormContent() {
             )}
           </div>
 
+          {/* Promo Code input */}
+          <div className="space-y-1.5 border-t border-border/60 dark:border-zinc-800/60 pt-4">
+            <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+              {language === "en" ? "Promo / Voucher Code (Optional)" : "Kode Promo / Voucher (Opsional)"}
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Ticket className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/60" />
+                <input
+                  type="text"
+                  value={promoCodeInput}
+                  disabled={!!appliedPromo}
+                  onChange={(e) => setPromoCodeInput(e.target.value)}
+                  placeholder={language === "en" ? "e.g. DISKON50" : "cth. DISKON50"}
+                  className="w-full pl-11 pr-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 uppercase disabled:opacity-60"
+                />
+              </div>
+              {appliedPromo ? (
+                <button
+                  type="button"
+                  onClick={handleRemovePromo}
+                  className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 dark:border-rose-950/40 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/15 cursor-pointer transition-colors"
+                >
+                  {language === "en" ? "Remove" : "Hapus"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleVerifyPromo}
+                  disabled={isVerifyingPromo || !promoCodeInput.trim()}
+                  className="px-5 py-3 rounded-xl bg-secondary dark:bg-zinc-800 text-primary dark:text-zinc-200 text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
+                >
+                  {isVerifyingPromo ? (language === "en" ? "Checking..." : "Memeriksa...") : (language === "en" ? "Apply" : "Terapkan")}
+                </button>
+              )}
+            </div>
+
+            {promoError && (
+              <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{promoError}</span>
+              </p>
+            )}
+
+            {promoSuccess && (
+              <p className="text-xs text-emerald-500 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                <span>{promoSuccess}</span>
+              </p>
+            )}
+          </div>
+
           {/* Neko Points Redemption Section */}
           {userPoints > 0 && (
             <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 dark:border-amber-950/30 p-4 rounded-2xl space-y-2">
@@ -841,6 +962,12 @@ function BookingFormContent() {
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
                     <span>{t("book_discount_referral")} (10%):</span>
                     <span>-{formatRupiah(pricingPreview.referralDiscount)}</span>
+                  </div>
+                )}
+                {pricingPreview.promoDiscount > 0 && (
+                  <div className="flex justify-between text-violet-600 dark:text-violet-400 font-bold">
+                    <span>{language === "en" ? "Promo Discount" : "Diskon Promo"} ({appliedPromo?.title}):</span>
+                    <span>-{formatRupiah(pricingPreview.promoDiscount)}</span>
                   </div>
                 )}
                 {pricingPreview.pointsDiscount > 0 && (

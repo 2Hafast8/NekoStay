@@ -44,6 +44,9 @@ export function BookingCard({ booking, isAdmin = false }) {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="mb-3">
           <BookingStatus status={booking.status} />
         </div>
 

@@ -127,7 +127,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div ref={containerRef} className="max-w-2xl mx-auto space-y-8 mt-4">
+    <div ref={containerRef} className="max-w-6xl w-full mx-auto space-y-8 mt-4">
       {/* Header */}
       <div className="space-y-1 anim-item">
         <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-wider">

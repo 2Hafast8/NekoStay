@@ -21,6 +21,8 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Wallet,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -40,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function AdminBookingsPage() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const containerRef = useRef(null);
 
   const [bookings, setBookings] = useState([]);
@@ -57,6 +59,7 @@ export default function AdminBookingsPage() {
   const [isBulkLoading, setIsBulkLoading] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
   const [isBulkRejectOpen, setIsBulkRejectOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
   const itemsPerPage = 10;
 
   // Monthly / Yearly filter states (defaults to current month and year)
@@ -600,32 +603,72 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6 anim-item">
-        {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
-          const tabMapping = {
-            "Semua": t("admin_bookings_tab_all"),
-            "Menunggu": t("admin_bookings_tab_pending"),
-            "Aktif": t("admin_bookings_tab_active"),
-            "Selesai": t("admin_bookings_tab_completed"),
-            "Dibatalkan": t("admin_bookings_tab_cancelled")
-          };
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-4 text-sm font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
-                activeTab === tab
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tabMapping[tab]}
-              {activeTab === tab && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          );
-        })}
+      <div className="flex border-b border-border/80 dark:border-zinc-800 overflow-x-auto pb-px justify-between sm:justify-start gap-4 sm:gap-8 w-full anim-item">
+        <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto">
+          {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
+            const tabMapping = {
+              "Semua": t("admin_bookings_tab_all"),
+              "Menunggu": t("admin_bookings_tab_pending"),
+              "Aktif": t("admin_bookings_tab_active"),
+              "Selesai": t("admin_bookings_tab_completed"),
+              "Dibatalkan": t("admin_bookings_tab_cancelled")
+            };
+            const count = tab === "Semua" ? bookings.length : bookings.filter(b => b.status === tab).length;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3.5 text-xs sm:text-sm font-extrabold transition-all relative cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+                  activeTab === tab
+                    ? "text-primary dark:text-primary"
+                    : "text-muted-foreground dark:text-zinc-400 hover:text-foreground dark:hover:text-zinc-200"
+                }`}
+              >
+                <span>{tabMapping[tab] || tab}</span>
+                <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
+                  activeTab === tab
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted dark:bg-zinc-800 text-muted-foreground dark:text-zinc-400"
+                }`}>
+                  {count}
+                </span>
+                {activeTab === tab && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* View Switcher Toggle (Desktop) */}
+        <div className="hidden md:flex items-center gap-1 p-1 bg-muted dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-xl shrink-0 self-center mb-2">
+          <button
+            type="button"
+            onClick={() => setViewMode("table")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === "table"
+                ? "bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Tampilan Tabel"
+          >
+            <List className="w-3.5 h-3.5" />
+            <span>Tabel</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === "grid"
+                ? "bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Tampilan Grid Kartu"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Grid Kartu</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -789,324 +832,354 @@ export default function AdminBookingsPage() {
         </div>
       ) : (
         <>
-          {/* Desktop Table View */}
-          <div className="hidden md:block bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold">
-                    <th className="p-4 sm:p-5 w-12 text-center">
-                      <input
-                        type="checkbox"
-                        checked={isAllPagePendingSelected}
-                        onChange={handleSelectAllPagePending}
-                        disabled={pagePendingBookings.length === 0}
-                        className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
-                      />
-                    </th>
-                    <th className="p-4 sm:p-5">{t("admin_bookings_col_owner_cat")}</th>
-                    <th className="p-4 sm:p-5">{t("admin_bookings_col_class_rate")}</th>
-                    <th className="p-4 sm:p-5">{t("admin_bookings_col_schedule")}</th>
-                    <th className="p-4 sm:p-5">{t("admin_bookings_col_est_total")}</th>
-                    <th className="p-4 sm:p-5">{t("admin_bookings_col_status")}</th>
-                    <th className="p-4 sm:p-5">Status Bayar</th>
-                    <th className="p-4 sm:p-5 text-right">{t("admin_bookings_col_action")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {paginatedBookings.map((b) => (
-                    <tr
-                      key={b.id}
-                      className="hover:bg-muted/15 transition-colors anim-item"
-                    >
-                      <td className="p-4 sm:p-5 text-center">
-                        {b.status === "Menunggu" ? (
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(b.id)}
-                            onChange={() => handleSelectRow(b.id)}
-                            className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
-                          />
-                        ) : (
-                          <div className="w-4 h-4" />
-                        )}
-                      </td>
-                      <td className="p-4 sm:p-5">
-                        <div className="font-bold text-foreground">
-                          {b.cat_name}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {b.profiles?.full_name}{" "}
-                          {b.profiles?.phone && `(${b.profiles.phone})`}
-                        </div>
-                      </td>
-                      <td className="p-4 sm:p-5 font-semibold text-foreground">
-                        {b.class}
-                        <span className="text-[10px] text-muted-foreground font-medium block mt-0.5">
-                          {formatRupiah(b.price_per_day)}/hari
-                        </span>
-                      </td>
-                      <td className="p-4 sm:p-5">
-                        <span className="font-semibold text-foreground text-xs block">
-                          {formatDate(b.check_in_date)} -{" "}
-                          {formatDate(b.check_out_date)}
-                        </span>
-                        <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full font-bold text-foreground inline-block mt-1">
-                          {b.total_days} Hari
-                        </span>
-                      </td>
-                      <td className="p-4 sm:p-5">
-                        <div className="font-extrabold text-foreground">
-                          {formatRupiah(b.estimated_total)}
-                        </div>
-                        {b.late_fee_total > 0 && (
-                          <div className="text-[10px] font-bold text-rose-500 mt-1 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
-                            <span>Denda: +{formatRupiah(b.late_fee_total)}</span>
+          {viewMode === "grid" ? (
+            /* Grid View */
+            <div className="space-y-4">
+              {pagePendingBookings.length > 0 && (
+                <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
+                  <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isAllPagePendingSelected}
+                      onChange={handleSelectAllPagePending}
+                      className="w-4.5 h-4.5 rounded-sm border-border accent-primary"
+                    />
+                    Pilih Semua Menunggu
+                  </label>
+                  {selectedIds.length > 0 && (
+                    <span className="text-xs bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold">
+                      {selectedIds.length} Terpilih
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+                {paginatedBookings.map((b) => (
+                  <div key={b.id} className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-850 rounded-3xl p-5 space-y-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between anim-item">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          {b.status === "Menunggu" && (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(b.id)}
+                              onChange={() => handleSelectRow(b.id)}
+                              className="w-4.5 h-4.5 rounded-sm border-border accent-primary shrink-0 cursor-pointer"
+                            />
+                          )}
+                          <div className="truncate">
+                            <h3 className="font-extrabold text-foreground dark:text-zinc-100 text-sm truncate">
+                              {b.cat_name}
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground dark:text-zinc-400 truncate">
+                              Pemilik: {b.profiles?.full_name || "Tamu Neko"}
+                            </p>
                           </div>
-                        )}
-                        {b.refund_amount > 0 && (
-                          <div className="text-[10px] font-bold text-blue-500 mt-1 flex items-center gap-1">
-                            <TrendingDown className="w-3 h-3 text-blue-500 shrink-0" />
-                            <span>Refund: -{formatRupiah(b.refund_amount)}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 sm:p-5">
+                        </div>
                         <BookingStatus status={b.status} />
-                      </td>
-                      <td className="p-4 sm:p-5">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-full border cursor-pointer transition-all ${
-                            b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
-                            b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' :
-                            b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' :
-                            'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                      </div>
+
+                      <div className="space-y-2 border-t border-b border-border/40 dark:border-zinc-800/80 py-3 text-xs text-muted-foreground dark:text-zinc-400">
+                        <div className="flex justify-between">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Kelas & Tarif:</span>
+                          <span className="font-bold text-foreground dark:text-zinc-200">{b.class} ({formatRupiah(b.price_per_day)})</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Durasi:</span>
+                          <span className="font-bold text-foreground dark:text-zinc-200">{b.total_days} Hari</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Status Bayar:</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                            b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
+                            b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400' :
+                            b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400' :
+                            'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
                           }`}>
                             <Wallet className="w-3 h-3" />
-                            {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Refund' : 'Belum'}
-                            <ChevronDown className="w-2.5 h-2.5" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent side="bottom" align="start" sideOffset={4}>
-                            {[
-                              { value: 'Unpaid', label: 'Belum Dibayar' },
-                              { value: 'Paid', label: 'Lunas' },
-                              { value: 'Failed', label: 'Gagal' },
-                              { value: 'Refunded', label: 'Dikembalikan' },
-                            ].map((opt) => (
-                              <DropdownMenuItem
-                                key={opt.value}
-                                onClick={async () => {
-                                  if (b.payment_status === opt.value) return;
-                                  try {
-                                    const res = await fetch(`/api/bookings/${b.id}/payment-status`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ paymentStatus: opt.value }),
-                                    });
-                                    if (!res.ok) {
-                                      const data = await res.json();
-                                      alert(data.error || 'Gagal mengubah status');
-                                      return;
-                                    }
-                                    fetchAllBookings();
-                                  } catch (err) {
-                                    alert(err.message || 'Terjadi kesalahan');
-                                  }
-                                }}
-                                className={b.payment_status === opt.value ? 'text-orange-600 dark:text-orange-400 font-bold' : ''}
-                              >
-                                {b.payment_status === opt.value && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
-                                {opt.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                      <td className="p-4 sm:p-5 text-right">
-                        <div className="flex items-center justify-end gap-2.5">
-                          <Link
-                            href={`/admin/bookings/${b.id}`}
-                            className="px-3 py-1.5 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all inline-block"
-                          >
-                            {t("admin_bookings_btn_detail")}
-                          </Link>
-
-                          {b.status === "Menunggu" && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setSelectedBooking(b);
-                                  setIsApproveOpen(true);
-                                }}
-                                className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                {t("admin_bookings_btn_approve")}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedBooking(b);
-                                  setIsRejectOpen(true);
-                                }}
-                                className="px-3 py-1.5 border border-rose-200 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                {t("admin_bookings_btn_reject")}
-                              </button>
-                            </>
-                          )}
-
-                          {b.status === "Aktif" && (
-                            <button
-                              onClick={() => openCheckoutModal(b)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
-                            >
-                              <LogOut className="w-3.5 h-3.5" />
-                              {t("admin_bookings_btn_checkout")}
-                            </button>
-                          )}
+                            {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
+                          </span>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        <div className="flex justify-between pt-1 border-t border-border/30">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Tagihan:</span>
+                          <span className="font-extrabold text-foreground dark:text-zinc-100 text-sm">{formatRupiah(b.estimated_total)}</span>
+                        </div>
+                      </div>
+                    </div>
 
-          {/* Mobile Card View */}
-          <div className="space-y-4 md:hidden">
-            {/* Mobile "Select All" bar if there are pending bookings */}
-            {pagePendingBookings.length > 0 && (
-              <div className="bg-card border border-border p-4 rounded-2xl flex items-center justify-between shadow-xs">
-                <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={isAllPagePendingSelected}
-                    onChange={handleSelectAllPagePending}
-                    className="w-4.5 h-4.5 rounded-sm border-border accent-primary"
-                  />
-                  Pilih Semua Menunggu
-                </label>
-                {selectedIds.length > 0 && (
-                  <span className="text-xs bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold">
-                    {selectedIds.length} Terpilih
-                  </span>
-                )}
-              </div>
-            )}
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                      <Link
+                        href={`/admin/bookings/${b.id}`}
+                        className="px-3.5 py-2 border border-border dark:border-zinc-800 hover:bg-muted text-xs font-bold rounded-xl transition-all text-center flex-1"
+                      >
+                        Detail
+                      </Link>
 
-            {paginatedBookings.map((b) => (
-              <div key={b.id} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs anim-item">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    {b.status === "Menunggu" && (
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(b.id)}
-                        onChange={() => handleSelectRow(b.id)}
-                        className="w-4.5 h-4.5 rounded-sm border-border accent-primary shrink-0 cursor-pointer"
-                      />
-                    )}
-                    <div>
-                      <h3 className="font-extrabold text-foreground text-sm">
-                        {b.cat_name}
-                      </h3>
-                      <p className="text-[11px] text-muted-foreground">
-                        Pemilik: {b.profiles?.full_name || "Tamu Neko"}
-                      </p>
+                      {b.status === "Menunggu" && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedBooking(b);
+                              setIsApproveOpen(true);
+                            }}
+                            className="px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Setujui
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedBooking(b);
+                              setIsRejectOpen(true);
+                            }}
+                            className="px-3.5 py-2 border border-rose-200 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Tolak
+                          </button>
+                        </>
+                      )}
+
+                      {b.status === "Aktif" && (
+                        <button
+                          onClick={() => openCheckoutModal(b)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          Check-Out
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <BookingStatus status={b.status} />
-                </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* Table View */
+            <>
+              <div className="hidden md:block bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold">
+                        <th className="p-4 sm:p-5 w-12 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isAllPagePendingSelected}
+                            onChange={handleSelectAllPagePending}
+                            disabled={pagePendingBookings.length === 0}
+                            className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
+                          />
+                        </th>
+                        <th className="p-4 sm:p-5">{t("admin_bookings_col_owner_cat")}</th>
+                        <th className="p-4 sm:p-5">{t("admin_bookings_col_class_rate")}</th>
+                        <th className="p-4 sm:p-5">{t("admin_bookings_col_schedule")}</th>
+                        <th className="p-4 sm:p-5">{t("admin_bookings_col_est_total")}</th>
+                        <th className="p-4 sm:p-5">{t("admin_bookings_col_status")}</th>
+                        <th className="p-4 sm:p-5">Status Bayar</th>
+                        <th className="p-4 sm:p-5 text-right">{t("admin_bookings_col_action")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {paginatedBookings.map((b) => (
+                        <tr
+                          key={b.id}
+                          className={`hover:bg-muted/30 transition-colors anim-item ${
+                            selectedIds.includes(b.id) ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <td className="p-4 sm:p-5 text-center">
+                            {b.status === "Menunggu" ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(b.id)}
+                                onChange={() => handleSelectRow(b.id)}
+                                className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground/30 text-xs">•</span>
+                            )}
+                          </td>
 
-                <div className="grid grid-cols-2 gap-y-3 gap-x-2 border-t border-b border-border/40 py-3 text-xs text-muted-foreground">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Kelas & Tarif</span>
-                    <span className="font-semibold text-foreground">{b.class}</span>
-                    <span className="text-[10px] text-muted-foreground block">{formatRupiah(b.price_per_day)}/hari</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Durasi Jadwal</span>
-                    <span className="font-semibold text-foreground">{b.total_days} Hari</span>
-                    <span className="text-[10px] text-muted-foreground block">{formatDate(b.check_in_date)} s/d {formatDate(b.check_out_date)}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Estimasi Tagihan</span>
-                    <span className="font-extrabold text-foreground text-sm">{formatRupiah(b.estimated_total)}</span>
-                    {b.late_fee_total > 0 && (
-                      <span className="text-[10px] font-bold text-rose-500 block mt-0.5">Denda: +{formatRupiah(b.late_fee_total)}</span>
-                    )}
-                    {b.refund_amount > 0 && (
-                      <span className="text-[10px] font-bold text-blue-500 block mt-0.5">Refund: -{formatRupiah(b.refund_amount)}</span>
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Status Bayar</span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full mt-1 ${
-                      b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
-                      b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400' :
-                      b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400' :
-                      'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
-                    }`}>
-                      <Wallet className="w-3 h-3" />
-                      {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
-                    </span>
-                  </div>
-                </div>
+                          <td className="p-4 sm:p-5">
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                              <span>{b.cat_name}</span>
+                              <span className="text-xs text-muted-foreground font-normal">
+                                ({b.cat_gender === "Jantan" ? t("book_cat_gender_m") : t("book_cat_gender_f")}, {b.cat_age})
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {b.profiles?.full_name || "Tamu Neko"} {b.profiles?.phone ? `• ${b.profiles.phone}` : ""}
+                            </div>
+                          </td>
 
-                {/* Action Buttons */}
-                <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                  <Link
-                    href={`/admin/bookings/${b.id}`}
-                    className="px-3.5 py-2 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all text-center flex-1 sm:flex-initial"
-                  >
-                    Detail
-                  </Link>
+                          <td className="p-4 sm:p-5">
+                            <span className="font-bold text-foreground">{b.class}</span>
+                            <div className="text-xs text-muted-foreground">
+                              {formatRupiah(b.price_per_day)}/{t("room_per_day")}
+                            </div>
+                          </td>
 
-                  {b.status === "Menunggu" && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setSelectedBooking(b);
-                          setIsApproveOpen(true);
-                        }}
-                        className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1 flex-1 sm:flex-initial"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        Setujui
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedBooking(b);
-                          setIsRejectOpen(true);
-                        }}
-                        className="px-4 py-2 border border-rose-200 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1 sm:flex-initial"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        Tolak
-                      </button>
-                    </>
-                  )}
+                          <td className="p-4 sm:p-5">
+                            <div className="font-semibold text-foreground text-xs">
+                              {formatDate(b.check_in_date)} - {formatDate(b.check_out_date)}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-bold">
+                              {b.total_days} {language === "en" ? "Days" : "Hari"}
+                            </div>
+                          </td>
 
-                  {b.status === "Aktif" && (
-                    <button
-                      onClick={() => openCheckoutModal(b)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1 sm:flex-initial"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      Check-Out
-                    </button>
-                  )}
+                          <td className="p-4 sm:p-5">
+                            <div className="font-extrabold text-foreground">
+                              {formatRupiah(b.estimated_total)}
+                            </div>
+                            {b.discount_amount > 0 && (
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                Diskon: -{formatRupiah(b.discount_amount)}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-4 sm:p-5">
+                            <BookingStatus status={b.status} />
+                          </td>
+
+                          <td className="p-4 sm:p-5">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger className="focus:outline-hidden cursor-pointer">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border transition-all hover:opacity-80 ${
+                                  b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900' :
+                                  b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900' :
+                                  b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900' :
+                                  'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900'
+                                }`}>
+                                  <Wallet className="w-3 h-3" />
+                                  {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
+                                  <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
+                                </span>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-44 p-1">
+                                {[
+                                  { value: 'Unpaid', label: 'Belum Dibayar' },
+                                  { value: 'Paid', label: 'Lunas' },
+                                  { value: 'Failed', label: 'Gagal' },
+                                  { value: 'Refunded', label: 'Dikembalikan' },
+                                ].map((opt) => (
+                                  <DropdownMenuItem
+                                    key={opt.value}
+                                    onClick={async () => {
+                                      try {
+                                        const res = await fetch(`/api/bookings/${b.id}/payment-status`, {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ payment_status: opt.value }),
+                                        });
+                                        if (!res.ok) {
+                                          const data = await res.json();
+                                          alert(data.error || 'Gagal mengubah status');
+                                          return;
+                                        }
+                                        fetchAllBookings();
+                                      } catch (err) {
+                                        alert(err.message || 'Terjadi kesalahan');
+                                      }
+                                    }}
+                                    className={b.payment_status === opt.value ? 'text-orange-600 dark:text-orange-400 font-bold' : ''}
+                                  >
+                                    {b.payment_status === opt.value && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
+                                    {opt.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+
+                          <td className="p-4 sm:p-5 text-right">
+                            <div className="flex items-center justify-end gap-2.5">
+                              <Link
+                                href={`/admin/bookings/${b.id}`}
+                                className="px-3 py-1.5 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all inline-block"
+                              >
+                                {t("admin_bookings_btn_detail")}
+                              </Link>
+
+                              {b.status === "Menunggu" && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedBooking(b);
+                                      setIsApproveOpen(true);
+                                    }}
+                                    className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    {t("admin_bookings_btn_approve")}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedBooking(b);
+                                      setIsRejectOpen(true);
+                                    }}
+                                    className="px-3 py-1.5 border border-rose-200 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    {t("admin_bookings_btn_reject")}
+                                  </button>
+                                </>
+                              )}
+
+                              {b.status === "Aktif" && (
+                                <button
+                                  onClick={() => openCheckoutModal(b)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                  <LogOut className="w-3.5 h-3.5" />
+                                  {t("admin_bookings_btn_checkout")}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Mobile Table View Fallback */}
+              <div className="space-y-4 md:hidden">
+                {paginatedBookings.map((b) => (
+                  <div key={`m-${b.id}`} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs anim-item">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-extrabold text-foreground text-sm">{b.cat_name}</h3>
+                        <p className="text-[11px] text-muted-foreground">Pemilik: {b.profiles?.full_name || "Tamu Neko"}</p>
+                      </div>
+                      <BookingStatus status={b.status} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-b py-3">
+                      <div>
+                        <span className="text-[10px] block font-bold uppercase">Kelas</span>
+                        <span className="font-bold text-foreground">{b.class}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] block font-bold uppercase">Total Tagihan</span>
+                        <span className="font-bold text-foreground">{formatRupiah(b.estimated_total)}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/admin/bookings/${b.id}`} className="px-4 py-2 border rounded-xl text-xs font-bold">Detail</Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
 
-      {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border px-5 py-4 rounded-2xl anim-item">
           <p className="text-xs text-muted-foreground font-semibold">

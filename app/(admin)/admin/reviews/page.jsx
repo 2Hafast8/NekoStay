@@ -214,7 +214,7 @@ export default function AdminReviewsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {paginatedReviews.map((rev) => {
             const hasReply = !!rev.reply_text;
             const isReplying = replyingToId === rev.id;
