@@ -128,15 +128,10 @@ function DashboardContent() {
   }, [searchParams]);
 
   const formatOmzet = (val) => {
-    if (val >= 1000000) {
-      const millionVal = val / 1000000;
-      if (millionVal >= 10) {
-        return `Rp ${Math.floor(millionVal)}jt`;
-      } else {
-        return `Rp ${millionVal.toFixed(1).replace(".", ",")}jt`.replace(",0", "");
-      }
-    }
-    return formatRupiah(val);
+    if (!val || val === 0) return "Rp 0,0 Juta";
+    const millionVal = val / 1000000;
+    const formatted = millionVal.toFixed(1).replace(".", ",");
+    return `Rp ${formatted} Juta`;
   };
 
   useEffect(() => {

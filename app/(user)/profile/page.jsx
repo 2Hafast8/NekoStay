@@ -62,15 +62,23 @@ export default function ProfilePage() {
           setReferralCode(profile.referral_code || "");
           setNekoPoints(profile.neko_points || 0);
           
-          // Fetch referred friends count (registrations)
-          const { count, error: countErr } = await supabase
+          // Fetch count of users who have actually applied/used this user's referral code
+          const { data: usageBookings } = await supabase
+            .from("bookings")
+            .select("user_id")
+            .eq("referral_owner_id", user.id);
+
+          const { count: regCount } = await supabase
             .from("profiles")
             .select("id", { count: "exact", head: true })
             .eq("referred_by", user.id);
 
-          if (!countErr) {
-            setReferredCount(count || 0);
-          }
+          const uniqueUsers = new Set([
+            ...(usageBookings ? usageBookings.map((b) => b.user_id) : []),
+          ]);
+
+          const totalUsersWhoUsedCode = Math.max(uniqueUsers.size, regCount || 0);
+          setReferredCount(totalUsersWhoUsedCode);
         }
       }
       setIsLoading(false);
@@ -287,7 +295,7 @@ export default function ProfilePage() {
                     {referredCount}
                   </p>
                   <p className="text-[10px] font-medium text-muted-foreground dark:text-zinc-400">
-                    {t("ref_stats_joined")}
+                    {language === "en" ? "Referral Code Users" : "Pengguna Kode Referral"}
                   </p>
                 </div>
               </div>
