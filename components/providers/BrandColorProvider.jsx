@@ -109,7 +109,7 @@ export function BrandColorProvider({ children }) {
       .from("landing_settings")
       .select("content")
       .eq("id", "brand_color")
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (data?.content?.primary_hex) {
           setPrimaryHex(data.content.primary_hex);

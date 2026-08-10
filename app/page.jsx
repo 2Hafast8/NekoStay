@@ -592,6 +592,8 @@ export default function LandingPage() {
 
           <div ref={pricingRef}>
             <GsapCardSlider
+              stageHeight="min-h-[840px] sm:min-h-[580px]"
+              cardWidth="w-[88%] max-w-[320px] sm:max-w-[360px]"
               items={
                 dbClasses && dbClasses.length > 0
                   ? dbClasses.map((cls) => ({
@@ -613,7 +615,7 @@ export default function LandingPage() {
                 <div
                   onMouseMove={handleTiltMove}
                   onMouseLeave={handleTiltLeave}
-                  className={`relative bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-colors duration-300 shadow-xl ${cls.gradient}`}
+                  className={`relative bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-colors duration-300 shadow-xl ${cls.gradient}`}
                 >
                   {cls.name === "Standard" && (
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground tracking-wider uppercase shadow-sm">
@@ -622,7 +624,7 @@ export default function LandingPage() {
                   )}
                   <div>
                     {cls.image_url && (
-                      <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden mb-5 border border-border/80 shadow-xs">
+                      <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden mb-4 border border-border/80 shadow-xs">
                         <img
                           src={cls.image_url}
                           alt={cls.name}
@@ -634,11 +636,11 @@ export default function LandingPage() {
                     <h3 className="text-xl font-extrabold text-foreground dark:text-zinc-100">
                       {cls.name}
                     </h3>
-                    <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-2 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-muted-foreground dark:text-zinc-400 mt-1.5 leading-relaxed line-clamp-2">
                       {cls.description}
                     </p>
 
-                    <div className="mt-5 flex items-baseline gap-1 text-foreground dark:text-zinc-100">
+                    <div className="mt-4 flex items-baseline gap-1 text-foreground dark:text-zinc-100">
                       <span className="text-2xl sm:text-3xl font-extrabold">
                         {formatRupiah(cls.price)}
                       </span>
@@ -647,11 +649,11 @@ export default function LandingPage() {
                       </span>
                     </div>
 
-                    <ul className="mt-5 space-y-2.5 border-t border-border/50 dark:border-zinc-800/50 pt-5">
+                    <ul className="mt-4 space-y-2 border-t border-border/50 dark:border-zinc-800/50 pt-4">
                       {cls.facilities.map((fac) => (
                         <li
                           key={fac}
-                          className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground dark:text-zinc-400"
+                          className="flex items-center gap-2.5 text-xs sm:text-sm text-muted-foreground dark:text-zinc-400"
                         >
                           <div className="p-0.5 rounded-full bg-primary/10 text-primary">
                             <Check className="w-3.5 h-3.5" />
@@ -662,7 +664,7 @@ export default function LandingPage() {
                     </ul>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <Link
                       href={`/booking/new?class=${cls.name}`}
                       className={`block w-full text-center py-3 rounded-2xl text-xs font-bold transition-all shadow-xs ${

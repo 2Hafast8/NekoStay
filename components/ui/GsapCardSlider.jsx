@@ -4,7 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { gsap } from "gsap";
 
-export function GsapCardSlider({ items = [], renderItem, className = "" }) {
+export function GsapCardSlider({
+  items = [],
+  renderItem,
+  className = "",
+  stageHeight = "min-h-[580px] sm:min-h-[640px]",
+  cardWidth = "w-[85%] max-w-[320px] sm:max-w-[360px] md:max-w-[380px]",
+}) {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
   const cardsRef = useRef([]);
@@ -29,37 +35,40 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
       }
 
       const isActive = diff === 0;
-      const isPrev = diff === -1 || (activeIndex === 0 && index === total - 1 && total > 2);
-      const isNext = diff === 1 || (activeIndex === total - 1 && index === 0 && total > 2);
 
       let xPercent = 0;
       let scale = 0.82;
-      let opacity = 0.4;
+      let opacity = 0.3;
       let zIndex = 1;
+
+      // Responsive X offset based on viewport width
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+      const sideOffset = isMobile ? 88 : 105;
+      const farOffset = isMobile ? 180 : 210;
 
       if (isActive) {
         xPercent = 0;
         scale = 1;
         opacity = 1;
-        zIndex = 20;
+        zIndex = 30;
       } else if (diff === 1) {
-        xPercent = 75;
-        scale = 0.88;
-        opacity = 0.65;
+        xPercent = sideOffset;
+        scale = 0.86;
+        opacity = 0.55;
         zIndex = 10;
       } else if (diff === -1) {
-        xPercent = -75;
-        scale = 0.88;
-        opacity = 0.65;
+        xPercent = -sideOffset;
+        scale = 0.86;
+        opacity = 0.55;
         zIndex = 10;
       } else if (diff > 1) {
-        xPercent = 140;
-        scale = 0.75;
+        xPercent = farOffset;
+        scale = 0.72;
         opacity = 0;
         zIndex = 1;
       } else if (diff < -1) {
-        xPercent = -140;
-        scale = 0.75;
+        xPercent = -farOffset;
+        scale = 0.72;
         opacity = 0;
         zIndex = 1;
       }
@@ -80,6 +89,13 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
     updateCardPositions();
   }, [activeIndex, updateCardPositions]);
 
+  // Recalculate on window resize
+  useEffect(() => {
+    const handleResize = () => updateCardPositions();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [updateCardPositions]);
+
   const handleNext = () => {
     setActiveIndex((prev) => (prev + 1) % total);
   };
@@ -92,10 +108,6 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
   const handleTouchStart = (e) => {
     dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
     isDragging.current = true;
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging.current) return;
   };
 
   const handleTouchEnd = (e) => {
@@ -114,7 +126,7 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
   if (total === 0) return null;
 
   return (
-    <div className={`relative w-full overflow-hidden py-8 select-none ${className}`}>
+    <div className={`relative w-full overflow-hidden py-4 select-none ${className}`}>
       {/* Slider Stage Container */}
       <div
         ref={containerRef}
@@ -122,13 +134,13 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
         onTouchEnd={handleTouchEnd}
         onMouseDown={handleTouchStart}
         onMouseUp={handleTouchEnd}
-        className="relative w-full min-h-[460px] sm:min-h-[480px] flex items-center justify-center cursor-grab active:cursor-grabbing"
+        className={`relative w-full ${stageHeight} flex items-center justify-center cursor-grab active:cursor-grabbing`}
       >
         {items.map((item, index) => (
           <div
             key={item.id || item.name || index}
             ref={(el) => (cardsRef.current[index] = el)}
-            className="absolute w-[88%] max-w-[380px] sm:max-w-[420px] transition-shadow duration-300"
+            className={`absolute ${cardWidth} transition-shadow duration-300`}
             style={{
               transformOrigin: "center center",
               willChange: "transform, opacity",
@@ -140,7 +152,7 @@ export function GsapCardSlider({ items = [], renderItem, className = "" }) {
       </div>
 
       {/* Navigation Controls: Prev / Next Buttons & Indicators */}
-      <div className="flex items-center justify-center gap-4 mt-6">
+      <div className="flex items-center justify-center gap-4 mt-4">
         <button
           type="button"
           onClick={handlePrev}

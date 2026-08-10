@@ -287,6 +287,8 @@ export default function UserDashboard() {
           {/* Mobile View: GSAP Interactive Card Slider */}
           <div className="block sm:hidden">
             <GsapCardSlider
+              stageHeight="min-h-[420px] sm:min-h-[340px]"
+              cardWidth="w-[90%] max-w-[320px]"
               items={paginatedBookings}
               renderItem={(booking) => (
                 <BookingCard booking={booking} />
@@ -432,7 +434,7 @@ function HelpSection({ language, t }) {
           .from("landing_settings")
           .select("content")
           .eq("id", "faqs")
-          .single();
+          .maybeSingle();
 
         if (data?.content && Array.isArray(data.content) && data.content.length > 0) {
           setDbFaqs(data.content);

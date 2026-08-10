@@ -1,18 +1,36 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { UploadCloud, X, Cat } from "lucide-react";
 
 export function ImageUpload({
   onUpload,
+  onChange,
+  onUploadComplete,
   label = "Upload Foto Kucing",
   defaultValue = null,
+  value = null,
 }) {
-  const [preview, setPreview] = useState(defaultValue);
+  const initialPreview = value || defaultValue || null;
+  const [preview, setPreview] = useState(initialPreview);
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (value !== undefined && value !== null) {
+      setPreview(value);
+    } else if (defaultValue !== undefined && defaultValue !== null) {
+      setPreview(defaultValue);
+    }
+  }, [value, defaultValue]);
+
+  const triggerCallback = (url) => {
+    if (typeof onUpload === "function") onUpload(url);
+    if (typeof onChange === "function") onChange(url);
+    if (typeof onUploadComplete === "function") onUploadComplete(url);
+  };
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -50,7 +68,7 @@ export function ImageUpload({
       const base64DataUrl = await fileLoadPromise;
 
       setPreview(base64DataUrl);
-      onUpload(base64DataUrl);
+      triggerCallback(base64DataUrl);
     } catch (err) {
       console.error("File conversion error:", err);
       setErrorMsg(err.message || "Gagal memproses file gambar.");
@@ -61,7 +79,7 @@ export function ImageUpload({
 
   const removePhoto = () => {
     setPreview(null);
-    onUpload("");
+    triggerCallback("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
