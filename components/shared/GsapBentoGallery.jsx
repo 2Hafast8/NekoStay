@@ -23,7 +23,7 @@ export const DEFAULT_BENTO_IMAGES = [
  * GsapBentoGallery — Reversed Scrubbed Bento Gallery with anime.js Opening Logo Reveal:
  * - Starts in full-screen zoomed state featuring an anime.js animated medium-large NekoStay logo & title overlay.
  * - As the user scrolls down, the logo overlay fades out and the images zoom OUT into the 8-item compact Bento grid layout.
- * - Pinned at opening of Landing Page on Desktop (hidden on mobile).
+ * - Desktop only (hidden via CSS display:none !important on mobile <768px). DOM tree remains stable to prevent removeChild errors.
  */
 export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
   const wrapRef = useRef(null);
@@ -35,7 +35,7 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
       ? images.slice(0, 8)
       : DEFAULT_BENTO_IMAGES;
 
-  // Trigger Anime.js Opening Logo Reveal Animation
+  // Trigger Anime.js Opening Logo Reveal Animation (Desktop only)
   useEffect(() => {
     if (typeof window === "undefined" || window.innerWidth < 768) return;
 
@@ -69,7 +69,7 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
   }, []);
 
   useEffect(() => {
-    // Hidden on Mobile/HP devices
+    // Hidden & Disabled on Mobile/HP devices
     if (typeof window === "undefined" || window.innerWidth < 768) return;
 
     const galleryElement = galleryRef.current;
