@@ -29,12 +29,16 @@ import {
   ToggleLeft,
   ToggleRight,
   Palette,
+  RefreshCcw,
+  Save,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage } from "@/hooks/useLanguage";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 import { useBrandColor } from "@/components/providers/BrandColorProvider";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 
 const DEFAULT_HERO = {
   badge_id: "Penitipan Kucing Premium",
@@ -193,6 +197,8 @@ export default function AdminSettingsPage() {
   const [descriptions, setDescriptions] = useState({});
   const [roomImages, setRoomImages] = useState({});
   const [facilitiesMap, setFacilitiesMap] = useState({});
+  const [totalCagesMap, setTotalCagesMap] = useState({});
+  const [maintenanceCagesMap, setMaintenanceCagesMap] = useState({});
   const [isUpdatingClass, setIsUpdatingClass] = useState(null);
 
   // New Class Form State
@@ -203,6 +209,8 @@ export default function AdminSettingsPage() {
     description: "",
     facilitiesText: "",
     image_url: "",
+    total_cages: "10",
+    maintenance_cages: "0",
   });
   const [isAddingClass, setIsAddingClass] = useState(false);
 
@@ -237,6 +245,28 @@ export default function AdminSettingsPage() {
   const [contactForm, setContactForm] = useState(DEFAULT_CONTACT);
   const [isSavingContact, setIsSavingContact] = useState(false);
 
+  // Financial & Referral rules state
+  const DEFAULT_FINANCE = {
+    refund_percentage: 90,
+    referral_discount_percentage: 10,
+  };
+  const [financeForm, setFinanceForm] = useState(DEFAULT_FINANCE);
+  const [isSavingFinance, setIsSavingFinance] = useState(false);
+
+  // Bento Gallery state
+  const DEFAULT_BENTO = [
+    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1573865526739-10659fec78a5?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1561948955-570b270e7c36?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?q=80&w=1000&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=1000&auto=format&fit=crop",
+  ];
+  const [bentoForm, setBentoForm] = useState(DEFAULT_BENTO);
+  const [isSavingBento, setIsSavingBento] = useState(false);
+
   // Brand Color state
   const { primaryHex, setPrimaryHex } = useBrandColor();
   const [isSavingBrandColor, setIsSavingBrandColor] = useState(false);
@@ -265,16 +295,22 @@ export default function AdminSettingsPage() {
         const initialDescs = {};
         const initialImages = {};
         const initialFacs = {};
+        const initialTotalCages = {};
+        const initialMaintenanceCages = {};
         classData.forEach((c) => {
           initialPrices[c.id] = c.price_per_day;
           initialDescs[c.id] = c.description || "";
           initialImages[c.id] = c.image_url || "";
           initialFacs[c.id] = (c.facilities || []).join(", ");
+          initialTotalCages[c.id] = c.total_cages ?? 10;
+          initialMaintenanceCages[c.id] = c.maintenance_cages ?? 0;
         });
         setPrices(initialPrices);
         setDescriptions(initialDescs);
         setRoomImages(initialImages);
         setFacilitiesMap(initialFacs);
+        setTotalCagesMap(initialTotalCages);
+        setMaintenanceCagesMap(initialMaintenanceCages);
       }
 
       // 2. Fetch Promos
@@ -306,8 +342,17 @@ export default function AdminSettingsPage() {
           if (row.id === "contact" && row.content) {
             setContactForm({ ...DEFAULT_CONTACT, ...row.content });
           }
+          if (row.id === "bento_gallery" && Array.isArray(row.content)) {
+            setBentoForm(row.content);
+          }
           if (row.id === "brand_color" && row.content?.primary_hex) {
             setPrimaryHex(row.content.primary_hex);
+          }
+          if (row.id === "finance_settings" && row.content) {
+            setFinanceForm({
+              refund_percentage: row.content.refund_percentage ?? 90,
+              referral_discount_percentage: row.content.referral_discount_percentage ?? 10,
+            });
           }
         });
       }
@@ -315,6 +360,46 @@ export default function AdminSettingsPage() {
       console.error("Error loading settings:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Save Financial Rules
+  const handleSaveFinanceSettings = async (e) => {
+    e.preventDefault();
+    setIsSavingFinance(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const refundPct = parseInt(financeForm.refund_percentage, 10);
+    const referralPct = parseInt(financeForm.referral_discount_percentage, 10);
+
+    if (isNaN(refundPct) || refundPct < 0 || refundPct > 100) {
+      setErrorMsg("Persentase refund harus berupa angka antara 0% hingga 100%.");
+      setIsSavingFinance(false);
+      return;
+    }
+    if (isNaN(referralPct) || referralPct < 0 || referralPct > 100) {
+      setErrorMsg("Persentase diskon referral harus berupa angka antara 0% hingga 100%.");
+      setIsSavingFinance(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("landing_settings").upsert({
+        id: "finance_settings",
+        content: {
+          refund_percentage: refundPct,
+          referral_discount_percentage: referralPct,
+        },
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      setSuccessMsg("Pengaturan persentase refund & diskon referral berhasil disimpan!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal menyimpan pengaturan keuangan.");
+    } finally {
+      setIsSavingFinance(false);
     }
   };
 
@@ -360,11 +445,8 @@ export default function AdminSettingsPage() {
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
 
-    if (isNaN(newPrice) || newPrice <= 0) {
-      setErrorMsg("Tarif kamar harus berupa angka positif.");
-      setIsUpdatingClass(null);
-      return;
-    }
+    const newTotalCages = parseInt(totalCagesMap[cls.id] ?? 10, 10);
+    const newMaintenanceCages = parseInt(maintenanceCagesMap[cls.id] ?? 0, 10);
 
     try {
       const { error } = await supabase
@@ -374,11 +456,13 @@ export default function AdminSettingsPage() {
           description: newDesc,
           image_url: newImg || null,
           facilities: facilitiesArray,
+          total_cages: isNaN(newTotalCages) ? 10 : newTotalCages,
+          maintenance_cages: isNaN(newMaintenanceCages) ? 0 : newMaintenanceCages,
         })
         .eq("id", cls.id);
 
       if (error) throw error;
-      setSuccessMsg(`Tarif & informasi kelas ${cls.name} berhasil diperbarui!`);
+      setSuccessMsg(`Tarif, kapasitas & informasi kelas ${cls.name} berhasil diperbarui!`);
       loadAllSettings();
     } catch (err) {
       setErrorMsg(err.message || "Gagal memperbarui kamar.");
@@ -406,6 +490,9 @@ export default function AdminSettingsPage() {
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
 
+    const totalCages = parseInt(newClassForm.total_cages || "10", 10);
+    const maintenanceCages = parseInt(newClassForm.maintenance_cages || "0", 10);
+
     try {
       const { error } = await supabase.from("classes").insert({
         name: newClassForm.name.trim(),
@@ -413,6 +500,8 @@ export default function AdminSettingsPage() {
         description: newClassForm.description.trim(),
         facilities: facilitiesArray,
         image_url: newClassForm.image_url || null,
+        total_cages: isNaN(totalCages) ? 10 : totalCages,
+        maintenance_cages: isNaN(maintenanceCages) ? 0 : maintenanceCages,
       });
 
       if (error) throw error;
@@ -425,6 +514,8 @@ export default function AdminSettingsPage() {
         description: "",
         facilitiesText: "",
         image_url: "",
+        total_cages: "10",
+        maintenance_cages: "0",
       });
       loadAllSettings();
     } catch (err) {
@@ -624,6 +715,29 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Save Bento Gallery
+  const handleSaveBento = async (e) => {
+    e.preventDefault();
+    setIsSavingBento(true);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.from("landing_settings").upsert({
+        id: "bento_gallery",
+        content: bentoForm,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+      setSuccessMsg("Galeri Bento Landing Page Desktop berhasil disimpan!");
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal menyimpan Galeri Bento.");
+    } finally {
+      setIsSavingBento(false);
+    }
+  };
+
   // Reset all landing settings to default
   const handleResetToDefault = async () => {
     if (
@@ -690,8 +804,8 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-border/80 dark:border-zinc-800">
+      {/* Setting Category Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 border-b border-border/80 dark:border-zinc-800">
         <button
           onClick={() => setActiveTab("rooms")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
@@ -717,6 +831,18 @@ export default function AdminSettingsPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab("finance")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "finance"
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          <span>Aturan Refund & Referral</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab("hero")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "hero"
@@ -726,6 +852,18 @@ export default function AdminSettingsPage() {
         >
           <LayoutGrid className="w-4 h-4" />
           <span>Hero Banner (Bilingual)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("bento")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "bento"
+              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted dark:hover:bg-zinc-800"
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Galeri Bento (8 Foto Desktop)</span>
         </button>
 
         <button
@@ -789,8 +927,13 @@ export default function AdminSettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1: KELAS KAMAR */}
-      {activeTab === "rooms" && (
+      {/* TAB CONTENTS WITH GSAP LOADER */}
+      {isLoading ? (
+        <GsapDataLoader type="cards" message="Memuat Pengaturan Sistem..." rows={6} />
+      ) : (
+        <>
+          {/* TAB 1: KELAS KAMAR */}
+          {activeTab === "rooms" && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-100 flex items-center gap-2">
@@ -848,6 +991,61 @@ export default function AdminSettingsPage() {
                         }
                         folder="rooms"
                       />
+                    </div>
+
+                    {/* Cage Capacity & Maintenance Status */}
+                    <div className="p-3 bg-muted/20 border border-border dark:border-zinc-800 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
+                          <Cat className="w-3.5 h-3.5 text-primary" />
+                          Kapasitas & Perawatan Kandang
+                        </span>
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                          (parseInt(totalCagesMap[cls.id] || 10) - parseInt(maintenanceCagesMap[cls.id] || 0)) > 0
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                        }`}>
+                          {Math.max(0, parseInt(totalCagesMap[cls.id] || 10) - parseInt(maintenanceCagesMap[cls.id] || 0))} Siap Pakai
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                            Total Kandang
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={totalCagesMap[cls.id] ?? 10}
+                            onChange={(e) =>
+                              setTotalCagesMap({
+                                ...totalCagesMap,
+                                [cls.id]: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-card border border-border rounded-xl text-xs font-extrabold text-foreground"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-rose-500 uppercase">
+                            Dalam Perbaikan
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={maintenanceCagesMap[cls.id] ?? 0}
+                            onChange={(e) =>
+                              setMaintenanceCagesMap({
+                                ...maintenanceCagesMap,
+                                [cls.id]: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 bg-card border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs font-extrabold text-rose-600 dark:text-rose-400"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Price Input */}
@@ -1165,14 +1363,15 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isSavingHero}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSavingHero ? "Menyimpan..." : "Publikasikan Hero Banner (ID/EN)"}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isSavingHero}
+              idleText="Publikasikan Hero Banner (ID/EN)"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
           </div>
         </form>
       )}
@@ -1305,14 +1504,15 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isSavingWhyUs}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSavingWhyUs ? "Menyimpan..." : "Simpan Fitur Keunggulan (ID/EN)"}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isSavingWhyUs}
+              idleText="Simpan Fitur Keunggulan (ID/EN)"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
           </div>
         </form>
       )}
@@ -1418,14 +1618,95 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isSavingFaqs}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              isLoading={isSavingFaqs}
+              idleText="Simpan Daftar FAQ (ID/EN)"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
+          </div>
+        </form>
+      )}
+
+      {/* TAB 7: BENTO GALLERY (DESKTOP ONLY) */}
+      {activeTab === "bento" && (
+        <form onSubmit={handleSaveBento} className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 sm:p-8 rounded-3xl space-y-6">
+          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            <div>
+              <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-100 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Pengaturan 8 Foto Galeri Bento Scrubbed (Tampilan Desktop / Layar Lebar)</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Atur 8 URL foto resolusi tinggi untuk galeri pembuka interaktif di Landing Page.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBentoForm(DEFAULT_BENTO)}
+              className="px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-bold hover:text-foreground cursor-pointer"
             >
-              {isSavingFaqs ? "Menyimpan..." : "Simpan Daftar FAQ (ID/EN)"}
-              <Check className="w-4 h-4" />
+              Reset ke Default
             </button>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl text-xs text-amber-700 dark:text-amber-300 font-medium flex items-center gap-2">
+            <Info className="w-4 h-4 shrink-0" />
+            <span>
+              <strong>Catatan Tampilan Mobile/HP:</strong> Fitur Galeri Bento Scrubbed khusus dirancang untuk animasi pinned desktop GSAP Flip. Pada tampilan HP/Mobile, galeri ini secara otomatis disembunyikan agar performa dan kenyamanan scroll di HP tetap ringan.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {bentoForm.map((url, idx) => (
+              <div key={idx} className="space-y-2 border border-border/60 dark:border-zinc-800 p-4 rounded-2xl bg-muted/20">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-foreground block">
+                    Foto Slot #{idx + 1}
+                  </label>
+                  <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    Grid {idx + 1}
+                  </span>
+                </div>
+                <div className="aspect-video rounded-xl overflow-hidden bg-muted border border-border/40">
+                  <img
+                    src={url}
+                    alt={`Preview Slot ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = DEFAULT_BENTO[idx];
+                    }}
+                  />
+                </div>
+                <input
+                  type="url"
+                  required
+                  value={url}
+                  onChange={(e) => {
+                    const newArr = [...bentoForm];
+                    newArr[idx] = e.target.value;
+                    setBentoForm(newArr);
+                  }}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-background border border-border/80 rounded-xl text-xs font-mono focus:outline-hidden focus:border-primary"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end pt-4 border-t border-border/60">
+            <GsapTextButton
+              type="submit"
+              isLoading={isSavingBento}
+              idleText="Simpan Galeri Bento (8 Foto)"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
           </div>
         </form>
       )}
@@ -1549,14 +1830,15 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isSavingContact}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSavingContact ? "Menyimpan..." : "Simpan Informasi Kontak & Peta"}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isSavingContact}
+              idleText="Simpan Informasi Kontak & Peta"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
           </div>
         </form>
       )}
@@ -1725,14 +2007,111 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isSavingBrandColor}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {isSavingBrandColor ? "Menyimpan Warna..." : "Simpan Warna Brand Website"}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isSavingBrandColor}
+              idleText="Simpan Warna Brand Website"
+              loadingText="Menyimpan Warna..."
+              successText="Tersimpan!"
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
+          </div>
+        </form>
+      )}
+
+      {/* SECTION: FINANCIAL & REFERRAL RULES */}
+      {activeTab === "finance" && (
+        <form onSubmit={handleSaveFinanceSettings} className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 sm:p-8 rounded-3xl space-y-6">
+          <div className="flex items-center justify-between border-b border-border/60 pb-4 flex-wrap gap-2">
+            <div>
+              <h3 className="text-lg font-black text-foreground dark:text-zinc-100 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-primary" />
+                <span>Pengaturan Persentase Refund & Diskon Referral</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Atur persentase refund untuk pengambilan kucing lebih awal dan persentase diskon referral pelanggan.
+              </p>
+            </div>
+            <GsapTextButton
+              type="submit"
+              isLoading={isSavingFinance}
+              idleText="Simpan Pengaturan"
+              loadingText="Menyimpan..."
+              successText="Tersimpan!"
+              icon={<Save className="w-4 h-4" />}
+              className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 cursor-pointer disabled:opacity-50 transition-all shadow-md shadow-primary/20"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Refund Percentage */}
+            <div className="p-5 bg-muted/20 border border-border dark:border-zinc-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                  <RefreshCcw className="w-4 h-4 text-emerald-500" />
+                  <span>Persentase Refund (Ambil Awal)</span>
+                </label>
+                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  {financeForm.refund_percentage}% Total Sisa Hari
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Persentase tarif per hari dari sisa hari menginap yang dikembalikan kepada pemilik jika kucing dijemput lebih awal.
+              </p>
+              <div className="space-y-1 pt-1">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={financeForm.refund_percentage}
+                    onChange={(e) => setFinanceForm({ ...financeForm, refund_percentage: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl text-sm font-bold text-foreground"
+                    placeholder="90"
+                  />
+                  <span className="text-sm font-bold text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Default: 90% (Contoh: Sisa 2 hari × Rp 100.000 × 90% = Rp 180.000 refund)
+                </p>
+              </div>
+            </div>
+
+            {/* Referral Discount Percentage */}
+            <div className="p-5 bg-muted/20 border border-border dark:border-zinc-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-extrabold text-foreground dark:text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span>Diskon Kode Referral</span>
+                </label>
+                <span className="text-xs font-black text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                  {financeForm.referral_discount_percentage}% Dari Total Biaya
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Persentase potongan harga yang didapatkan pelanggan saat memasukkan kode referral teman/kerabat saat booking.
+              </p>
+              <div className="space-y-1 pt-1">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={financeForm.referral_discount_percentage}
+                    onChange={(e) => setFinanceForm({ ...financeForm, referral_discount_percentage: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl text-sm font-bold text-foreground"
+                    placeholder="10"
+                  />
+                  <span className="text-sm font-bold text-muted-foreground">%</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Default: 10% (Contoh: Total Rp 500.000 × 10% = Diskon Rp 50.000)
+                </p>
+              </div>
+            </div>
           </div>
         </form>
       )}
@@ -1765,6 +2144,8 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       )}
+        </>
+      )}
 
       {/* MODAL 1: TAMBAH KELAS KAMAR BARU */}
       {showAddClassModal && (
@@ -1794,6 +2175,33 @@ export default function AdminSettingsPage() {
                   placeholder="Contoh: Deluxe Suite / Executive"
                   className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-extrabold text-muted-foreground uppercase">Total Kandang</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newClassForm.total_cages}
+                    onChange={(e) => setNewClassForm({ ...newClassForm, total_cages: e.target.value })}
+                    placeholder="10"
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-extrabold text-rose-500 uppercase">Dalam Perbaikan</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newClassForm.maintenance_cages}
+                    onChange={(e) => setNewClassForm({ ...newClassForm, maintenance_cages: e.target.value })}
+                    placeholder="0"
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-sm font-bold text-rose-600 dark:text-rose-400"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -1847,13 +2255,14 @@ export default function AdminSettingsPage() {
                 >
                   Batal
                 </button>
-                <button
+                <GsapTextButton
                   type="submit"
-                  disabled={isAddingClass}
+                  isLoading={isAddingClass}
+                  idleText="Simpan Kelas Kamar"
+                  loadingText="Menyimpan..."
+                  successText="Tersimpan!"
                   className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 cursor-pointer disabled:opacity-50"
-                >
-                  {isAddingClass ? "Menyimpan..." : "Simpan Kelas Kamar"}
-                </button>
+                />
               </div>
             </form>
           </div>
@@ -1980,13 +2389,14 @@ export default function AdminSettingsPage() {
                 >
                   Batal
                 </button>
-                <button
+                <GsapTextButton
                   type="submit"
-                  disabled={isAddingPromo}
+                  isLoading={isAddingPromo}
+                  idleText="Terbitkan Promo"
+                  loadingText="Membuat..."
+                  successText="Berhasil!"
                   className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 cursor-pointer disabled:opacity-50"
-                >
-                  {isAddingPromo ? "Membuat..." : "Terbitkan Promo"}
-                </button>
+                />
               </div>
             </form>
           </div>

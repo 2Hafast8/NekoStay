@@ -6,6 +6,7 @@ import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2, Copy, Sh
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -227,14 +228,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-border/60 dark:border-zinc-800/60">
-            <button
+            <GsapTextButton
               type="submit"
-              disabled={isUpdating}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isUpdating ? (language === "en" ? "Saving..." : "Menyimpan...") : (language === "en" ? "Save Changes" : "Simpan Perubahan")}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isUpdating}
+              idleText={language === "en" ? "Save Changes" : "Simpan Perubahan"}
+              loadingText={language === "en" ? "Saving..." : "Menyimpan..."}
+              successText={language === "en" ? "Saved!" : "Tersimpan!"}
+              icon={<Check className="w-4 h-4" />}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+            />
           </div>
         </form>
       </div>

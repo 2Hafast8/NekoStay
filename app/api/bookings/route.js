@@ -76,7 +76,7 @@ export async function POST(request) {
         price_per_day: classData.price_per_day,
         check_in_date: validatedData.check_in_date,
         check_out_date: validatedData.check_out_date,
-        status: 'Menunggu',
+        status: validatedData.status || 'Menunggu',
       })
       .select()
       .single()
@@ -86,13 +86,19 @@ export async function POST(request) {
       throw bookingError
     }
 
+    const isWaitlist = booking.status === 'Antrian';
+
     // Create in-app notification for user
     try {
       await supabase.from('notifications').insert({
         user_id: user.id,
-        title: `Pesanan Penitipan ${validatedData.cat_name} Dibuat`,
-        message: `Pesanan Anda telah diterima. Menunggu konfirmasi admin.`,
-        type: 'info',
+        title: isWaitlist 
+          ? `Pesanan ${validatedData.cat_name} Dalam Antrian`
+          : `Pesanan Penitipan ${validatedData.cat_name} Dibuat`,
+        message: isWaitlist
+          ? `Kandang kelas ${validatedData.class} sedang penuh. Pesanan Anda berada dalam daftar antrian dan menunggu konfirmasi admin.`
+          : `Pesanan Anda telah diterima. Menunggu konfirmasi admin.`,
+        type: isWaitlist ? 'warning' : 'info',
         booking_id: booking.id,
       })
     } catch (notifErr) {
@@ -103,9 +109,13 @@ export async function POST(request) {
     try {
       await supabase.rpc("create_admin_notification", {
         booking_id_param: booking.id,
-        title_param: `Pesanan Baru: ${validatedData.cat_name}`,
-        message_param: `${profile.full_name} mengirim pesanan penitipan kucing.`,
-        type_param: "info",
+        title_param: isWaitlist 
+          ? `Antrian Baru: ${validatedData.cat_name}`
+          : `Pesanan Baru: ${validatedData.cat_name}`,
+        message_param: isWaitlist
+          ? `${profile.full_name} membuat pesanan antrian (kandang ${validatedData.class} penuh).`
+          : `${profile.full_name} mengirim pesanan penitipan kucing.`,
+        type_param: isWaitlist ? "warning" : "info",
       });
     } catch (notifErr) {
       console.warn('[Warning] Admin notification creation failed:', notifErr.message)

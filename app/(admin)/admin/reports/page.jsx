@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 
 export default function AdminReportsPage() {
   const { t, language } = useLanguage();
@@ -145,14 +146,7 @@ export default function AdminReportsPage() {
 
       {/* Reports List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-          {[1, 2].map((n) => (
-            <div
-              key={n}
-              className="h-48 bg-card border border-border rounded-3xl"
-            />
-          ))}
-        </div>
+        <GsapDataLoader type="cards" message="Memuat laporan kondisi kucing..." rows={4} />
       ) : filteredReports.length === 0 ? (
         <div className="text-center py-16 bg-card border border-border border-dashed rounded-3xl p-8 max-w-xl mx-auto text-muted-foreground">
           <HeartPulse className="w-8 h-8 mx-auto mb-2.5 text-muted-foreground/35" />

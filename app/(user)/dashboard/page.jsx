@@ -19,6 +19,8 @@ import { BookingCard } from "@/components/booking/BookingCard";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
 import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { GsapDashboardCurveUnveil } from "@/components/shared/GsapDashboardCurveUnveil";
 import { gsap } from "gsap";
 
 export default function UserDashboard() {
@@ -123,8 +125,13 @@ export default function UserDashboard() {
   useGsapCounter(waitingRef, stats.waiting);
   useGsapCounter(completedRef, stats.completed);
 
+  if (isLoading) {
+    return <GsapDataLoader type="dashboard" message="Memuat Dashboard Pesanan..." />;
+  }
+
   return (
     <div className="space-y-8">
+      <GsapDashboardCurveUnveil />
       {/* Header */}
       <div ref={headerRef} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -209,7 +216,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 overflow-x-auto pb-px gap-6">
+      <div className="flex border-b border-border/80 overflow-x-auto no-scrollbar pb-px gap-6">
         {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
           const tabMapping = {
             "Semua": t("user_db_tab_all"),

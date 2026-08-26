@@ -31,6 +31,7 @@ import {
 import { formatRupiah } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
+import { GsapDashboardCurveUnveil } from "@/components/shared/GsapDashboardCurveUnveil";
 import {
   BarChart,
   Bar,
@@ -46,17 +47,11 @@ import {
 } from "recharts";
 import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
 
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+
 export default function AdminDashboard() {
   return (
-    <Suspense
-      fallback={
-        <div className="space-y-8 animate-pulse p-4 sm:p-6 bg-background dark:bg-zinc-950 min-h-screen">
-          <div className="h-8 bg-muted dark:bg-zinc-800/60 rounded-xl w-48 mb-4" />
-          <div className="h-6 bg-muted dark:bg-zinc-800/60 rounded-xl w-96 mb-8" />
-          <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
-        </div>
-      }
-    >
+    <Suspense fallback={<GsapDataLoader type="dashboard" message="Memuat Dashboard Admin..." />}>
       <DashboardContent />
     </Suspense>
   );
@@ -337,8 +332,13 @@ function DashboardContent() {
     );
   }
 
+  if (isLoading) {
+    return <GsapDataLoader type="dashboard" message="Memuat Dashboard Admin..." />;
+  }
+
   return (
     <div className="space-y-8 bg-background dark:bg-zinc-950 p-4 sm:p-6 transition-colors duration-300">
+      <GsapDashboardCurveUnveil />
       {/* Scan Token Modal */}
       {scanModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

@@ -51,6 +51,9 @@ export function useUser() {
   }, [supabase, fetchProfile])
 
   const signOut = async () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("just_logged_in");
+    }
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)

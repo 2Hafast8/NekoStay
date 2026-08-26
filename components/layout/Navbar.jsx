@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "./NotificationBell";
+import { GsapAvatarDropdown } from "@/components/shared/GsapAvatarDropdown";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useTheme } from "next-themes";
 import {
@@ -111,6 +112,9 @@ export function Navbar() {
   }, [supabase]);
 
   const handleSignOut = async () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("just_logged_in");
+    }
     await supabase.auth.signOut();
     router.push("/login");
   };
@@ -202,54 +206,13 @@ export function Navbar() {
             <div className="flex items-center gap-3">
               <NotificationBell userId={user.id} />
 
-              {/* Avatar Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-border dark:border-zinc-800 bg-card dark:bg-zinc-900 hover:bg-muted dark:hover:bg-zinc-800 transition-all duration-200 group"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground dark:text-zinc-200 max-w-[80px] truncate hidden lg:block">
-                    {user.email?.split("@")[0]}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" align="end" sideOffset={8}>
-                  <DropdownMenuLabel>
-                    {role === "admin" ? "Admin" : "Akun Saya"}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => router.push(role === "admin" ? "/admin/dashboard" : "/dashboard")}
-                  >
-                    <LayoutDashboard className="w-4 h-4" />
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push(role === "admin" ? "/admin/profile" : "/profile")}
-                  >
-                    <User className="w-4 h-4" />
-                    {t("nav_profile")}
-                  </DropdownMenuItem>
-                  {role === "user" && (
-                    <DropdownMenuItem
-                      onClick={() => router.push("/booking/new")}
-                    >
-                      <PlusCircle className="w-4 h-4" />
-                      {t("nav_booking")}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="w-4 h-4" />
-                    {t("nav_logout")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Avatar Dropdown with GSAP Orchestrated easeReverse */}
+              <GsapAvatarDropdown
+                user={user}
+                role={role}
+                onSignOut={handleSignOut}
+                t={t}
+              />
             </div>
           ) : (
             <div className="flex items-center gap-3">

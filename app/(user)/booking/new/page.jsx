@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Info,
   Ticket,
+  Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
@@ -21,12 +22,13 @@ import { formatRupiah } from "@/lib/utils/format";
 import { getBookingSummary } from "@/lib/utils/pricing";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 export default function NewBookingPage() {
   return (
-    <div className="max-w-3xl w-full mx-auto">
+    <div className="min-h-screen bg-background dark:bg-zinc-950 p-4 sm:p-6 lg:p-8">
       <Suspense
         fallback={
-          <div className="p-8 text-center text-muted-foreground animate-pulse">
+          <div className="text-center py-12 text-sm text-muted-foreground animate-pulse">
             Memuat form pemesanan...
           </div>
         }
@@ -58,6 +60,12 @@ function BookingFormContent() {
   const [catAge, setCatAge] = useState("");
   const [catHealth, setCatHealth] = useState("Sehat");
   const [catFood, setCatFood] = useState("");
+
+  // Waitlist / Capacity States
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState(null);
+  const [isWaitlistBooking, setIsWaitlistBooking] = useState(false);
   const [isPregnant, setIsPregnant] = useState(false);
   const [catNotes, setCatNotes] = useState("");
   const [catPhotoUrl, setCatPhotoUrl] = useState("");
@@ -73,6 +81,23 @@ function BookingFormContent() {
   const [referralOwnerId, setReferralOwnerId] = useState(null);
   const [referralError, setReferralError] = useState(null);
   const [referralSuccess, setReferralSuccess] = useState(null);
+  const [referralDiscountPct, setReferralDiscountPct] = useState(10);
+
+  // Fetch finance settings
+  useEffect(() => {
+    async function loadFinanceSettings() {
+      const { data } = await supabase
+        .from("landing_settings")
+        .select("content")
+        .eq("id", "finance_settings")
+        .maybeSingle();
+
+      if (data?.content?.referral_discount_percentage != null) {
+        setReferralDiscountPct(Number(data.content.referral_discount_percentage) || 10);
+      }
+    }
+    loadFinanceSettings();
+  }, [supabase]);
 
   // Points redemption states
   const [userPoints, setUserPoints] = useState(0);
@@ -84,6 +109,10 @@ function BookingFormContent() {
   const [appliedPromo, setAppliedPromo] = useState(null); // { code, title, discountAmount, discountType, discountValue }
   const [promoError, setPromoError] = useState(null);
   const [promoSuccess, setPromoSuccess] = useState(null);
+
+  // Toggle states for hidden code forms
+  const [showReferralForm, setShowReferralForm] = useState(false);
+  const [showPromoForm, setShowPromoForm] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
@@ -248,8 +277,10 @@ function BookingFormContent() {
 
     const baseSummary = getBookingSummary(bookingClass, checkIn, checkOut);
     
-    // Apply 10% discount if referral applied
-    const referralDiscount = appliedReferral ? Math.floor(baseSummary.totalCost * 0.1) : 0;
+    // Apply dynamic referral discount percentage if referral applied
+    const referralDiscount = appliedReferral
+      ? Math.floor(baseSummary.totalCost * (referralDiscountPct / 100))
+      : 0;
 
     // Apply promo code discount
     const promoDiscount = appliedPromo?.discountAmount || 0;
@@ -272,7 +303,7 @@ function BookingFormContent() {
       discount,
       finalTotal,
     };
-  }, [bookingClass, checkInDate, checkOutDate, appliedReferral, appliedPromo, usePoints, userPoints]);
+  }, [bookingClass, checkInDate, checkOutDate, appliedReferral, referralDiscountPct, appliedPromo, usePoints, userPoints]);
 
   const validateStep1 = () => {
     const errors = {};
@@ -305,6 +336,67 @@ function BookingFormContent() {
     return Object.keys(errors).length === 0;
   };
 
+  const handleProceedFromStep2 = async () => {
+    if (!validateStep2()) return;
+
+    setIsCheckingAvailability(true);
+    try {
+      // 1. Fetch class details for total_cages & maintenance_cages
+      const { data: classRow } = await supabase
+        .from("classes")
+        .select("total_cages, maintenance_cages")
+        .eq("name", bookingClass)
+        .maybeSingle();
+
+      const totalCages = classRow?.total_cages ?? 10;
+      const maintenanceCages = classRow?.maintenance_cages ?? 0;
+      const effectiveCapacity = Math.max(1, totalCages - maintenanceCages);
+
+      // 2. Fetch overlapping active bookings
+      const { data: overlappingBookings } = await supabase
+        .from("bookings")
+        .select("id, check_in_date, check_out_date, status")
+        .eq("class", bookingClass)
+        .in("status", ["Menunggu", "Aktif", "Antrian"])
+        .lt("check_in_date", checkOutDate)
+        .gt("check_out_date", checkInDate)
+        .order("check_out_date", { ascending: true });
+
+      const count = overlappingBookings?.length || 0;
+
+      if (count >= effectiveCapacity) {
+        // FULL! Find earliest checkout date
+        const earliestBooking = overlappingBookings[0];
+        const earliestDate = earliestBooking?.check_out_date || checkOutDate;
+        
+        // Calculate days difference from today
+        const today = new Date();
+        const checkOut = new Date(earliestDate);
+        const daysDiff = Math.max(1, Math.ceil((checkOut - today) / (1000 * 60 * 60 * 24)));
+
+        setAvailabilityData({
+          isFull: true,
+          effectiveCapacity,
+          totalCages,
+          maintenanceCages,
+          overlappingCount: count,
+          earliestCheckoutDate: earliestDate,
+          daysUntilAvailable: daysDiff,
+        });
+        setShowWaitlistModal(true);
+      } else {
+        // Available! Proceed to step 3
+        setIsWaitlistBooking(false);
+        setStep(3);
+      }
+    } catch (err) {
+      console.warn("Availability check error:", err);
+      setStep(3);
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setServerError(null);
     setIsLoading(true);
@@ -323,7 +415,7 @@ function BookingFormContent() {
 
       const pricePerDay = { Basic: 50000, Standard: 80000, Premium: 130000 }[
         bookingClass
-      ];
+      ] || 80000;
 
       const discount = pricingPreview?.discount || 0;
       const pointsUsed = pricingPreview?.pointsToUse || 0;
@@ -343,7 +435,7 @@ function BookingFormContent() {
         price_per_day: pricePerDay,
         check_in_date: checkInDate,
         check_out_date: checkOutDate,
-        status: "Menunggu",
+        status: isWaitlistBooking ? "Antrian" : "Menunggu",
         discount_amount: discount,
         points_used: pointsUsed,
       };
@@ -804,107 +896,164 @@ function BookingFormContent() {
             </div>
           </div>
 
-          {/* Referral input */}
-          <div className="space-y-1.5 border-t border-border/60 dark:border-zinc-800/60 pt-4">
-            <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
-              {t("book_referral_code_optional")}
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Sparkles className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  value={referralCodeInput}
-                  disabled={!!appliedReferral}
-                  onChange={(e) => setReferralCodeInput(e.target.value)}
-                  placeholder="e.g. NEKO-XXXX"
-                  className="w-full pl-11 pr-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 uppercase disabled:opacity-60"
-                />
-              </div>
-              {appliedReferral ? (
-                <button
-                  type="button"
-                  onClick={handleRemoveReferral}
-                  className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 dark:border-rose-950/40 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/15 cursor-pointer transition-colors"
-                >
-                  {language === "en" ? "Remove" : "Hapus"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleVerifyReferral}
-                  disabled={isVerifyingReferral || !referralCodeInput.trim()}
-                  className="px-5 py-3 rounded-xl bg-secondary dark:bg-zinc-800 text-primary dark:text-zinc-200 text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
-                >
-                  {isVerifyingReferral ? t("book_referral_applying") : (language === "en" ? "Apply" : "Terapkan")}
-                </button>
-              )}
+          {/* Action Buttons to show Referral or Promo Code Form */}
+          <div className="border-t border-border/60 dark:border-zinc-800/60 pt-4 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Button Toggle Referral */}
+              <button
+                type="button"
+                onClick={() => setShowReferralForm(!showReferralForm)}
+                className={`px-4 py-2.5 rounded-xl border text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+                  showReferralForm || appliedReferral
+                    ? "border-primary bg-primary/10 text-primary dark:bg-primary/20 shadow-xs"
+                    : "border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-900/40 text-muted-foreground hover:text-foreground dark:hover:text-zinc-200"
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                <span>
+                  {appliedReferral
+                    ? `Kode Referral (${appliedReferral})`
+                    : (language === "en" ? "Have a Referral Code?" : "Punya Kode Referral?")}
+                </span>
+                <span className="text-[10px] opacity-70">
+                  {showReferralForm || appliedReferral ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {/* Button Toggle Promo Code */}
+              <button
+                type="button"
+                onClick={() => setShowPromoForm(!showPromoForm)}
+                className={`px-4 py-2.5 rounded-xl border text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+                  showPromoForm || appliedPromo
+                    ? "border-primary bg-primary/10 text-primary dark:bg-primary/20 shadow-xs"
+                    : "border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-900/40 text-muted-foreground hover:text-foreground dark:hover:text-zinc-200"
+                }`}
+              >
+                <Ticket className="w-4 h-4 text-primary shrink-0" />
+                <span>
+                  {appliedPromo
+                    ? `Voucher (${appliedPromo.code})`
+                    : (language === "en" ? "Have a Promo Code / Voucher?" : "Punya Kode Promo / Voucher?")}
+                </span>
+                <span className="text-[10px] opacity-70">
+                  {showPromoForm || appliedPromo ? "▲" : "▼"}
+                </span>
+              </button>
             </div>
 
-            {referralError && (
-              <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{referralError}</span>
-              </p>
-            )}
+            {/* Referral Form (Expanded when toggled OR applied) */}
+            {(showReferralForm || appliedReferral) && (
+              <div className="p-4 bg-muted/20 dark:bg-zinc-900/40 border border-border dark:border-zinc-800 rounded-2xl space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+                  {t("book_referral_code_optional")}
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Sparkles className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/60" />
+                    <input
+                      type="text"
+                      value={referralCodeInput}
+                      disabled={!!appliedReferral}
+                      onChange={(e) => setReferralCodeInput(e.target.value)}
+                      placeholder="e.g. NEKO-XXXX"
+                      className="w-full pl-11 pr-4 py-3 bg-card dark:bg-zinc-950/40 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 uppercase disabled:opacity-60"
+                    />
+                  </div>
+                  {appliedReferral ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveReferral}
+                      className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 dark:border-rose-950/40 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/15 cursor-pointer transition-colors"
+                    >
+                      {language === "en" ? "Remove" : "Hapus"}
+                    </button>
+                  ) : (
+                    <GsapTextButton
+                      type="button"
+                      onClick={handleVerifyReferral}
+                      isLoading={isVerifyingReferral}
+                      disabled={!referralCodeInput.trim()}
+                      idleText={language === "en" ? "Apply" : "Terapkan"}
+                      loadingText={t("book_referral_applying")}
+                      successText={language === "en" ? "Applied!" : "Berhasil!"}
+                      isSuccess={!!appliedReferral}
+                      className="px-5 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
+                    />
+                  )}
+                </div>
 
-            {referralSuccess && (
-              <p className="text-xs text-emerald-500 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>{referralSuccess}</span>
-              </p>
-            )}
-          </div>
+                {referralError && (
+                  <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{referralError}</span>
+                  </p>
+                )}
 
-          {/* Promo Code input */}
-          <div className="space-y-1.5 border-t border-border/60 dark:border-zinc-800/60 pt-4">
-            <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
-              {language === "en" ? "Promo / Voucher Code (Optional)" : "Kode Promo / Voucher (Opsional)"}
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Ticket className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/60" />
-                <input
-                  type="text"
-                  value={promoCodeInput}
-                  disabled={!!appliedPromo}
-                  onChange={(e) => setPromoCodeInput(e.target.value)}
-                  placeholder={language === "en" ? "e.g. DISKON50" : "cth. DISKON50"}
-                  className="w-full pl-11 pr-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 uppercase disabled:opacity-60"
-                />
+                {referralSuccess && (
+                  <p className="text-xs text-emerald-500 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{referralSuccess}</span>
+                  </p>
+                )}
               </div>
-              {appliedPromo ? (
-                <button
-                  type="button"
-                  onClick={handleRemovePromo}
-                  className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 dark:border-rose-950/40 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/15 cursor-pointer transition-colors"
-                >
-                  {language === "en" ? "Remove" : "Hapus"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleVerifyPromo}
-                  disabled={isVerifyingPromo || !promoCodeInput.trim()}
-                  className="px-5 py-3 rounded-xl bg-secondary dark:bg-zinc-800 text-primary dark:text-zinc-200 text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
-                >
-                  {isVerifyingPromo ? (language === "en" ? "Checking..." : "Memeriksa...") : (language === "en" ? "Apply" : "Terapkan")}
-                </button>
-              )}
-            </div>
-
-            {promoError && (
-              <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{promoError}</span>
-              </p>
             )}
 
-            {promoSuccess && (
-              <p className="text-xs text-emerald-500 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" />
-                <span>{promoSuccess}</span>
-              </p>
+            {/* Promo Code Form (Expanded when toggled OR applied) */}
+            {(showPromoForm || appliedPromo) && (
+              <div className="p-4 bg-muted/20 dark:bg-zinc-900/40 border border-border dark:border-zinc-800 rounded-2xl space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+                  {language === "en" ? "Promo / Voucher Code" : "Kode Promo / Voucher"}
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ticket className="absolute left-3.5 top-3.5 w-4.5 h-4.5 text-muted-foreground/60" />
+                    <input
+                      type="text"
+                      value={promoCodeInput}
+                      disabled={!!appliedPromo}
+                      onChange={(e) => setPromoCodeInput(e.target.value)}
+                      placeholder={language === "en" ? "e.g. DISKON50" : "cth. DISKON50"}
+                      className="w-full pl-11 pr-4 py-3 bg-card dark:bg-zinc-950/40 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200 uppercase disabled:opacity-60"
+                    />
+                  </div>
+                  {appliedPromo ? (
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="px-4 py-3 rounded-xl border border-rose-200 text-rose-600 dark:border-rose-950/40 dark:text-rose-400 text-xs font-bold hover:bg-rose-50 dark:hover:bg-rose-950/15 cursor-pointer transition-colors"
+                    >
+                      {language === "en" ? "Remove" : "Hapus"}
+                    </button>
+                  ) : (
+                    <GsapTextButton
+                      type="button"
+                      onClick={handleVerifyPromo}
+                      isLoading={isVerifyingPromo}
+                      disabled={!promoCodeInput.trim()}
+                      idleText={language === "en" ? "Apply" : "Terapkan"}
+                      loadingText={language === "en" ? "Checking..." : "Memeriksa..."}
+                      successText={language === "en" ? "Applied!" : "Berhasil!"}
+                      isSuccess={!!appliedPromo}
+                      className="px-5 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer transition-opacity"
+                    />
+                  )}
+                </div>
+
+                {promoError && (
+                  <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{promoError}</span>
+                  </p>
+                )}
+
+                {promoSuccess && (
+                  <p className="text-xs text-emerald-500 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{promoSuccess}</span>
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -994,13 +1143,18 @@ function BookingFormContent() {
               {t("book_btn_prev")}
             </button>
             <button
-              onClick={() => {
-                if (validateStep2()) setStep(3);
-              }}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
+              onClick={handleProceedFromStep2}
+              disabled={isCheckingAvailability}
+              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
-              {t("book_btn_next")}
-              <ArrowRight className="w-4 h-4" />
+              {isCheckingAvailability ? (
+                <span>Cek Ketersediaan...</span>
+              ) : (
+                <>
+                  <span>{t("book_btn_next")}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1009,10 +1163,30 @@ function BookingFormContent() {
       {/* STEP 3: Review & Konfirmasi */}
       {step === 3 && (
         <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-8 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-100 text-lg border-b border-border/60 dark:border-zinc-800/60 pb-3">
-            <ShieldCheck className="w-5 h-5 text-primary" />
-            <span>{language === "en" ? "Confirm & Review Booking" : "Konfirmasi & Tinjau Pesanan"}</span>
+          <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-100 text-lg">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <span>{language === "en" ? "Confirm & Review Booking" : "Konfirmasi & Tinjau Pesanan"}</span>
+            </div>
+            {isWaitlistBooking && (
+              <span className="px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-extrabold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Status: Dalam Antrian (Waitlist)</span>
+              </span>
+            )}
           </div>
+
+          {isWaitlistBooking && (
+            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-2xl space-y-1 text-purple-700 dark:text-purple-300 text-xs font-medium leading-relaxed">
+              <div className="font-extrabold flex items-center gap-1.5 text-sm">
+                <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span>Kandang Penuh - Masuk Dalam Antrian</span>
+              </div>
+              <p>
+                Kandang kelas <strong>{bookingClass}</strong> sedang penuh pada tanggal yang Anda pilih. Pesanan ini akan dimasukkan ke <strong>Daftar Antrian</strong> dan admin kami akan memproses konfirmasi lebih lanjut.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Cat details summary */}
@@ -1146,14 +1320,96 @@ function BookingFormContent() {
             >
               {t("book_btn_prev")}
             </button>
-            <button
+            <GsapTextButton
               onClick={handleSubmit}
-              disabled={isLoading}
-              className="px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold hover:bg-primary/95 transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isLoading ? (language === "en" ? "Saving..." : "Sedang Menyimpan...") : t("book_btn_submit")}
-              <Check className="w-4 h-4" />
-            </button>
+              isLoading={isLoading}
+              idleText={isWaitlistBooking ? "Kirim Pesanan Antrian" : t("book_btn_submit")}
+              loadingText={language === "en" ? "Saving..." : "Sedang Menyimpan..."}
+              icon={<Check className="w-4 h-4" />}
+              className={`px-8 py-3.5 rounded-xl font-extrabold text-xs transition-all shadow-md cursor-pointer ${
+                isWaitlistBooking
+                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
+                  : "bg-primary text-primary-foreground hover:bg-primary/95 shadow-primary/20"
+              }`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI ANTRIAN (WAITLIST) KANDANG PENUH */}
+      {showWaitlistModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 w-full max-w-lg p-6 sm:p-8 rounded-3xl space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
+              <div className="flex items-center gap-2 text-rose-500 font-extrabold text-base">
+                <AlertCircle className="w-5 h-5" />
+                <span>Kandang Kelas {bookingClass} Penuh</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWaitlistModal(false)}
+                className="text-muted-foreground hover:text-foreground text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs leading-relaxed text-muted-foreground dark:text-zinc-400">
+              <p className="text-foreground dark:text-zinc-200 font-medium">
+                Seluruh <strong className="text-primary">{availabilityData?.effectiveCapacity} kandang</strong> aktif kelas <strong>{bookingClass}</strong> sudah terisi penuh atau sedang dalam perawatan pada rentang tanggal yang Anda pilih.
+              </p>
+
+              {availabilityData?.maintenanceCages > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
+                  ℹ️ Catatan Admin: Terdapat {availabilityData.maintenanceCages} kandang kelas ini yang sedang dalam perbaikan/pemeliharaan rutin.
+                </div>
+              )}
+
+              {/* Perbandingan Waktu Check-out Terdekat */}
+              <div className="p-4 bg-muted/40 dark:bg-zinc-800/40 border border-border dark:border-zinc-800 rounded-2xl space-y-2">
+                <div className="font-extrabold text-foreground dark:text-zinc-100 flex items-center gap-1.5 text-xs">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span>Perkiraan Kandang Selesai / Bebas Terdekat:</span>
+                </div>
+                <div className="text-sm font-black text-primary">
+                  {availabilityData?.earliestCheckoutDate
+                    ? formatDate(availabilityData.earliestCheckoutDate)
+                    : "-"}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (~{availabilityData?.daysUntilAvailable} hari lagi)
+                  </span>
+                </div>
+                <p className="text-[11px]">
+                  Berdasarkan tanggal check-out dari pesanan lain yang sedang berjalan di kelas ini.
+                </p>
+              </div>
+
+              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-700 dark:text-purple-300 font-medium text-[11px]">
+                💬 <strong>Konfirmasi Antrian:</strong> Apakah Anda tetap ingin membuat pesanan dan masuk ke <strong>Daftar Antrian (Waitlist)</strong>? Admin kami akan memverifikasi dan mengonfirmasi pesanan Anda jika ada kandang yang selesai lebih awal.
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWaitlistModal(false)}
+                className="px-4 py-3 rounded-xl border border-border text-xs font-bold hover:bg-muted cursor-pointer transition-colors text-center"
+              >
+                Ubah Tanggal / Kelas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWaitlistBooking(true);
+                  setShowWaitlistModal(false);
+                  setStep(3);
+                }}
+                className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Clock className="w-4 h-4" />
+                Tetap Pesan (Masuk Antrian)
+              </button>
+            </div>
           </div>
         </div>
       )}

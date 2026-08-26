@@ -26,6 +26,12 @@ const statusConfig = {
     bg: "bg-rose-50 text-rose-700 border-rose-200",
     dot: "bg-rose-500",
   },
+  Antrian: {
+    label: "Dalam Antrian",
+    icon: Clock,
+    bg: "bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900",
+    dot: "bg-purple-500",
+  },
 };
 
 export function BookingStatus({ status, className }) {

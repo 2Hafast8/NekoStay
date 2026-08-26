@@ -26,6 +26,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ImageUpload } from "@/components/shared/ImageUpload";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -264,13 +266,7 @@ export default function AdminBookingDetailPage({ params }) {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto animate-pulse">
-        <div className="h-6 w-24 bg-muted rounded-md" />
-        <div className="h-32 bg-card border border-border rounded-3xl" />
-        <div className="h-64 bg-card border border-border rounded-3xl" />
-      </div>
-    );
+    return <GsapDataLoader type="detail" message="Memuat detail pesanan..." />;
   }
 
   if (!booking) {
@@ -613,16 +609,15 @@ export default function AdminBookingDetailPage({ params }) {
                 />
 
                 <div className="flex justify-end pt-2">
-                  <button
+                  <GsapTextButton
                     type="submit"
-                    disabled={isSubmittingReport}
-                    className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmittingReport
-                      ? "Menyimpan..."
-                      : "Kirim Laporan Harian"}
-                    <Send className="w-4 h-4" />
-                  </button>
+                    isLoading={isSubmittingReport}
+                    idleText="Kirim Laporan Harian"
+                    loadingText="Menyimpan..."
+                    successText="Terkirim!"
+                    icon={<Send className="w-4 h-4" />}
+                    className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+                  />
                 </div>
               </form>
             </div>

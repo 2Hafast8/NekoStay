@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 
 export default function AdminReviewsPage() {
   const { t } = useLanguage();
@@ -198,11 +200,7 @@ export default function AdminReviewsPage() {
       )}
 
       {isLoading ? (
-        <div className="space-y-4 animate-pulse">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="h-32 bg-muted dark:bg-zinc-800 rounded-3xl" />
-          ))}
-        </div>
+        <GsapDataLoader type="cards" message="Memuat ulasan pelanggan..." rows={4} />
       ) : filteredReviews.length === 0 ? (
         <div className="bg-card border border-border dark:border-zinc-800 p-12 text-center rounded-3xl anim-item">
           <MessageSquare className="w-12 h-12 text-muted-foreground/60 mx-auto mb-4" />
@@ -317,14 +315,15 @@ export default function AdminReviewsPage() {
                         >
                           {t("admin_rev_btn_cancel")}
                         </button>
-                        <button
+                        <GsapTextButton
                           type="submit"
-                          disabled={isSubmittingReply}
-                          className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        >
-                          {isSubmittingReply ? t("admin_rev_btn_sending") : t("admin_rev_btn_send")}
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
+                          isLoading={isSubmittingReply}
+                          idleText={t("admin_rev_btn_send")}
+                          loadingText={t("admin_rev_btn_sending")}
+                          successText="Terkirim!"
+                          icon={<Send className="w-3.5 h-3.5" />}
+                          className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all cursor-pointer disabled:opacity-50"
+                        />
                       </div>
                     </form>
                   )}

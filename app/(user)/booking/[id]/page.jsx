@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
@@ -400,13 +401,7 @@ function BookingDetailContent({ id }) {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6 max-w-4xl mx-auto animate-pulse mt-8">
-        <div className="h-6 w-24 bg-muted dark:bg-zinc-800 rounded-md" />
-        <div className="h-32 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
-        <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
-      </div>
-    );
+    return <GsapDataLoader type="detail" message="Memuat rincian pesanan..." />;
   }
 
   if (!booking) {

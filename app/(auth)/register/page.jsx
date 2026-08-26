@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,9 +15,35 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { GsapAuthCurveOverlay } from "@/components/shared/GsapAuthCurveOverlay";
+import { gsap } from "gsap";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const overlayRef = useRef(null);
+  const cardRef = useRef(null);
+
+  const handleEntranceComplete = useCallback(() => {
+    if (cardRef.current) {
+      gsap.fromTo(
+        cardRef.current,
+        { autoAlpha: 0, y: 20 },
+        { autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out" }
+      );
+    }
+  }, []);
+
+  const handleNavigateLogin = (e) => {
+    e.preventDefault();
+    if (overlayRef.current) {
+      overlayRef.current.triggerCurveSwipe(() => {
+        router.push("/login");
+      });
+    } else {
+      router.push("/login");
+    }
+  };
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -85,13 +111,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-tr from-secondary/30 via-background to-background p-4 relative">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-tr from-secondary/30 via-background to-background p-4 relative overflow-hidden">
+      <GsapAuthCurveOverlay ref={overlayRef} onCompleteEntrance={handleEntranceComplete} />
+
       <div className="absolute inset-0 overflow-hidden -z-10">
         <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-amber-500/5 blur-3xl" />
       </div>
 
-      <div className="w-full max-w-md bg-card border border-border p-8 rounded-3xl shadow-xl space-y-6">
+      <div ref={cardRef} style={{ visibility: "hidden", opacity: 0 }} className="w-full max-w-md bg-card border border-border p-8 rounded-3xl shadow-xl space-y-6">
         <div className="text-center space-y-2">
           <Link
             href="/"
@@ -214,24 +242,26 @@ export default function RegisterPage() {
           </div>
 
 
-          <button
+          <GsapTextButton
             type="submit"
-            disabled={isLoading}
+            isLoading={isLoading}
+            idleText="Daftar Sekarang"
+            loadingText="Mendaftarkan Akun..."
+            successText="Berhasil!"
+            icon={<ArrowRight className="w-4.5 h-4.5" />}
             className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/95 transition-all shadow-md shadow-primary/10 hover:scale-[1.01] active:scale-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {isLoading ? "Mendaftarkan Akun..." : "Daftar Sekarang"}
-            <ArrowRight className="w-4.5 h-4.5" />
-          </button>
+          />
         </form>
 
         <p className="text-center text-xs text-muted-foreground">
           Sudah punya akun?{" "}
-          <Link
+          <a
             href="/login"
-            className="font-bold text-primary hover:underline"
+            onClick={handleNavigateLogin}
+            className="font-bold text-primary hover:underline cursor-pointer"
           >
             Masuk ke Akun
-          </Link>
+          </a>
         </p>
       </div>
     </div>

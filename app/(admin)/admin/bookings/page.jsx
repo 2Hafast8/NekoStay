@@ -32,6 +32,8 @@ import { formatDate } from "@/lib/utils/dates";
 import { getCheckoutCalculation } from "@/lib/utils/pricing";
 import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -90,8 +92,24 @@ export default function AdminBookingsPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutCalc, setCheckoutCalc] = useState(null);
+  const [refundPercentage, setRefundPercentage] = useState(90);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    async function loadFinanceSettings() {
+      const { data } = await supabase
+        .from("landing_settings")
+        .select("content")
+        .eq("id", "finance_settings")
+        .maybeSingle();
+
+      if (data?.content?.refund_percentage != null) {
+        setRefundPercentage(Number(data.content.refund_percentage) || 90);
+      }
+    }
+    loadFinanceSettings();
+  }, [supabase]);
 
   const fetchAllBookings = useCallback(async () => {
     setIsLoading(true);
@@ -463,7 +481,7 @@ export default function AdminBookingsPage() {
   const openCheckoutModal = (booking) => {
     setSelectedBooking(booking);
     const today = new Date();
-    const calc = getCheckoutCalculation(booking, today);
+    const calc = getCheckoutCalculation(booking, today, refundPercentage);
     setCheckoutCalc(calc);
     setIsCheckoutOpen(true);
   };
@@ -603,12 +621,13 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 dark:border-zinc-800 overflow-x-auto pb-px justify-between sm:justify-start gap-4 sm:gap-8 w-full anim-item">
-        <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto">
-          {["Semua", "Menunggu", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
+      <div className="flex border-b border-border/80 dark:border-zinc-800 overflow-x-auto no-scrollbar pb-px justify-between sm:justify-start gap-4 sm:gap-8 w-full anim-item">
+        <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
+          {["Semua", "Menunggu", "Antrian", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
             const tabMapping = {
               "Semua": t("admin_bookings_tab_all"),
               "Menunggu": t("admin_bookings_tab_pending"),
+              "Antrian": "Dalam Antrian",
               "Aktif": t("admin_bookings_tab_active"),
               "Selesai": t("admin_bookings_tab_completed"),
               "Dibatalkan": t("admin_bookings_tab_cancelled")
@@ -817,14 +836,7 @@ export default function AdminBookingsPage() {
 
       {/* Bookings Table */}
       {isLoading ? (
-        <div className="space-y-4 animate-pulse">
-          {[1, 2, 3, 4].map((n) => (
-            <div
-              key={n}
-              className="h-16 bg-card border border-border rounded-2xl"
-            />
-          ))}
-        </div>
+        <GsapDataLoader type={viewMode === "grid" ? "cards" : "table"} message="Memuat daftar pemesanan..." rows={5} />
       ) : filteredBookings.length === 0 ? (
         <div className="text-center py-16 bg-card border border-border border-dashed rounded-3xl p-8 max-w-xl mx-auto text-muted-foreground">
           <CalendarRange className="w-8 h-8 mx-auto mb-2.5 text-muted-foreground/35" />
@@ -1349,39 +1361,15 @@ export default function AdminBookingsPage() {
               >
                 Batal
               </button>
-              <button
+              <GsapTextButton
                 type="button"
-                disabled={isCheckingOut}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 onClick={handleCheckout}
-              >
-                {isCheckingOut ? (
-                  <>
-                    <svg
-                      className="animate-spin h-3.5 w-3.5 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Sedang Memproses...
-                  </>
-                ) : (
-                  "Selesaikan Check-Out"
-                )}
-              </button>
+                isLoading={isCheckingOut}
+                idleText="Selesaikan Check-Out"
+                loadingText="Sedang Memproses..."
+                successText="Berhasil!"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
+              />
             </div>
           </div>
         </div>

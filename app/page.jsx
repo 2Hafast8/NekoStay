@@ -10,7 +10,10 @@ import { createClient } from "@/lib/supabase/client";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
+import { useGsapSmoothScroll } from "@/hooks/useGsapSmoothScroll";
 import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
+import { GsapReviewSlider } from "@/components/shared/GsapReviewSlider";
+import { GsapBentoGallery, DEFAULT_BENTO_IMAGES } from "@/components/shared/GsapBentoGallery";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -18,6 +21,7 @@ if (typeof window !== "undefined") {
 
 export default function LandingPage() {
   const { language } = useLanguage();
+  const [allReviews, setAllReviews] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -28,6 +32,7 @@ export default function LandingPage() {
   const [dbClasses, setDbClasses] = useState([]);
   const [contactInfo, setContactInfo] = useState(null);
   const [faqItems, setFaqItems] = useState([]);
+  const [bentoImages, setBentoImages] = useState(DEFAULT_BENTO_IMAGES);
 
   const currentLanguage = mounted ? language : "id";
   const t = (key) => dictionary[currentLanguage]?.[key] || key;
@@ -65,6 +70,9 @@ export default function LandingPage() {
   useGsapReveal(pricingRef, { stagger: 0.15, y: 44, scale: 0.97, duration: 0.7 });
   useGsapReveal(reviewsRef, { stagger: 0.13, y: 32, duration: 0.65 });
   useGsapReveal(faqRef, { stagger: 0.1, y: 30, duration: 0.6 });
+
+  // Smooth scroll & smooth scroll positions for landing page
+  useGsapSmoothScroll();
 
   // Magnetic hover effect for CTA buttons
   const handleMagneticMove = (e) => {
@@ -288,10 +296,11 @@ export default function LandingPage() {
           `)
           .gte("rating", 4)
           .order("created_at", { ascending: false })
-          .limit(6);
+          .limit(30);
 
         if (!error && data) {
-          setReviews(data);
+          setAllReviews(data);
+          setReviews(getRotatedReviews(data, 6));
         }
       } catch (err) {
         console.error("Error fetching reviews:", err);
@@ -313,6 +322,7 @@ export default function LandingPage() {
               setWhyUsList(row.content);
             if (row.id === "contact" && row.content) setContactInfo(row.content);
             if (row.id === "faqs" && Array.isArray(row.content)) setFaqItems(row.content);
+            if (row.id === "bento_gallery" && Array.isArray(row.content)) setBentoImages(row.content);
           });
         }
 
@@ -330,6 +340,15 @@ export default function LandingPage() {
     fetchReviews();
     fetchLandingCMS();
   }, []);
+
+  // 30-minute block rotation interval for reviews (max 6 displayed)
+  useEffect(() => {
+    if (!allReviews.length) return;
+    const interval = setInterval(() => {
+      setReviews(getRotatedReviews(allReviews, 6));
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [allReviews]);
 
   // Standard facilities translations based on language
   const getFacilities = (className) => {
@@ -381,8 +400,12 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-background dark:bg-zinc-950 transition-colors duration-300">
-      <Navbar />
+    <div id="smooth-wrapper">
+      <div id="smooth-content" className="flex flex-col min-h-screen bg-background dark:bg-zinc-950 transition-colors duration-300">
+        <GsapBentoGallery images={bentoImages} />
+        <header className="sticky top-0 z-40">
+          <Navbar />
+        </header>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-16 sm:pb-24 lg:pt-32 lg:pb-32 bg-linear-to-b from-secondary/40 via-background to-background dark:from-zinc-900/20 dark:via-zinc-950 dark:to-zinc-950">
@@ -519,7 +542,7 @@ export default function LandingPage() {
       </div>
 
       {/* Why Choose Us */}
-      <section className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60">
+      <section id="why-us" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -684,7 +707,7 @@ export default function LandingPage() {
       </section>
 
       {/* Reviews Section */}
-      <section className="py-16 sm:py-24 bg-card dark:bg-zinc-900/20 border-t border-border/60 dark:border-zinc-900/60">
+      <section id="reviews" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/20 border-t border-border/60 dark:border-zinc-900/60">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -708,37 +731,8 @@ export default function LandingPage() {
                 : "Belum ada ulasan. Jadilah yang pertama memberikan ulasan setelah mpus pulang!"}
             </div>
           ) : (
-            <div ref={reviewsRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {reviews.map((rev) => (
-                <div 
-                  key={rev.id} 
-                  className="p-6 bg-background dark:bg-zinc-900/60 border border-border dark:border-zinc-850 rounded-2xl space-y-4 hover:shadow-xs transition-shadow"
-                >
-                  <div className="flex items-center gap-1 text-amber-500">
-                    {[...Array(5)].map((_, i) => (
-                      <Star 
-                        key={i} 
-                        className={`w-4 h-4 ${i < rev.rating ? "fill-amber-500" : "text-zinc-300 dark:text-zinc-700"}`} 
-                      />
-                    ))}
-                  </div>
-                  <p className="text-sm italic text-muted-foreground dark:text-zinc-350 leading-relaxed min-h-[60px]">
-                    "{rev.review_text}"
-                  </p>
-                  <div className="border-t border-border/60 dark:border-zinc-800/60 pt-3 flex justify-between items-center text-xs">
-                    <span className="font-bold text-foreground dark:text-zinc-200">
-                      {rev.profiles?.full_name || "Tamu Neko"}
-                    </span>
-                    <span className="text-muted-foreground dark:text-zinc-450">
-                      {new Date(rev.created_at).toLocaleDateString(currentLanguage === "en" ? "en-US" : "id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric"
-                      })}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div ref={reviewsRef}>
+              <GsapReviewSlider reviews={reviews} currentLanguage={currentLanguage} />
             </div>
           )}
         </div>
@@ -746,7 +740,7 @@ export default function LandingPage() {
 
       {/* FAQ Section */}
       {faqItems.length > 0 && (
-        <section className="py-16 sm:py-24 border-t border-border/60 dark:border-zinc-900/60">
+        <section id="faqs" className="py-16 sm:py-24 border-t border-border/60 dark:border-zinc-900/60">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center space-y-3 mb-16">
               <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -897,6 +891,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }
@@ -976,4 +971,18 @@ function FaqAccordion({ question, answer }) {
       </div>
     </div>
   );
+}
+
+function getRotatedReviews(list, maxItems = 6) {
+  if (!list || list.length === 0) return [];
+  if (list.length <= maxItems) return list;
+
+  const current30MinBlock = Math.floor(Date.now() / (30 * 60 * 1000));
+  const startIndex = (current30MinBlock * maxItems) % list.length;
+
+  const result = [];
+  for (let i = 0; i < maxItems; i++) {
+    result.push(list[(startIndex + i) % list.length]);
+  }
+  return result;
 }
