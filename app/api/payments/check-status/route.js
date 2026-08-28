@@ -132,14 +132,18 @@ export async function POST(request) {
           type = 'info';
         }
 
-        await supabaseAdmin.from('notifications').insert({
-          user_id: booking.user_id,
-          title,
-          message,
-          type,
-          booking_id: bookingId,
-          is_read: false
-        }).catch(err => console.warn('Notification insert failed:', err.message));
+        try {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: booking.user_id,
+            title,
+            message,
+            type,
+            booking_id: bookingId,
+            is_read: false
+          });
+        } catch (notifErr) {
+          console.warn('Notification insert failed:', notifErr.message);
+        }
       }
     }
 

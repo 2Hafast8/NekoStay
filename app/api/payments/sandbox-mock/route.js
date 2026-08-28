@@ -39,14 +39,18 @@ export async function POST(request) {
       if (updateError) throw updateError;
 
       // Insert success notification
-      await supabaseAdmin.from('notifications').insert({
-        user_id: booking.user_id,
-        title: 'Simulasi Pembayaran Berhasil',
-        message: `Pembayaran online (Sandbox) untuk penitipan ${booking.cat_name} telah berhasil disimulasikan secara otomatis.`,
-        type: 'success',
-        booking_id: bookingId,
-        is_read: false
-      }).catch(err => console.warn('Notification insert failed:', err.message));
+      try {
+        await supabaseAdmin.from('notifications').insert({
+          user_id: booking.user_id,
+          title: 'Simulasi Pembayaran Berhasil',
+          message: `Pembayaran online (Sandbox) untuk penitipan ${booking.cat_name} telah berhasil disimulasikan secara otomatis.`,
+          type: 'success',
+          booking_id: bookingId,
+          is_read: false
+        });
+      } catch (notifErr) {
+        console.warn('Notification insert failed:', notifErr.message);
+      }
     }
 
     return NextResponse.json({ success: true, paymentStatus: 'Paid' });

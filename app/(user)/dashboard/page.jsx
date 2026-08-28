@@ -97,6 +97,31 @@ export default function UserDashboard() {
     };
   }, [supabase, fetchBookings]);
 
+  // Realtime subscription to auto-update bookings list if Admin approves/changes status
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`user-dashboard-sync-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bookings",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchBookings(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, supabase, fetchBookings]);
+
   useEffect(() => {
     setCurrentPage(1);
     if (activeTab === "Semua") {

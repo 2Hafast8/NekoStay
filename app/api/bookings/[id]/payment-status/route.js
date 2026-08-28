@@ -22,8 +22,9 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Hanya Administrator yang diizinkan mengubah status pembayaran' }, { status: 403 });
     }
 
-    // 2. Parse request body
-    const { paymentStatus } = await request.json();
+    // 2. Parse request body (dukung camelCase maupun snake_case)
+    const body = await request.json();
+    const paymentStatus = body.paymentStatus || body.payment_status;
     const validStatuses = ['Unpaid', 'Paid', 'Failed', 'Refunded'];
 
     if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
@@ -69,14 +70,18 @@ export async function PATCH(request, { params }) {
       'Refunded': 'Dikembalikan',
     };
 
-    await supabase.from('notifications').insert({
-      user_id: booking.user_id,
-      title: 'Status Pembayaran Diperbarui',
-      message: `Status pembayaran untuk penitipan ${booking.cat_name} telah diperbarui menjadi "${statusLabels[paymentStatus]}" oleh admin.`,
-      type: paymentStatus === 'Paid' ? 'success' : 'info',
-      booking_id: booking.id,
-      is_read: false,
-    }).catch(err => console.warn('Notification insert failed:', err.message));
+    try {
+      await supabase.from('notifications').insert({
+        user_id: booking.user_id,
+        title: 'Status Pembayaran Diperbarui',
+        message: `Status pembayaran untuk penitipan ${booking.cat_name} telah diperbarui menjadi "${statusLabels[paymentStatus]}" oleh admin.`,
+        type: paymentStatus === 'Paid' ? 'success' : 'info',
+        booking_id: booking.id,
+        is_read: false,
+      });
+    } catch (notifErr) {
+      console.warn('Notification insert failed:', notifErr.message);
+    }
 
     return NextResponse.json({
       success: true,

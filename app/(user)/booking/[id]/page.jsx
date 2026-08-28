@@ -141,6 +141,32 @@ function BookingDetailContent({ id }) {
     loadBookingDetails();
   }, [loadBookingDetails]);
 
+  // Realtime subscription for instant status sync (e.g. when Admin accepts booking)
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`booking-status-user-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "bookings",
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setBooking((prev) => (prev ? { ...prev, ...payload.new } : payload.new));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, supabase]);
+
   // Helper: Verifikasi status pembayaran langsung ke Midtrans via API server
   const checkPaymentStatus = useCallback(async (orderId) => {
     if (!orderId) return null;
@@ -327,42 +353,30 @@ function BookingDetailContent({ id }) {
     setErrorMsg(null);
 
     try {
-      // Update booking status to Dibatalkan and store cancel reason
-      const { error } = await supabase
-        .from("bookings")
-        .update({
-          status: "Dibatalkan",
-          cancel_reason: cancelReason,
-        })
-        .eq("id", id);
+      // Call secure API endpoint to validate status and update atomically
+      const res = await fetch(`/api/bookings/${id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
+      });
 
-      if (error) throw error;
+      const data = await res.json();
 
-      // Notify admin about the cancellation
-      const { data: admins } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("role", "admin");
-
-      if (admins && booking) {
-        const notificationsToInsert = admins.map((admin) => ({
-          user_id: admin.id,
-          title: language === "en" ? "Booking Canceled by User" : "Pesanan Dibatalkan User",
-          message: language === "en"
-            ? `Booking for cat ${booking.cat_name} was canceled by owner. Reason: ${cancelReason}`
-            : `Booking untuk kucing ${booking.cat_name} telah dibatalkan oleh pemilik. Alasan: ${cancelReason}`,
-          type: "warning",
-          booking_id: id,
-          is_read: false,
-        }));
-
-        await supabase.from("notifications").insert(notificationsToInsert);
+      if (!res.ok) {
+        throw new Error(
+          data.error ||
+            (language === "en"
+              ? "Failed to cancel booking. Booking may have been accepted by Admin."
+              : "Gagal membatalkan pesanan. Pesanan mungkin telah diterima oleh Admin.")
+        );
       }
 
       setIsCancelOpen(false);
-      loadBookingDetails();
+      await loadBookingDetails();
     } catch (err) {
       setErrorMsg(err.message || (language === "en" ? "Failed to cancel booking." : "Gagal membatalkan pesanan. Coba lagi."));
+      setIsCancelOpen(false);
+      await loadBookingDetails();
     } finally {
       setIsCancelling(false);
     }

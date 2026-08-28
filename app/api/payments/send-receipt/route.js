@@ -66,7 +66,7 @@ export async function POST(request) {
 
     // 7. Generate dan kirim PDF receipt via email
     const { sendBookingStatusUpdate } = await import('@/lib/email/resend');
-    await sendBookingStatusUpdate(
+    const sendResult = await sendBookingStatusUpdate(
       userEmail,
       booking.profiles.full_name,
       booking.cat_name,
@@ -74,6 +74,13 @@ export async function POST(request) {
       'Aktif',
       booking
     );
+
+    if (sendResult && sendResult.success === false) {
+      return NextResponse.json(
+        { error: `Gagal mengirim email: ${sendResult.error?.message || sendResult.error || 'Layanan email bermasalah'}` },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

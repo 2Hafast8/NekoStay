@@ -1086,7 +1086,7 @@ export default function AdminBookingsPage() {
                                         const res = await fetch(`/api/bookings/${b.id}/payment-status`, {
                                           method: 'PATCH',
                                           headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ payment_status: opt.value }),
+                                          body: JSON.stringify({ paymentStatus: opt.value }),
                                         });
                                         if (!res.ok) {
                                           const data = await res.json();
