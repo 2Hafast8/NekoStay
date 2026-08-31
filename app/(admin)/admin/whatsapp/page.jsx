@@ -119,27 +119,6 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 3b. 1-Click Start Daemon from Website
-  const [isStartingDaemon, setIsStartingDaemon] = useState(false);
-  const handleStartDaemon = async () => {
-    try {
-      setIsStartingDaemon(true);
-      const res = await fetch("/api/whatsapp/start-daemon", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        toast.success("Bot WhatsApp sedang dimulai di latar belakang...");
-        setWaStatus("connecting");
-        setTimeout(checkStatus, 3000);
-      } else {
-        toast.error(data.error || "Gagal mengaktifkan bot");
-      }
-    } catch (err) {
-      toast.error(err.message || "Gagal mengaktifkan bot");
-    } finally {
-      setIsStartingDaemon(false);
-    }
-  };
-
   // 4. Fetch Contact List (7-day aggregated)
   const fetchContacts = async (preserveSelected = true) => {
     try {
@@ -206,7 +185,7 @@ export default function AdminWhatsAppLogsPage() {
     };
   }, [isConnectModalOpen, waStatus]);
 
-  // Realtime subscription for whatsapp_bot_state (Syncs with Vercel instantly!)
+  // Realtime subscription for whatsapp_bot_state
   useEffect(() => {
     const channel = supabase
       .channel("whatsapp-bot-state-realtime")
@@ -856,42 +835,43 @@ export default function AdminWhatsAppLogsPage() {
               ) : (
                 /* Disconnected / Bot Guide View */
                 <div className="space-y-5">
-                  <div className="bg-slate-50 dark:bg-zinc-950 p-5 rounded-2xl border border-border space-y-4">
+                  <div className="bg-slate-50 dark:bg-zinc-950 p-5 rounded-2xl border border-border space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
                         <Activity className="w-4 h-4 text-amber-500" />
                         Status Bot WhatsApp Gateway
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                        Belum Aktif
+                        Belum Terhubung
                       </span>
                     </div>
 
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Klik tombol di bawah untuk langsung mengaktifkan bot WhatsApp di latar belakang (tanpa perlu membuka terminal):
+                      Jalankan bot WhatsApp dari CMD / Terminal di laptop Anda menggunakan perintah:
                     </p>
 
-                    <button
-                      onClick={handleStartDaemon}
-                      disabled={isStartingDaemon}
-                      className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      {isStartingDaemon ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
-                      <span>{isStartingDaemon ? "Sedang Mengaktifkan Bot..." : "🚀 Nyalakan Bot Otomatis Sekarang"}</span>
-                    </button>
+                    <div className="bg-zinc-900 text-emerald-400 p-3.5 rounded-xl font-mono text-xs flex items-center justify-between border border-zinc-800 shadow-inner">
+                      <span>npm run wa:bot</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText("npm run wa:bot");
+                          toast.success("Perintah disalin!");
+                        }}
+                        className="text-zinc-400 hover:text-white transition-colors"
+                        title="Salin Perintah"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="bg-muted/40 dark:bg-zinc-950/60 p-4 rounded-2xl border border-border text-left space-y-2 text-xs">
-                    <p className="font-extrabold text-foreground">💡 3 Pilihan Cara Menjalankan yang Praktis:</p>
-                    <ul className="list-disc list-inside space-y-1.5 text-muted-foreground leading-relaxed">
-                      <li><strong>Pilihan 1 (Paling Mudah)</strong>: Cukup klik tombol <em>&quot;🚀 Nyalakan Bot Otomatis&quot;</em> di atas.</li>
-                      <li><strong>Pilihan 2 (Desktop 1-Klik)</strong>: Klik ganda file <code>Start-WhatsApp-Bot.vbs</code> di laptop Anda (berjalan senyap tanpa terminal).</li>
-                      <li><strong>Pilihan 3 (Cloud 24 Jam Nonstop)</strong>: Deploy ke Render/Railway gratis agar bot online terus 24 jam meskipun laptop mati.</li>
-                    </ul>
+                    <p className="font-extrabold text-foreground">💡 Tips Menjalankan Bot:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground leading-relaxed">
+                      <li><strong>Lewat CMD/Terminal</strong>: Buka terminal dan jalankan <code>npm run wa:bot</code>.</li>
+                      <li><strong>Lewat File Windows (Senyap)</strong>: Klik ganda file <code>Start-WhatsApp-Bot.vbs</code> di folder project Anda (bot akan jalan diam-diam di background).</li>
+                      <li>Begitu bot aktif, QR Code akan otomatis muncul di layar ini secara live untuk di-scan!</li>
+                    </ol>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-2">
