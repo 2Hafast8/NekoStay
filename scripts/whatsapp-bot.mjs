@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import pino from "pino";
 import qrcode from "qrcode";
+import { createClient } from "@supabase/supabase-js";
 import baileys, {
   makeWASocket as namedMakeWASocket,
   useMultiFileAuthState,
@@ -34,14 +35,39 @@ if (fs.existsSync(envPath)) {
   });
 }
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 const AUTH_FOLDER = path.resolve(__dirname, "../auth_info_baileys");
 const ADMIN_PHONE = (process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344").replace(/[^0-9]/g, "");
+
+// Helper to sync state to Supabase for the web UI on Vercel
+async function updateCloudBotState(patch) {
+  try {
+    await supabase.from("whatsapp_bot_state").upsert({
+      id: "active_session",
+      ...patch,
+      updated_at: new Date().toISOString(),
+      last_heartbeat: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("[Cloud Sync Error]", err.message);
+  }
+}
 
 async function startWhatsAppBot() {
   console.log("\n=======================================================");
   console.log("🐱 NEKOSTAY WHATSAPP AUTO-REPLY BOT (lily-baileys)");
   console.log(`📱 Nomor Admin Target: +${ADMIN_PHONE}`);
+  console.log("☁️  Sinkronisasi Cloud Realtime ke Vercel: AKTIF");
   console.log("=======================================================\n");
+
+  await updateCloudBotState({
+    status: "connecting",
+    qr_code: null,
+    connected_phone: ADMIN_PHONE,
+  });
 
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
   const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({
@@ -67,18 +93,43 @@ async function startWhatsAppBot() {
 
   sock.ev.on("creds.update", saveCreds);
 
+  // Heartbeat interval to show online in cloud
+  const heartbeatTimer = setInterval(() => {
+    if (sock.authState?.creds?.registered) {
+      updateCloudBotState({
+        status: "connected",
+        connected_phone: ADMIN_PHONE,
+      });
+    }
+  }, 15000);
+
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
       console.log("\n📲 [SCAN QR CODE] Silakan scan QR berikut dengan WhatsApp Anda (+62 823 7198 6344):");
       try {
-        const qrString = await qrcode.toString(qr, { type: "terminal", small: true });
-        console.log(qrString);
+        const qrTerminal = await qrcode.toString(qr, { type: "terminal", small: true });
+        console.log(qrTerminal);
+
+        // Generate Data URL for Vercel Web UI
+        const qrDataUrl = await qrcode.toDataURL(qr, {
+          width: 360,
+          margin: 2,
+          color: { dark: "#0f172a", light: "#ffffff" },
+        });
+
+        // Sync QR code to Supabase so deployed website on Vercel displays it instantly!
+        await updateCloudBotState({
+          status: "qr_ready",
+          qr_code: qrDataUrl,
+          connected_phone: ADMIN_PHONE,
+        });
       } catch (err) {
         console.log("Raw QR String:", qr);
       }
       console.log("👉 Buka WhatsApp di HP Anda > Perangkat Tertaut > Tautkan Perangkat\n");
+      console.log("🌐 Atau buka website NekoStay di browser untuk scan langsung di layar website!\n");
     }
 
     if (connection === "close") {
@@ -88,6 +139,13 @@ async function startWhatsAppBot() {
         `⚠️ [Bot] Koneksi terputus (Status Code: ${statusCode}). Mencoba reconnect: ${shouldReconnect}`
       );
 
+      await updateCloudBotState({
+        status: "disconnected",
+        qr_code: null,
+      });
+
+      clearInterval(heartbeatTimer);
+
       if (shouldReconnect) {
         setTimeout(() => {
           startWhatsAppBot();
@@ -96,9 +154,18 @@ async function startWhatsAppBot() {
         console.log("❌ [Bot] Sesi telah logout. Silakan hubungkan kembali.");
       }
     } else if (connection === "open") {
+      const connectedNumber =
+        sock.user?.id?.replace(/:.*/, "").replace(/@.*/, "") || ADMIN_PHONE;
+
       console.log("✅ [Bot] WhatsApp NekoStay Care BERHASIL TERHUBUNG & SIAP!");
-      console.log(`🤖 Nomor Aktif: +${ADMIN_PHONE}`);
+      console.log(`🤖 Nomor Aktif: +${connectedNumber}`);
       console.log("🤖 Menunggu pesan masuk dari pelanggan...\n");
+
+      await updateCloudBotState({
+        status: "connected",
+        qr_code: null,
+        connected_phone: connectedNumber,
+      });
     }
   });
 

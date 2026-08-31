@@ -25,6 +25,8 @@ import {
   X,
   Smartphone,
   LogOut,
+  Terminal,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
@@ -47,6 +49,7 @@ export default function AdminWhatsAppLogsPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
   const [targetPhone, setTargetPhone] = useState("6282371986344");
   const [connectedPhone, setConnectedPhone] = useState(null);
+  const [lastHeartbeat, setLastHeartbeat] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
@@ -63,6 +66,7 @@ export default function AdminWhatsAppLogsPage() {
         setWaStatus(data.status);
         setQrCodeUrl(data.qrCode);
         setConnectedPhone(data.connectedPhone);
+        setLastHeartbeat(data.lastHeartbeat);
         if (data.adminPhoneConfigured) {
           setTargetPhone(data.adminPhoneConfigured);
         }
@@ -72,7 +76,7 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 2. Start Web Connection (QR Code)
+  // 2. Start Web Connection / Refresh State
   const handleStartConnect = async () => {
     try {
       setIsConnecting(true);
@@ -88,11 +92,9 @@ export default function AdminWhatsAppLogsPage() {
         setWaStatus(data.status);
         setQrCodeUrl(data.qrCode);
         setConnectedPhone(data.connectedPhone);
-      } else {
-        toast.error(data.error || "Gagal memulai koneksi");
       }
     } catch (err) {
-      toast.error(err.message || "Gagal memulai koneksi");
+      toast.error(err.message || "Gagal memuat status");
     } finally {
       setIsConnecting(false);
     }
@@ -126,7 +128,6 @@ export default function AdminWhatsAppLogsPage() {
 
       if (data.success && data.contacts) {
         setContacts(data.contacts);
-        // Auto-select first contact if none selected
         if (!selectedPhone && data.contacts.length > 0) {
           setSelectedPhone(data.contacts[0].phoneNumber);
         } else if (preserveSelected && selectedPhone) {
@@ -169,7 +170,7 @@ export default function AdminWhatsAppLogsPage() {
     checkStatus();
   }, []);
 
-  // Polling status when modal is open or when connecting
+  // Polling status when modal is open
   useEffect(() => {
     if (isConnectModalOpen || waStatus === "connecting" || waStatus === "qr_ready") {
       statusPollingRef.current = setInterval(() => {
@@ -183,6 +184,30 @@ export default function AdminWhatsAppLogsPage() {
       if (statusPollingRef.current) clearInterval(statusPollingRef.current);
     };
   }, [isConnectModalOpen, waStatus]);
+
+  // Realtime subscription for whatsapp_bot_state (Syncs with Vercel instantly!)
+  useEffect(() => {
+    const channel = supabase
+      .channel("whatsapp-bot-state-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "whatsapp_bot_state" },
+        (payload) => {
+          const row = payload.new;
+          if (row) {
+            setWaStatus(row.status);
+            setQrCodeUrl(row.qr_code);
+            if (row.connected_phone) setConnectedPhone(row.connected_phone);
+            setLastHeartbeat(row.last_heartbeat);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
 
   // When selectedPhone changes, fetch its messages
   useEffect(() => {
@@ -207,12 +232,10 @@ export default function AdminWhatsAppLogsPage() {
           const newRow = payload.new;
           if (!newRow) return;
 
-          // If message belongs to selected contact, append
           if (selectedPhone && newRow.phone_number === selectedPhone) {
             setMessages((prev) => [...prev, newRow]);
           }
 
-          // Update contacts list preview
           setContacts((prev) => {
             const copy = [...prev];
             const idx = copy.findIndex((c) => c.phoneNumber === newRow.phone_number);
@@ -392,15 +415,13 @@ export default function AdminWhatsAppLogsPage() {
           <button
             onClick={() => {
               setIsConnectModalOpen(true);
-              if (waStatus === "disconnected") {
-                handleStartConnect();
-              }
+              handleStartConnect();
             }}
             className={cn(
               "flex items-center gap-2 px-3.5 py-2 text-xs font-extrabold rounded-xl transition-all shadow-sm border cursor-pointer",
               waStatus === "connected"
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                : waStatus === "connecting" || waStatus === "qr_ready"
+                : waStatus === "qr_ready"
                 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20 animate-pulse"
                 : "bg-primary text-white border-primary hover:bg-primary/90 shadow-primary/20"
             )}
@@ -418,7 +439,7 @@ export default function AdminWhatsAppLogsPage() {
             ) : (
               <>
                 <QrCode className="w-4 h-4" />
-                <span>Sambungkan WhatsApp Web</span>
+                <span>Status & Sambungkan WhatsApp</span>
               </>
             )}
           </button>
@@ -592,14 +613,12 @@ export default function AdminWhatsAppLogsPage() {
                 ) : (
                   Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
                     <div key={dateLabel} className="space-y-4">
-                      {/* Date Divider */}
                       <div className="flex items-center justify-center my-4">
                         <span className="px-3 py-1 bg-muted dark:bg-zinc-800 text-[10px] font-bold text-muted-foreground rounded-full border border-border dark:border-zinc-700 shadow-2xs">
                           {dateLabel}
                         </span>
                       </div>
 
-                      {/* Message Bubbles */}
                       {msgs.map((m) => {
                         const isOutgoing = m.direction === "outgoing";
                         const metadata = m.metadata || {};
@@ -613,7 +632,6 @@ export default function AdminWhatsAppLogsPage() {
                               isOutgoing ? "ml-auto items-end" : "mr-auto items-start"
                             )}
                           >
-                            {/* Sender Label */}
                             <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] font-bold text-muted-foreground">
                               {isOutgoing ? (
                                 <>
@@ -630,7 +648,6 @@ export default function AdminWhatsAppLogsPage() {
                               <span>{formatTimeOnly(m.created_at)}</span>
                             </div>
 
-                            {/* Message Bubble Card */}
                             <div
                               className={cn(
                                 "p-3.5 sm:p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs whitespace-pre-line break-words border",
@@ -641,7 +658,6 @@ export default function AdminWhatsAppLogsPage() {
                             >
                               {m.message_text}
 
-                              {/* Recognized Booking Action Box */}
                               {bookingId && (
                                 <div className="mt-3.5 pt-3 border-t border-border/80 dark:border-zinc-800 bg-muted/40 dark:bg-zinc-950/60 p-3 rounded-xl space-y-2">
                                   <div className="flex items-center justify-between gap-2">
@@ -728,10 +744,10 @@ export default function AdminWhatsAppLogsPage() {
         </div>
       </div>
 
-      {/* WHATSAPP WEB CONNECTION MODAL (SCAN QR CODE) */}
+      {/* WHATSAPP CONNECTION & STATUS MODAL */}
       {isConnectModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             {/* Modal Header */}
             <div className="p-5 border-b border-border dark:border-zinc-800 flex items-center justify-between bg-muted/30">
               <div className="flex items-center gap-3">
@@ -739,8 +755,8 @@ export default function AdminWhatsAppLogsPage() {
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-foreground">Koneksi WhatsApp Web</h3>
-                  <p className="text-xs text-muted-foreground">Tautkan nomor +62 823 7198 6344</p>
+                  <h3 className="text-base font-extrabold text-foreground">Status Bot WhatsApp</h3>
+                  <p className="text-xs text-muted-foreground">Koneksi nomor WhatsApp Admin NekoStay</p>
                 </div>
               </div>
               <button
@@ -755,7 +771,7 @@ export default function AdminWhatsAppLogsPage() {
             <div className="p-6 overflow-y-auto space-y-6">
               {waStatus === "connected" ? (
                 /* Connected State */
-                <div className="text-center space-y-4 py-4">
+                <div className="text-center space-y-4 py-2">
                   <div className="w-16 h-16 bg-emerald-500/10 border-2 border-emerald-500 rounded-full flex items-center justify-center text-emerald-500 mx-auto">
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
@@ -786,22 +802,15 @@ export default function AdminWhatsAppLogsPage() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : waStatus === "qr_ready" && qrCodeUrl ? (
                 /* QR Code Scanner View */
                 <div className="space-y-5 text-center">
                   <div className="w-68 h-68 mx-auto bg-white p-3 rounded-2xl border-2 border-emerald-500/40 shadow-md flex items-center justify-center relative">
-                    {qrCodeUrl ? (
-                      <img
-                        src={qrCodeUrl}
-                        alt="WhatsApp Web QR Code"
-                        className="w-full h-full object-contain rounded-lg"
-                      />
-                    ) : (
-                      <div className="space-y-2 text-center">
-                        <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                        <p className="text-xs font-bold text-zinc-600">Menghasilkan QR Code...</p>
-                      </div>
-                    )}
+                    <img
+                      src={qrCodeUrl}
+                      alt="WhatsApp Web QR Code"
+                      className="w-full h-full object-contain rounded-lg"
+                    />
                   </div>
 
                   <div className="bg-muted/40 dark:bg-zinc-950/60 p-4 rounded-2xl border border-border text-left space-y-2 text-xs">
@@ -820,8 +829,59 @@ export default function AdminWhatsAppLogsPage() {
                     className="px-4 py-2 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer"
                   >
                     <RefreshCw className={cn("w-3.5 h-3.5", isConnecting && "animate-spin text-primary")} />
-                    <span>Muat Ulang QR Code Baru</span>
+                    <span>Perbarui QR Code</span>
                   </button>
+                </div>
+              ) : (
+                /* Disconnected / Bot Guide View */
+                <div className="space-y-5">
+                  <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-2xl border border-border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-amber-500" />
+                        Status Bot WhatsApp Gateway
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                        Belum Terhubung
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Untuk menghubungkan WhatsApp nomor <strong>+62 823 7198 6344</strong> secara permanen dan membalas chat pelanggan 24/7, jalankan bot gateway dengan perintah berikut di terminal:
+                    </p>
+
+                    <div className="bg-zinc-900 text-emerald-400 p-3.5 rounded-xl font-mono text-xs flex items-center justify-between border border-zinc-800 shadow-inner">
+                      <span>npm run wa:bot</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText("npm run wa:bot");
+                          toast.success("Perintah disalin!");
+                        }}
+                        className="text-zinc-400 hover:text-white transition-colors"
+                        title="Salin Perintah"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/40 dark:bg-zinc-950/60 p-4 rounded-2xl border border-border text-left space-y-2 text-xs">
+                    <p className="font-extrabold text-foreground">💡 Cara Kerja Bot Multi-Device Cloud:</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground leading-relaxed">
+                      <li>Saat Anda menjalankan <code>npm run wa:bot</code>, bot akan menghasilkan QR Code.</li>
+                      <li>QR Code akan otomatis tersinkronisasi dan langsung muncul di layar website ini secara live!</li>
+                      <li>Setelah Anda scan dengan HP, status di Vercel & localhost akan otomatis berubah hijau <strong>Terhubung</strong>!</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      onClick={checkStatus}
+                      className="px-4 py-2 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Cek Status Ulang</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

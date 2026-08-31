@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { waManager } from "@/lib/whatsapp/baileys-manager";
 
 export async function GET(request) {
   try {
@@ -28,13 +27,24 @@ export async function GET(request) {
       );
     }
 
-    // 2. Ambil status terkini dari WhatsApp Manager
-    const statusData = waManager.getStatus();
+    // 2. Ambil status terkini dari Supabase whatsapp_bot_state
+    const { data: botState, error: stateErr } = await supabase
+      .from("whatsapp_bot_state")
+      .select("*")
+      .eq("id", "active_session")
+      .maybeSingle();
+
+    const status = botState?.status || "disconnected";
+    const qrCode = botState?.qr_code || null;
+    const connectedPhone = botState?.connected_phone || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344";
 
     return NextResponse.json({
       success: true,
-      ...statusData,
+      status,
+      qrCode,
+      connectedPhone,
       adminPhoneConfigured: process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344",
+      lastHeartbeat: botState?.last_heartbeat,
     });
   } catch (error) {
     console.error("WhatsApp status route error:", error);

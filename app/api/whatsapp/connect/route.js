@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { waManager } from "@/lib/whatsapp/baileys-manager";
 
 export async function POST(request) {
   try {
@@ -28,22 +27,21 @@ export async function POST(request) {
       );
     }
 
-    // 2. Parse body
     const body = await request.json().catch(() => ({}));
-    const {
-      method = "qr",
-      phoneNumber = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344",
-    } = body;
+    const phoneNumber = body.phoneNumber || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344";
 
-    // 3. Sambungkan WhatsApp via Baileys Manager
-    const statusData = await waManager.connect({
-      method,
-      phoneNumber,
-    });
+    // 2. Fetch current bot state from Supabase
+    const { data: botState } = await supabase
+      .from("whatsapp_bot_state")
+      .select("*")
+      .eq("id", "active_session")
+      .maybeSingle();
 
     return NextResponse.json({
       success: true,
-      ...statusData,
+      status: botState?.status || "disconnected",
+      qrCode: botState?.qr_code || null,
+      connectedPhone: botState?.connected_phone || phoneNumber,
     });
   } catch (error) {
     console.error("WhatsApp connect route error:", error);

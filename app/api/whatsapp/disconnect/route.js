@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { waManager } from "@/lib/whatsapp/baileys-manager";
 
 export async function POST(request) {
   try {
@@ -28,13 +27,17 @@ export async function POST(request) {
       );
     }
 
-    // 2. Putuskan koneksi
-    const result = await waManager.disconnect();
+    // 2. Reset cloud state
+    await supabase.from("whatsapp_bot_state").upsert({
+      id: "active_session",
+      status: "disconnected",
+      qr_code: null,
+      updated_at: new Date().toISOString(),
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Koneksi WhatsApp berhasil diputuskan & sesi dibersihkan",
-      ...result,
+      message: "Koneksi WhatsApp berhasil diputuskan",
     });
   } catch (error) {
     console.error("WhatsApp disconnect route error:", error);
