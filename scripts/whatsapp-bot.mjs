@@ -42,6 +42,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const AUTH_FOLDER = path.resolve(__dirname, "../auth_info_baileys");
 const ADMIN_PHONE = (process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344").replace(/[^0-9]/g, "");
 
+function cleanAuthFolder() {
+  try {
+    if (fs.existsSync(AUTH_FOLDER)) {
+      fs.rmSync(AUTH_FOLDER, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.warn("Clean auth folder warning:", e.message);
+  }
+}
+
 // Helper to sync state to Supabase for the web UI on Vercel
 async function updateCloudBotState(patch) {
   try {
@@ -68,6 +78,10 @@ async function startWhatsAppBot() {
     qr_code: null,
     connected_phone: ADMIN_PHONE,
   });
+
+  if (!fs.existsSync(AUTH_FOLDER)) {
+    fs.mkdirSync(AUTH_FOLDER, { recursive: true });
+  }
 
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
   const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({
@@ -134,9 +148,10 @@ async function startWhatsAppBot() {
 
     if (connection === "close") {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+
       console.log(
-        `⚠️ [Bot] Koneksi terputus (Status Code: ${statusCode}). Mencoba reconnect: ${shouldReconnect}`
+        `⚠️ [Bot] Koneksi terputus (Status Code: ${statusCode}). Sesi Logout: ${isLoggedOut}`
       );
 
       await updateCloudBotState({
@@ -146,12 +161,17 @@ async function startWhatsAppBot() {
 
       clearInterval(heartbeatTimer);
 
-      if (shouldReconnect) {
+      if (isLoggedOut) {
+        console.log("🔄 [Bot] Sesi lama kadaluarsa. Membersihkan auth folder dan membuat QR Code baru...");
+        cleanAuthFolder();
+        setTimeout(() => {
+          startWhatsAppBot();
+        }, 2000);
+      } else {
+        console.log("🔄 [Bot] Mencoba menghubungkan kembali dalam 5 detik...");
         setTimeout(() => {
           startWhatsAppBot();
         }, 5000);
-      } else {
-        console.log("❌ [Bot] Sesi telah logout. Silakan hubungkan kembali.");
       }
     } else if (connection === "open") {
       const connectedNumber =
