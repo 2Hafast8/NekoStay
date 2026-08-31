@@ -232,18 +232,29 @@ export default function AdminWhatsAppLogsPage() {
           const newRow = payload.new;
           if (!newRow) return;
 
-          if (selectedPhone && newRow.phone_number === selectedPhone) {
+          const rowPhone = String(newRow.customer_phone || newRow.phone_number || "").replace(/[^0-9]/g, "");
+
+          if (selectedPhone && (rowPhone === selectedPhone || newRow.phone_number === selectedPhone)) {
             setMessages((prev) => [...prev, newRow]);
           }
 
           setContacts((prev) => {
             const copy = [...prev];
-            const idx = copy.findIndex((c) => c.phoneNumber === newRow.phone_number);
+            const idx = copy.findIndex((c) => c.phoneNumber === rowPhone);
+            const rowCustomerName =
+              (newRow.customer_name && newRow.customer_name !== "NekoStay Bot" && newRow.customer_name !== "Customer")
+                ? newRow.customer_name
+                : (newRow.sender_role === "customer" && newRow.sender_name && newRow.sender_name !== "NekoStay Bot")
+                ? newRow.sender_name
+                : null;
+
             if (idx >= 0) {
               copy[idx] = {
                 ...copy[idx],
+                senderName: rowCustomerName || copy[idx].senderName,
                 lastMessage: newRow.message_text,
                 lastMessageDirection: newRow.direction,
+                lastSenderRole: newRow.sender_role || (newRow.direction === "outgoing" ? "bot" : "customer"),
                 lastTimestamp: newRow.created_at,
                 lastFlowState: newRow.flow_state,
                 totalMessages: (copy[idx].totalMessages || 0) + 1,
@@ -253,10 +264,11 @@ export default function AdminWhatsAppLogsPage() {
             } else {
               return [
                 {
-                  phoneNumber: newRow.phone_number,
-                  senderName: newRow.sender_name || newRow.phone_number,
+                  phoneNumber: rowPhone,
+                  senderName: rowCustomerName || `Pelanggan ${rowPhone.slice(-4)}`,
                   lastMessage: newRow.message_text,
                   lastMessageDirection: newRow.direction,
+                  lastSenderRole: newRow.sender_role || (newRow.direction === "outgoing" ? "bot" : "customer"),
                   lastTimestamp: newRow.created_at,
                   lastFlowState: newRow.flow_state,
                   totalMessages: 1,
@@ -641,7 +653,7 @@ export default function AdminWhatsAppLogsPage() {
                               ) : (
                                 <>
                                   <User className="w-3 h-3 text-emerald-500" />
-                                  <span>{m.sender_name || "Pelanggan"}</span>
+                                  <span>{m.customer_name || (m.sender_name !== "NekoStay Bot" ? m.sender_name : null) || selectedContact?.senderName || "Pelanggan"}</span>
                                 </>
                               )}
                               <span>•</span>

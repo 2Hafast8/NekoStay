@@ -35,13 +35,13 @@ export async function GET(request) {
       Date.now() - days * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    // 3. Jika meminta detail percakapan dari 1 nomor tertentu
+    // 3. Jika meminta detail percakapan dari 1 nomor pelanggan tertentu
     if (phone) {
       const cleanPhone = phone.replace(/[^0-9]/g, "");
       const { data: messages, error } = await supabase
         .from("whatsapp_logs")
         .select("*")
-        .eq("phone_number", cleanPhone)
+        .or(`customer_phone.eq.${cleanPhone},phone_number.eq.${cleanPhone}`)
         .gte("created_at", cutoffDate)
         .order("created_at", { ascending: true });
 
@@ -65,17 +65,27 @@ export async function GET(request) {
 
     if (error) throw error;
 
-    // Kelompokkan berdasarkan phone_number untuk daftar kontak
+    // Kelompokkan percakapan berdasarkan customer_phone
     const contactMap = new Map();
 
     (allLogs || []).forEach((log) => {
-      const p = log.phone_number;
+      const p = String(log.customer_phone || log.phone_number || "").replace(/[^0-9]/g, "");
+      if (!p) return;
+
+      const logCustomerName =
+        (log.customer_name && log.customer_name !== "NekoStay Bot" && log.customer_name !== "Customer")
+          ? log.customer_name
+          : (log.sender_role === "customer" && log.sender_name && log.sender_name !== "NekoStay Bot")
+          ? log.sender_name
+          : null;
+
       if (!contactMap.has(p)) {
         contactMap.set(p, {
           phoneNumber: p,
-          senderName: log.sender_name || p,
+          senderName: logCustomerName || `Pelanggan ${p.slice(-4)}`,
           lastMessage: log.message_text,
           lastMessageDirection: log.direction,
+          lastSenderRole: log.sender_role || (log.direction === "outgoing" ? "bot" : "customer"),
           lastTimestamp: log.created_at,
           lastFlowState: log.flow_state,
           totalMessages: 1,
@@ -84,9 +94,9 @@ export async function GET(request) {
       } else {
         const c = contactMap.get(p);
         c.totalMessages += 1;
-        // Keep the latest senderName if found
-        if (log.sender_name && log.sender_name !== "NekoStay Bot" && c.senderName === p) {
-          c.senderName = log.sender_name;
+        // Prioritise real customer name over fallback
+        if (logCustomerName && (!c.senderName || c.senderName.startsWith("Pelanggan "))) {
+          c.senderName = logCustomerName;
         }
       }
     });

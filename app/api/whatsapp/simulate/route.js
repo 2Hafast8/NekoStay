@@ -30,7 +30,7 @@ export async function POST(request) {
 
     // 2. Parse payload
     const body = await request.json();
-    const {
+    let {
       phoneNumber = "6281234567890",
       senderName = "Pelanggan NekoStay",
       messageText,
@@ -41,6 +41,10 @@ export async function POST(request) {
         { error: "Pesan tidak boleh kosong" },
         { status: 400 }
       );
+    }
+
+    if (!senderName || senderName === "NekoStay Bot") {
+      senderName = "Pelanggan NekoStay";
     }
 
     // 3. Proses via core bot engine
