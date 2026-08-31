@@ -56,6 +56,11 @@ export function AdminNav() {
       icon: MessageSquare,
     },
     {
+      label: 'Log WhatsApp',
+      href: '/admin/whatsapp',
+      icon: MessageSquare,
+    },
+    {
       label: 'Pengaturan',
       href: '/admin/settings',
       icon: Settings,

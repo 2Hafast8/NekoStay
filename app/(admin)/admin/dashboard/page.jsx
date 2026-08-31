@@ -190,11 +190,13 @@ function DashboardContent() {
     }
 
     // Listen for auth state changes (mount, token refresh, sign in/out)
+    let currentUserRef = null;
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       if (session?.user) {
+        currentUserRef = session.user;
         loadStatsAndLogs(session.user);
       } else {
         setBookings([]);
@@ -203,9 +205,50 @@ function DashboardContent() {
       }
     });
 
+    // Supabase Realtime WebSocket Subscription (0 Vercel server overhead)
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (isMounted && currentUserRef) {
+          loadStatsAndLogs(currentUserRef);
+        }
+      }, 400);
+    };
+
+    const channelId = `admin-dash-realtime-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .subscribe();
+
+    // Auto-sync when admin refocuses tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && currentUserRef) {
+        loadStatsAndLogs(currentUserRef);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       subscription.unsubscribe();
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [supabase]);
 

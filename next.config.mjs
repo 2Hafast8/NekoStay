@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['lily-baileys', 'pino', 'audio-decode'],
   async headers() {
     return [
       {
@@ -28,7 +29,7 @@ const nextConfig = {
           },
         ],
       },
-    ]
+    ];
   },
 };
 

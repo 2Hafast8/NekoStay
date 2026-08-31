@@ -141,31 +141,76 @@ function BookingDetailContent({ id }) {
     loadBookingDetails();
   }, [loadBookingDetails]);
 
-  // Realtime subscription for instant status sync (e.g. when Admin accepts booking)
+  // Realtime subscription for instant status sync (bookings, daily reports, reviews)
   useEffect(() => {
     if (!id) return;
+
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadBookingDetails();
+      }, 300);
+    };
+
+    const channelId = `booking-status-user-${id}-${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel(`booking-status-user-${id}`)
+      .channel(channelId)
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "bookings",
           filter: `id=eq.${id}`,
         },
         (payload) => {
-          if (payload.new) {
+          if (payload.eventType === "UPDATE" && payload.new) {
             setBooking((prev) => (prev ? { ...prev, ...payload.new } : payload.new));
+          } else {
+            triggerDebouncedReload();
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cat_reports",
+          filter: `booking_id=eq.${id}`,
+        },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "reviews",
+          filter: `booking_id=eq.${id}`,
+        },
+        () => {
+          triggerDebouncedReload();
         }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadBookingDetails();
+      }
     };
-  }, [id, supabase]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [id, supabase, loadBookingDetails]);
 
   // Helper: Verifikasi status pembayaran langsung ke Midtrans via API server
   const checkPaymentStatus = useCallback(async (orderId) => {

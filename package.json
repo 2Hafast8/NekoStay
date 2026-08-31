@@ -7,6 +7,8 @@
     "dev:https": "next dev -H 0.0.0.0 --experimental-https",
     "build": "next build",
     "start": "next start",
+    "wa:bot": "node scripts/whatsapp-bot.mjs",
+    "wa:bot:pair": "node scripts/whatsapp-bot.mjs --pairing",
     "lint": "eslint"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lenis": "^1.3.26",
+    "lily-baileys": "^1.2.7",
     "lucide-react": "^1.16.0",
     "midtrans-client": "^1.4.3",
     "next": "16.2.6",

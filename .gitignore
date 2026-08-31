@@ -45,3 +45,5 @@ next-env.d.ts
 
 # scratch/test scripts (may contain secrets)
 /scratch
+auth_info_baileys/
+auth_test_*/

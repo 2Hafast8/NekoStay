@@ -131,7 +131,48 @@ export default function AdminBookingDetailPage({ params }) {
 
   useEffect(() => {
     loadBookingDetails();
-  }, [loadBookingDetails]);
+
+    if (!id) return;
+
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadBookingDetails();
+      }, 300);
+    };
+
+    const channelId = `admin-booking-detail-realtime-${id}-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings", filter: `id=eq.${id}` },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cat_reports", filter: `booking_id=eq.${id}` },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews", filter: `booking_id=eq.${id}` },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [id, loadBookingDetails, supabase]);
 
   // Handle reply submission
   const handleReplySubmit = async (e) => {

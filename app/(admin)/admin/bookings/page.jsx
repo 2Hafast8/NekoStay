@@ -160,7 +160,41 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     fetchAllBookings();
-  }, [fetchAllBookings]);
+
+    // Supabase Realtime WebSocket Subscription (Direct browser to DB, 0 Vercel load)
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchAllBookings();
+      }, 400);
+    };
+
+    const channelId = `admin-bookings-realtime-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .subscribe();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchAllBookings();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchAllBookings, supabase]);
 
   useEffect(() => {
     setIsMounted(true);

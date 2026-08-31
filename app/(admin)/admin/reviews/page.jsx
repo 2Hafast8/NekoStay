@@ -61,7 +61,40 @@ export default function AdminReviewsPage() {
 
   useEffect(() => {
     loadReviews();
-  }, [loadReviews]);
+
+    let debounceTimer = null;
+    const triggerDebouncedReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadReviews();
+      }, 400);
+    };
+
+    const channelId = `admin-reviews-realtime-${Math.random().toString(36).substring(7)}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .subscribe();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadReviews();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadReviews, supabase]);
 
   useEffect(() => {
     setIsMounted(true);

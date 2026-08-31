@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldAlert,
   MessageSquare,
+  MessageSquareCode,
   ScanLine,
   Cat,
   ChevronRight,
@@ -26,6 +27,7 @@ export function AdminSidebar() {
     { label: t("side_scan_qr"), href: "/admin/scanner", icon: ScanLine },
     { label: t("side_cat_conditions"), href: "/admin/reports", icon: HeartPulse },
     { label: t("side_customer_reviews"), href: "/admin/reviews", icon: MessageSquare },
+    { label: t("side_whatsapp_logs") || "Log WhatsApp", href: "/admin/whatsapp", icon: MessageSquareCode },
     { label: t("side_rates_settings"), href: "/admin/settings", icon: Settings },
   ];
 
