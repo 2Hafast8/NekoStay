@@ -1,103 +1,114 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-import { z } from 'zod'
+import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { verifyAdmin } from "@/lib/supabase/admin";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+  apiBadRequest,
+  apiValidationError,
+} from "@/lib/utils/response";
 
 const rejectSchema = z.object({
-  reason: z.string().min(5, 'Alasan penolakan minimal 5 karakter').max(500),
-})
+  reason: z
+    .string()
+    .trim()
+    .min(5, "Alasan penolakan minimal 5 karakter")
+    .max(500, "Alasan penolakan maksimal 500 karakter"),
+});
 
+/**
+ * POST /api/bookings/[id]/reject
+ * Menolak pesanan berstatus 'Menunggu' atau 'Antrian' dengan alasan jelas (Hanya Admin).
+ */
 export async function POST(request, { params }) {
   try {
-    const supabase = await createClient()
-    const { id } = await params
+    const supabase = await createClient();
+    const { id } = await params;
 
-    // Cek user session & role
-    const { data: { user } } = await supabase.auth.getUser()
+    // 1. Verifikasi Admin
+    const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return apiUnauthorized();
+    }
+    if (!isAdmin) {
+      return apiForbidden("Hanya Administrator yang berhak menolak pesanan.");
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    // 2. Parse & Validasi input
+    const body = await request.json();
+    const validatedData = rejectSchema.parse(body);
 
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Parse request body
-    const body = await request.json()
-    const validatedData = rejectSchema.parse(body)
-
-    // Get booking with profiles
+    // 3. Ambil data pesanan
     const { data: booking, error: bookingError } = await supabase
-      .from('bookings')
-      .select('*, profiles:user_id (full_name, email)')
-      .eq('id', id)
-      .single()
+      .from("bookings")
+      .select("*, profiles:user_id (full_name, email)")
+      .eq("id", id)
+      .single();
 
     if (bookingError || !booking) {
-      return NextResponse.json(
-        { error: 'Booking not found' },
-        { status: 404 }
-      )
+      return apiNotFound("Data booking tidak ditemukan");
     }
 
-    // Cek status
-    if (booking.status !== 'Menunggu') {
-      return NextResponse.json(
-        { error: 'Hanya booking dengan status Menunggu yang dapat ditolak' },
-        { status: 400 }
-      )
+    // 4. Cek status
+    if (booking.status !== "Menunggu" && booking.status !== "Antrian") {
+      return apiBadRequest("Hanya booking dengan status Menunggu atau Antrian yang dapat ditolak");
     }
 
-    // Update status ke Dibatalkan dengan alasan penolakan
+    // 5. Update status ke Dibatalkan dengan alasan penolakan
     const { error: updateError } = await supabase
-      .from('bookings')
+      .from("bookings")
       .update({
-        status: 'Dibatalkan',
+        status: "Dibatalkan",
         reject_reason: validatedData.reason,
       })
-      .eq('id', id)
+      .eq("id", id);
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error("[Reject API Error]:", updateError);
+      return apiError("Gagal menolak pesanan", 500);
+    }
 
-    // Send transactional reject email securely on the server
-    const userEmail = booking.profiles?.email
+    // 6. Buat notifikasi in-app untuk pengguna
+    try {
+      await supabase.from("notifications").insert({
+        user_id: booking.user_id,
+        title: "Pesanan Penitipan Ditolak",
+        message: `Mohon maaf, pesanan penitipan untuk ${booking.cat_name} ditolak. Alasan: ${validatedData.reason}`,
+        type: "error",
+        booking_id: id,
+        is_read: false,
+      });
+    } catch (notifErr) {
+      console.warn("[Reject API Notice] User notification failed:", notifErr.message);
+    }
+
+    // 7. Kirim email notifikasi penolakan
+    const userEmail = booking.profiles?.email;
     if (userEmail) {
       try {
-        const { sendBookingRejected } = await import('@/lib/email/resend')
+        const { sendBookingRejected } = await import("@/lib/email/resend");
         await sendBookingRejected(
           userEmail,
           booking.profiles.full_name,
           booking.cat_name,
           booking.id,
           validatedData.reason
-        )
+        );
       } catch (emailErr) {
-        console.warn('[Server Email Warning] Resend reject notification failed:', emailErr.message)
+        console.warn("[Reject API Email Notice]:", emailErr.message);
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Booking berhasil ditolak',
-    })
+    return apiSuccess({ id, status: "Dibatalkan" }, "Booking berhasil ditolak");
   } catch (error) {
-    console.error('Reject booking error:', error)
-
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.errors[0].message },
-        { status: 400 }
-      )
+      return apiValidationError(error);
     }
 
-    return NextResponse.json(
-      { error: 'Gagal menolak booking' },
-      { status: 500 }
-    )
+    console.error("[Reject API Exception]:", error);
+    return apiError("Gagal memproses penolakan booking", 500);
   }
 }

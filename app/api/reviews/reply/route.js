@@ -1,42 +1,46 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, verifyAdmin } from "@/lib/supabase/admin";
+import { z } from "zod";
 import { sendReviewReply } from "@/lib/email/resend";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+  apiBadRequest,
+  apiValidationError,
+} from "@/lib/utils/response";
 
+const replySchema = z.object({
+  bookingId: z.string().uuid("ID booking tidak valid"),
+  replyText: z.string().trim().min(2, "Balasan minimal 2 karakter").max(2000, "Balasan maksimal 2000 karakter"),
+});
+
+/**
+ * POST /api/reviews/reply
+ * Membalas ulasan pelanggan dan mengirimkan notifikasi email (Hanya Admin).
+ */
 export async function POST(request) {
   try {
-    const { bookingId, replyText } = await request.json();
-
-    if (!bookingId || !replyText?.trim()) {
-      return NextResponse.json({ error: "Booking ID dan balasan harus diisi." }, { status: 400 });
-    }
-
     const supabase = await createClient();
 
-    // 1. Auth check
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // 1. Verifikasi Admin
+    const { isAdmin, user } = await verifyAdmin(supabase);
+    if (!user) {
+      return apiUnauthorized();
+    }
+    if (!isAdmin) {
+      return apiForbidden("Hanya Administrator yang berhak membalas ulasan.");
     }
 
-    // 2. Admin role check
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    // 2. Parse & Validasi payload
+    const body = await request.json();
+    const validated = replySchema.parse(body);
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Use admin client (service_role) to bypass RLS for DB operations
     const adminDb = createAdminClient();
 
-    // 3. Fetch review with booking details and user profile
+    // 3. Ambil data ulasan + booking + profil
     const { data: review, error: reviewErr } = await adminDb
       .from("reviews")
       .select(`
@@ -51,37 +55,37 @@ export async function POST(request) {
           )
         )
       `)
-      .eq("booking_id", bookingId)
+      .eq("booking_id", validated.bookingId)
       .single();
 
     if (reviewErr || !review) {
-      return NextResponse.json({ error: "Review tidak ditemukan untuk pesanan ini." }, { status: 404 });
+      return apiNotFound("Review tidak ditemukan untuk pesanan ini.");
     }
 
     const existingReplies = review.reply_text ? review.reply_text.split("\n---\n") : [];
     if (existingReplies.length >= 3) {
-      return NextResponse.json({ error: "Ulasan ini sudah dibalas maksimal 3 kali." }, { status: 400 });
+      return apiBadRequest("Ulasan ini sudah dibalas maksimal 3 kali.");
     }
 
     const newReplyText = review.reply_text
-      ? `${review.reply_text}\n---\n${replyText.trim()}`
-      : replyText.trim();
+      ? `${review.reply_text}\n---\n${validated.replyText}`
+      : validated.replyText;
 
-    // 4. Update the reply_text in DB (using admin client to bypass RLS)
+    // 4. Update reply_text di database
     const { data: updateData, error: updateErr } = await adminDb
       .from("reviews")
-      .update({ 
+      .update({
         reply_text: newReplyText,
       })
-      .eq("booking_id", bookingId)
+      .eq("booking_id", validated.bookingId)
       .select();
 
-    if (updateErr) throw updateErr;
-    if (!updateData || updateData.length === 0) {
-      throw new Error("Gagal menyimpan balasan ke database.");
+    if (updateErr || !updateData || updateData.length === 0) {
+      console.error("[Review Reply Error]:", updateErr);
+      return apiError("Gagal menyimpan balasan ke database.", 500);
     }
 
-    // 5. Send Email via Resend
+    // 5. Kirim email balasan ke pemilik kucing
     const ownerEmail = review.bookings?.profiles?.email;
     const ownerName = review.bookings?.profiles?.full_name || "Pemilik Kucing";
     const catName = review.bookings?.cat_name || "Kucing";
@@ -89,15 +93,19 @@ export async function POST(request) {
 
     if (ownerEmail) {
       try {
-        await sendReviewReply(ownerEmail, ownerName, catName, reviewText, replyText.trim());
+        await sendReviewReply(ownerEmail, ownerName, catName, reviewText, validated.replyText);
       } catch (emailErr) {
-        console.warn("[Server Email Warning] Resend review reply failed:", emailErr.message);
+        console.warn("[Review Reply Email Warning]:", emailErr.message);
       }
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess(null, "Balasan ulasan berhasil dikirim");
   } catch (err) {
-    console.error("Submit reply review error:", err);
-    return NextResponse.json({ error: err.message || "Gagal mengirim balasan." }, { status: 500 });
+    if (err instanceof z.ZodError) {
+      return apiValidationError(err);
+    }
+
+    console.error("[Submit Reply Review Exception]:", err);
+    return apiError("Gagal mengirim balasan ulasan", 500);
   }
 }

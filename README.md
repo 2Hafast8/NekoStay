@@ -1,200 +1,272 @@
-# 🐱 NekoStay — Premium Cat Boarding & Care Platform
+# 🐱 NekoStay — Premium Open Source Cat Boarding & Hotel Platform
 
-[![Next.js Version](https://img.shields.io/badge/Next.js-16.2.6-orange?style=flat-square&logo=nextdotjs)](https://nextjs.org)
-[![React Version](https://img.shields.io/badge/React-19.0.0-blue?style=flat-square&logo=react)](https://react.dev)
-[![Supabase Backend](https://img.shields.io/badge/Database-Supabase%20(PostgreSQL)-emerald?style=flat-square&logo=supabase)](https://supabase.com)
-[![Tailwind CSS v4](https://img.shields.io/badge/CSS-Tailwind%20v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![License](https://img.shields.io/badge/License-Commercial%20%2F%20MIT-brightgreen?style=flat-square)](#)
+[![Next.js Version](https://img.shields.io/badge/Next.js-16.2.6%20(Turbopack)-orange?style=flat-square&logo=nextdotjs)](https://nextjs.org)
+[![React Version](https://img.shields.io/badge/React-19.2.4-blue?style=flat-square&logo=react)](https://react.dev)
+[![Supabase Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL%20(RLS)-emerald?style=flat-square&logo=supabase)](https://supabase.com)
+[![Payment Gateway](https://img.shields.io/badge/Payments-Midtrans%20Snap%20%2B%20QR%20Offline-blueviolet?style=flat-square)](https://midtrans.com)
+[![WhatsApp Engine](https://img.shields.io/badge/WhatsApp-lily--baileys%20Multi--Device-25D366?style=flat-square&logo=whatsapp)](https://github.com/adiwajshing/baileys)
+[![Tailwind CSS v4](https://img.shields.io/badge/Styling-Tailwind%20CSS%20v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square)](LICENSE)
 
-**NekoStay** is a state-of-the-art, feature-rich web application designed for modern cat hotel businesses and cat owners. It connects cat owners seeking premium boarding services with pet hotels, offering peace of mind through regular status updates, real-time notifications, and high-end pet management tools.
-
-Developed with a premium, responsive glassmorphism UI, a global dual-language system, dynamic dark mode, and an advanced admin simulation engine, NekoStay is the ultimate solution to scale and professionalize pet boarding operations.
-
----
-
-## ✨ Key Features & Business Value
-
-### 👤 For Cat Owners (Customer Portal)
-*   **Seamless Booking Workflow**: Book a stay for your feline friend in just 3 steps (Cat Info, Stay Dates, and Confirmation) with custom notes, health statuses, and photo uploads.
-*   **Feline Care Reports**: Track your cat's health, appetite, and mood daily. View status logs and photo updates posted directly by cat caretakers.
-*   **Referral & Loyalty Program**: Share personal referral codes with other cat lovers. Referrals save 10% on their first booking, and referrers collect rewards points (redeemable for stay discounts).
-*   **Unified Notifications Inbox**: Receive instant, in-app logs regarding check-in approvals, health reports, and check-out invoices.
-*   **Receipt Resending & QR Code Refresh**: Request a resend of booking receipts via email at any time, featuring dynamic regeneration and extension of one-time use offline payment QR codes.
-
-### 👨‍💼 For Cat Boarding Businesses (Admin Control Center)
-*   **Analytical Executive Dashboard**: Monitor active revenue, boarded cats, pending approvals, average ratings, and stay distribution trends with real-time Recharts visual graphs.
-*   **Advanced Booking Operations**: Manage check-ins, approve or decline requests, and process check-outs. Filter bookings dynamically by stay status, year, month, or room class.
-*   **Daily Cat Care Reporting**: Publish progress reports with health states and photos directly to owner profiles.
-*   **Dynamic Room Rate Configuration**: Manage room classes (Basic, Standard, Premium), list amenities, and set daily rates.
-*   **Outbox Notification Gateway**: Monitor outgoing communications with a simulated system outbox log separating WhatsApp notifications from system admin alerts.
-*   **Premium PDF Invoicing & Analytics Export**: Export bookings and financial summaries into a custom, styled PDF document (landscape format) complete with company branding, totals, and metadata.
-*   **Built-in QR Camera Scanner**: Verify offline payment receipts instantly via webcam or mobile camera scanning. The viewport is optimized for zero-leak layouts on both desktop and mobile screens.
+**NekoStay** adalah platform web open-source modern untuk pengelolaan bisnis penitipan dan hotel kucing (cat boarding & care). NekoStay dirancang untuk memudahkan pemilik kucing melakukan pemesanan secara online serta membantu pemilik bisnis pet hotel mengelola operasional, laporan kesehatan harian kucing, pembayaran ganda (online & kasir), bot WhatsApp otomatis, dan analitik pendapatan.
 
 ---
 
-## 🎨 Design & Accessibility
-*   **Premium Visuals**: Built using modern typography (Outfit / Inter), HSL orange brand colors, soft gradient overlays, micro-animations, and clean grid layouts.
-*   **Unified Theme Switcher**: Fluid transitions between Light Mode and Dark Mode.
-*   **Global Language Switcher**: Zero-lag language toggle between Indonesian (`ID`) and English (`EN`) that dynamically updates the layout, sidebar, forms, database room amenities, health statuses, and interactive error/success dialogues.
-*   **Mobile-First Layout**: Adaptive sidebar navigation for desktop and bottom tab bar navigation for mobile devices, fully eliminating horizontal overflow.
+## 🌟 Fitur Utama (Key Features)
+
+### 👤 Portal Pelanggan (Cat Owner Portal)
+* **Formulir Pemesanan Cerdas (3 Langkah)**: Input data kucing (nama, umur, ras, makanan favorit, riwayat kesehatan, kehamilan, catatan khusus), upload foto ke Supabase Storage, dan pilih paket kamar (`Basic`, `Standard`, `Premium`).
+* **Sistem Pembayaran Fleksibel**:
+  - **Online**: Integrasi Snap Midtrans (Virtual Account, GoPay, QRIS, Kartu Kredit).
+  - **Kasir (Offline)**: Unduh bukti pemesanan resmi berformat PDF yang dilengkapi **QR Code Pembayaran Kasir** dengan batas waktu 24 jam.
+* **Laporan Kondisi Kucing Realtime**: Memantau laporan perkembangan harian kucing (foto terbaru, nafsu makan, status kesehatan: Sehat / Kurang Fit / Perlu Perhatian) dari dashboard dan notifikasi email.
+* **Program Loyalitas & Referral**: Dapatkan kode referral unik (`NEKO-XXXXXXXX`) saat mendaftar. Bagikan ke teman untuk mendapatkan diskon 10% dan kumpulkan Poin Neko.
+* **Ulasan & Rating**: Berikan penilaian bintang 1-5 dan ulasan setelah pesanan selesai, serta lihat balasan resmi dari admin.
+* **Fitur Kenyamanan**: Dark & Light mode switch, multi-bahasa instan (Bahasa Indonesia & English), dan animasi interaktif GSAP.
+
+### 👑 Panel Manajemen Admin (Admin Control Center)
+* **Executive Analytics Dashboard**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts.
+* **Manajemen & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan alasan, atau lakukan persetujuan massal (*bulk actions*).
+* **QR Camera Scanner Kasir (`/admin/scanner`)**: Pemindaian kamera langsung untuk memvalidasi pembayaran tunai di kasir secara instan dan aman (*one-time use*).
+* **Pembuat Laporan Kucing Harian (`/admin/reports`)**: Input laporan kondisi fisik & mental kucing dengan upload foto yang langsung terkirim ke email pelanggan.
+* **WhatsApp Multi-Device Gateway (`/admin/whatsapp`)**: Scan QR pairing WhatsApp Baileys, monitoring riwayat log interaksi pesan masuk/keluar, dan simulasi auto-responder.
+* **Ekspor Laporan PDF Premium**: Unduh rekapitulasi data transaksi dan laporan keuangan dalam format PDF Landscape A4 resmi.
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack & Architecture
 
-| Component | Technology | Description |
+| Layer / Kategori | Teknologi | Deskripsi |
 |---|---|---|
-| **Core Framework** | Next.js 16.2.6 (Turbopack) | Fast compilation and rendering optimization |
-| **Frontend UI** | React 19, Tailwind CSS v4 | Harmonious, high-performance styling |
-| **State Management** | Zustand 5 | Client-side persistent state for themes & language |
-| **Database & Auth** | Supabase (`@supabase/supabase-js`, `@supabase/ssr`) | PostgreSQL schema, auth sessions, and RLS policies |
-| **Mailing Service** | Resend | Automatic check-in and reply email notifications |
-| **Animations** | GSAP (GreenSock Animation Platform) | Premium smooth magnetic CTA, looping marquee, and 3D card tilt |
-| **Form & Validation** | React Hook Form & Zod | Strict runtime schema parsing and interactive client/server validations |
-| **Analytics Charts** | Recharts | Professional visual data visualization for admin dashboard |
-| **Date Processing** | `date-fns` | Date arithmetic for checkout, late-fees, and refund math |
-| **Component Icons** | Lucide React | High-quality, modern SVG icon library |
-| **Reporting Tool** | jsPDF & jsPDF-Autotable | Dynamic client-side invoice and PDF report rendering |
-| **QR Code Engine** | `html5-qrcode` & `qrcode` | Interactive QR scanning and code generation |
-| **Payment Client** | `midtrans-client` | E-payment client integration client (sandbox/prod) |
+| **Frontend & Framework** | Next.js 16.2.6 (App Router) & React 19.2.4 | Server Components, dynamic async routing, Turbopack builder |
+| **Database & Auth** | Supabase (PostgreSQL 15+) | Row Level Security (RLS), Auth SSR, Realtime WebSocket CDC |
+| **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide Icons | Glassmorphism UI, Dark Mode, mobile bottom navigation |
+| **Animasi** | GSAP, Anime.js, Lenis | Magnetic CTA, looping marquee, 3D card tilt, elastic interactions |
+| **Payment Gateway** | Midtrans Client & Offline QR Scanner | Pembayaran online Snap API & verifikasi webhook SHA512 |
+| **WhatsApp Gateway** | `lily-baileys` Multi-Device | Koneksi socket WhatsApp, auto-responder, dan cloud log |
+| **Email & Struk** | Resend / EmailJS + jsPDF & jsPDF-Autotable | Pengiriman email transaksional & render struk PDF otomatis |
+| **Validasi & State** | Zod 3 + React Hook Form + Zustand 5 | Validasi runtime ketat & global store multi-language |
+| **Testing Suite** | Node.js Test Runner (`scripts/test-suite.mjs`) | Pengujian otomatis kalkulasi matematika, denda 8%, dan Zod |
 
 ---
 
-## ⚙️ Installation & Local Development Setup
+## 🚀 Panduan Lengkap Instalasi & Menjalankan (Step-by-Step Guide)
 
-To run NekoStay on your local environment, follow these steps:
+Ikuti langkah-langkah berikut untuk menjalankan proyek NekoStay di komputer lokal Anda:
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-*   [Node.js](https://nodejs.org/) (v18.x or above)
-*   [Git](https://git-scm.com/)
-*   A [Supabase](https://supabase.com/) account (for database hosting)
+### 1. Prasyarat Sistem (Prerequisites)
+Pastikan Anda telah menginstal perangkat lunak berikut:
+- **Node.js**: Versi `18.x` atau lebih baru ([Unduh Node.js](https://nodejs.org/))
+- **Git**: Versi terbaru ([Unduh Git](https://git-scm.com/))
+- Akun **Supabase** gratis ([supabase.com](https://supabase.com))
+- Akun **Midtrans** (Sandbox/Production) ([midtrans.com](https://midtrans.com))
+- Akun **Resend** untuk pengiriman email ([resend.com](https://resend.com)) *(Opsional)*
 
-### 2. Clone the Repository
+---
+
+### 2. Kloning Repositori
+Buka terminal dan jalankan:
 ```bash
-git clone https://github.com/your-username/NekoStay.git
+git clone https://github.com/2Hafast8/NekoStay.git
 cd NekoStay
 ```
 
-### 3. Install Dependencies
-To install all project dependencies listed in `package.json`, run:
+---
+
+### 3. Instalasi Dependensi
+Instal seluruh paket dependensi yang dibutuhkan:
 ```bash
 npm install
 ```
 
-If you are setting up a fresh project structure or want to install the integration packages manually, you can install them by category:
+---
 
-*   **Database & Auth**: `npm install @supabase/supabase-js @supabase/ssr`
-*   **Forms & Validation**: `npm install react-hook-form @hookform/resolvers zod`
-*   **Mailing, PDF & QR Codes**: `npm install resend jspdf jspdf-autotable qrcode html5-qrcode`
-*   **GSAP Animations**: `npm install gsap`
-*   **UI Components & Icons**: `npm install lucide-react next-themes sonner recharts`
-*   **State & Utility**: `npm install zustand date-fns midtrans-client`
+### 4. Setup Database Supabase
+1. Buat project baru di [Supabase Dashboard](https://supabase.com/dashboard).
+2. Buka menu **SQL Editor** pada project Supabase Anda.
+3. Buka file [`supabase/schema.sql`](./supabase/schema.sql), salin seluruh isinya, dan tempelkan ke SQL Editor Supabase, lalu klik tombol **Run**.
+   > Skrip ini akan membuat tabel (`profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, `reviews`, `promos`, `whatsapp_bot_state`, `whatsapp_logs`), fungsi trigger otomatis, seed data kelas kamar, dan kebijakan Row Level Security (RLS).
+4. Buka menu **Storage** → klik **New Bucket**:
+   - Beri nama: `cat-photos`
+   - Aktifkan opsi **Public bucket** (agar foto kucing dapat ditampilkan di aplikasi) → klik **Save**.
 
-Or run this single command to install all major packages at once:
-```bash
-npm install @supabase/supabase-js @supabase/ssr react-hook-form @hookform/resolvers zod resend jspdf jspdf-autotable qrcode html5-qrcode gsap lucide-react next-themes sonner recharts zustand date-fns midtrans-client
-```
+---
 
-### 4. Configure Environment Variables
-Create a file named `.env` in the root directory and populate it with your environment keys:
+### 5. Konfigurasi Environment Variables
+Buat file baru bernama `.env.local` atau `.env` di folder utama proyek (root), lalu salin konfigurasi berikut dan sesuaikan nilainya:
+
 ```env
-#environment variables for Supabase
-NEXT_PUBLIC_SUPABASE_URL=dummy-supabase-url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=dummy-supabase-publishable-key
-NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=dummy-supabase-service-role-key
+# ============================================================
+# SUPABASE CONFIGURATION
+# ============================================================
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-#environment variables for phone
-NEXT_PUBLIC_ADMIN_WHATSAPP=dummy-admin-whatsapp-number
+# ============================================================
+# APP CONFIGURATION
+# ============================================================
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_ADMIN_WHATSAPP=6282371986344
 
-#environment variables for resend
-RESEND_API_KEY=dummy-resend-api-key
-CRON_SECRET=random-string
+# ============================================================
+# EMAIL ENGINE (Dual-Mode: Resend / EmailJS)
+# ============================================================
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL=onboarding@resend.dev
 
-#environment variables for app building Localhost
-NEXT_PUBLIC_APP_URL=dummy-app-url
-
-#environment variables for Midtrans
-# Set to "true" for production, "false" for sandbox (default: false)
+# ============================================================
+# MIDTRANS PAYMENT GATEWAY
+# ============================================================
+# Set ke "false" untuk Sandbox, "true" untuk Production
 MIDTRANS_IS_PRODUCTION=false
 NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION=false
-MIDTRANS_SERVER_KEY=dummy-midtrans-server-key
-NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=dummy-midtrans-client-key
+MIDTRANS_SERVER_KEY=SB-Mid-server-your-server-key
+NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=SB-Mid-client-your-client-key
 
+# ============================================================
+# CRON SECURITY SECRET
+# ============================================================
+CRON_SECRET=random-super-secret-string-12345
 ```
 
-### 5. Setup Database Schemas
-Execute the SQL migration scripts located in the `supabase/` folder inside your Supabase SQL Editor. This sets up:
-*   `profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, and `reviews` tables.
-*   Booking payment columns (`payment_status`, `payment_token`, `payment_link_url`, `discount_amount`) for Midtrans integration.
-*   Referral system columns (`referral_code`, `referred_by`) with a unique-code generator and the `get_profile_by_referral()` lookup function.
-*   Database triggers for automatic profile creation on registration.
-*   Database triggers for automatic offline payment token generation when status transitions to 'Aktif'.
-*   Row-Level Security (RLS) policies to keep customer data isolated and secure.
-*   Initial room classes seeding data.
+---
 
-> A daily cron job (`/api/cron/check-late`, defined in `vercel.json`) automatically flags overdue check-outs and accrues late fees. It is protected by the `CRON_SECRET` environment variable.
+### 6. Menjalankan Pengujian Otomatis (Automated Tests)
+Verifikasi logika bisnis, kalkulasi harga, denda keterlambatan, dan skema validasi:
+```bash
+npm test
+```
+*Output yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 24 / 24 BERHASIL 100%`.*
 
-### 6. Run the Development Server
+---
+
+### 7. Menjalankan Server Pengembangan (Development Server)
+Jalankan aplikasi di mode lokal:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+Buka browser dan akses **[http://localhost:3000](http://localhost:3000)**.
 
-### 7. Compile a Production Build
-Ensure that the code is optimized and ready for production deployment:
+---
+
+### 8. (Opsional) Menjalankan WhatsApp Bot Engine
+Untuk mengaktifkan integrasi WhatsApp gateway Baileys Multi-Device:
 ```bash
-npm run build
-npm run start
+# Menjalankan service WhatsApp bot
+npm run wa:bot
+
+# Atau menjalankan pairing code langsung di terminal
+npm run wa:bot:pair
+```
+Buka menu `/admin/whatsapp` di web untuk melihat QR code pairing dan status koneksi live.
+
+---
+
+### 9. Membuat Akun Admin
+Secara default, pengguna baru yang mendaftar akan memiliki role `user`. Untuk mengubah akun Anda menjadi `admin`:
+1. Daftar akun melalui halaman `/register`.
+2. Buka Supabase Dashboard → **SQL Editor**, lalu jalankan query:
+   ```sql
+   UPDATE public.profiles
+   SET role = 'admin'
+   WHERE email = 'email-anda@example.com';
+   ```
+3. Logout dan login kembali. Anda sekarang dapat mengakses dashboard admin di `/admin/dashboard` dan `/admin/scanner`.
+
+---
+
+## 🧪 Skenario Alur Kerja Bisnis (Core Business Workflow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Pemilik Kucing
+    participant Web as 🌐 Portal NekoStay
+    participant Midtrans as 💳 Midtrans / QR Kasir
+    participant DB as 🗄️ Supabase DB (RLS)
+    actor Admin as 👑 Admin / Kasir
+
+    Customer->>Web: Input Form Pesanan & Foto Kucing
+    Web->>DB: Validasi Zod & Insert Booking (Status: 'Menunggu')
+    Admin->>Web: Konfirmasi Pesanan ('Menunggu' -> 'Aktif')
+    DB-->>Customer: Email Konfirmasi & Bukti Struk PDF (QR Code)
+    
+    alt Pembayaran Online (Midtrans)
+        Customer->>Midtrans: Bayar via Snap Midtrans
+        Midtrans->>Web: Webhook Callback (Status: 'Paid')
+    else Pembayaran Offline di Kasir
+        Customer->>Admin: Tunjukkan Struk PDF dengan QR Code
+        Admin->>Web: Scan QR via /admin/scanner (Status: 'Paid')
+    end
+
+    Admin->>Web: Buat Laporan Kondisi Harian Kucing
+    Web-->>Customer: Update Dashboard & Email Laporan Kondisi
+    Admin->>Web: Checkout Selesai ('Aktif' -> 'Selesai')
+    Customer->>Web: Berikan Rating & Ulasan Bintang 1-5
 ```
 
 ---
 
-## 📂 Project Structure
+## 📁 Struktur Direktori Proyek
 
 ```
 NekoStay/
-├── app/                  # Next.js App Router (pages & APIs)
-│   ├── (admin)/          # Admin-only dashboard, bookings, reports, reviews, settings
-│   ├── (user)/           # Customer-only dashboard, profiles, notifications, booking flows
-│   ├── (auth)/           # Authentication pages (login, registration, password recovery)
-│   └── api/              # API endpoints for email triggering, booking updates, etc.
-├── components/           # Reusable React UI components (form inputs, dialogs, charts)
-├── hooks/                # Custom hooks (e.g. useLanguage translation store)
-├── lib/                  # Utilities (Supabase client client, formatted dates, pricing math)
-├── public/               # Static icons, default cat avatars, promotional assets
-├── supabase/             # Database table structures, constraints, and RLS policies
-├── docs/                 # Detailed technical design manuals, testing logs, and deploy checklists
-├── package.json          # Project manifest and package configurations
-└── README.md             # This promotional & installation guide
+├── app/                  # Next.js App Router (44 Routes)
+│   ├── (auth)/           # Halaman Login, Register, Forgot Password
+│   ├── (user)/           # Dashboard user, booking, profil, notifikasi
+│   ├── admin/            # Dashboard admin, scanner QR, laporan, reviews, whatsapp
+│   └── api/              # 30 REST API Route Handlers (hardened with Zod)
+├── components/           # Komponen React (UI, Form, Dialogs, Charts, Badges)
+├── docs/                 # Dokumentasi Lengkap (C4, API Spec, Security Audit)
+│   ├── 00-INDEX.md       # Indeks dokumentasi utama
+│   ├── C4-ARCHITECTURE.md# Arsitektur sistem C4 Code-level
+│   ├── API-SPECIFICATION.md # Spesifikasi 30 REST API Endpoints
+│   └── SECURITY-AUDIT.md # Laporan audit keamanan OWASP Top 10
+├── hooks/                # Custom React & Zustand Hooks
+├── lib/                  # Library utilitas (Supabase, Pricing, Response helpers)
+│   ├── constants/        # Enums, rates, dan JSDoc typedefs
+│   ├── supabase/         # Client browser, server, dan admin helpers
+│   ├── utils/            # Helper response.js, pricing.js, dates.js
+│   └── validations/      # Zod validation schemas
+├── public/               # File statis, logo, dan aset gambar
+├── scripts/              # Automated Test Runner & WhatsApp Bot script
+│   ├── test-suite.mjs    # Node.js automated test runner (npm test)
+│   └── whatsapp-bot.mjs  # Lily-baileys WhatsApp gateway worker
+├── supabase/             # Skema SQL, triggers, RLS, dan migrasi database
+│   └── schema.sql        # Skema lengkap Supabase PostgreSQL
+├── package.json          # Manifest dependensi dan npm scripts
+└── README.md             # Panduan proyek dan instalasi
 ```
 
 ---
 
-## 🔒 Security & Data Compliance
-NekoStay secures user data by enforcing rules at every touchpoint:
-*   **Row-Level Security (RLS)**: Users can only read and write bookings, cats, and profile details that they own.
-*   **Authentication & Session Guards**: Managed securely via JWT tokens through Supabase Auth, protected by server middleware redirects.
-*   **Input Sanitization**: Clean, strict client/server validations driven by Zod schema rules.
-*   **Storage Access Control**: Private bucket configurations preventing direct access to uploaded cat photographs.
+## 🛡️ Keamanan & Kepatuhan Data
+
+Proyek ini dibangun dengan standar keamanan modern:
+* **Row Level Security (RLS)** pada seluruh tabel database untuk menjamin isolasi data pengguna.
+* **Role-Based Access Control (RBAC)** dengan guard [`verifyAdmin()`](./lib/supabase/admin.js) dan [`verifyBookingAccess()`](./lib/supabase/admin.js).
+* **Verifikasi SHA512 Signature** pada seluruh notifikasi webhook Midtrans.
+* **Perlindungan Insecure Direct Object Reference (IDOR)** pada pengunduhan bukti transaksi PDF.
+* **Header Keamanan Browser**: CSP, HSTS, X-Frame-Options `DENY`, dan X-Content-Type-Options `nosniff`.
 
 ---
 
-## 💼 Business & Commercial Licensing
-For commercial inquiries, white-labeling requests, customized features, or integration with external veterinary systems, contact the NekoStay team.
-*   **License**: Licensed under standard commercial terms. An open-source edition is distributed under the MIT license.
-*   **Support**: For bugs or support queries, please open an Issue on GitHub or check our extensive internal documentation inside the `docs/` folder.
+## 🤝 Kontribusi & Lisensi
+
+Proyek ini bersifat **Open Source** di bawah lisensi [MIT License](LICENSE). Kontribusi berupa Pull Requests, pelaporan bug, dan saran fitur baru sangat disambut!
+
+1. Fork repositori ini.
+2. Buat branch fitur baru (`git checkout -b feature/FiturKeren`).
+3. Commit perubahan Anda (`git commit -m 'Menambahkan Fitur Keren'`).
+4. Push ke branch Anda (`git push origin feature/FiturKeren`).
+5. Buat Pull Request di GitHub.
 
 ---
 
-## 👤 Credits & Creator
-This application was engineered and is maintained as a professional showcase development project.
+## 👨‍💻 Author & Maintainer
 
-*   **Developer / Creator**: [Hafast2008]
-*   **GitHub**: [@2Hafast8](https://github.com/2Hafast8)
-*   **LinkedIn**: [...](...)
-*   **Portfolio**: [...](...)
-
-If you are interested in a full demonstration, customized business adaptations, or collaborative projects, feel free to get in touch!
-
+* **Author**: [Hafast2008]
+* **GitHub**: [@2Hafast8](https://github.com/2Hafast8)
+* **Dokumentasi Lengkap**: Kunjungi folder [`docs/`](./docs/00-INDEX.md) untuk mempelajari spesifikasi arsitektur dan API secara mendalam.

@@ -9,6 +9,7 @@
     "start": "next start",
     "wa:bot": "node scripts/whatsapp-bot.mjs",
     "wa:bot:pair": "node scripts/whatsapp-bot.mjs --pairing",
+    "test": "node scripts/test-suite.mjs",
     "lint": "eslint"
   },
   "dependencies": {

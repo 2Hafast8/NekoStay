@@ -1,99 +1,122 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, verifyAdmin } from "@/lib/supabase/admin";
+import { z } from "zod";
+import { scanOfflineSchema } from "@/lib/validations/booking";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+  apiBadRequest,
+  apiValidationError,
+} from "@/lib/utils/response";
 
+/**
+ * POST /api/payments/scan-offline
+ * Verifikasi pemindaian token QR pembayaran offline saat check-in di kasir.
+ * Keamanan: Hanya Administrator / Operator Kasir terotentikasi yang diizinkan.
+ */
 export async function POST(request) {
   try {
-    // 1. Parse request body
-    const { token } = await request.json();
-    if (!token) {
-      return NextResponse.json({ error: 'Token pembayaran wajib disertakan' }, { status: 400 });
+    const supabase = await createClient();
+
+    // 1. Verifikasi Admin / Kasir terotentikasi
+    const { isAdmin, user } = await verifyAdmin(supabase);
+    if (!user) {
+      return apiUnauthorized("Autentikasi diperlukan untuk memindai bukti pembayaran.");
+    }
+    if (!isAdmin) {
+      return apiForbidden("Hanya Administrator atau Kasir yang berhak memvalidasi pembayaran offline.");
     }
 
-    // Validasi format UUID sederhana
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(token)) {
-      return NextResponse.json({ error: 'Format token tidak valid' }, { status: 400 });
-    }
+    // 2. Parse & Validasi payload
+    const body = await request.json();
+    const { token } = scanOfflineSchema.parse(body);
 
-    // 2. Inisialisasi Supabase Admin Client (bypass RLS)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    // 3. Inisialisasi Admin DB Client
+    const adminDb = createAdminClient();
 
-    // 3. Cari booking berdasarkan token
-    const { data: booking, error: fetchError } = await supabaseAdmin
-      .from('bookings')
-      .select('*, profiles:user_id (full_name, email)')
-      .eq('offline_payment_token', token)
+    // 4. Cari data booking berdasarkan token offline
+    const { data: booking, error: fetchError } = await adminDb
+      .from("bookings")
+      .select("*, profiles:user_id (full_name, email)")
+      .eq("offline_payment_token", token)
       .single();
 
     if (fetchError || !booking) {
-      return NextResponse.json({ error: 'Kode QR tidak dikenali atau salah' }, { status: 404 });
+      return apiNotFound("Kode QR tidak dikenali atau salah.");
     }
 
-    // 4. Cek satu kali pakai (one-time use)
+    // 5. Cek one-time use
     if (booking.offline_token_used) {
-      return NextResponse.json({
-        error: 'Kode QR sudah pernah digunakan sebelumnya. Pembayaran untuk pesanan ini telah selesai.'
-      }, { status: 400 });
+      return apiBadRequest(
+        "Kode QR sudah pernah digunakan sebelumnya. Pembayaran untuk pesanan ini telah selesai."
+      );
     }
 
-    // 5. Cek batas waktu 24 jam
+    // 6. Cek batas waktu berlaku 24 jam
     const createdTime = new Date(booking.offline_token_created_at).getTime();
     const currentTime = Date.now();
     const diffHours = (currentTime - createdTime) / (1000 * 60 * 60);
 
     if (diffHours > 24) {
-      return NextResponse.json({
-        error: 'Kode QR telah kedaluwarsa. Masa berlaku kode QR bukti pemesanan hanya 24 jam dari waktu persetujuan admin.'
-      }, { status: 400 });
+      return apiBadRequest(
+        "Kode QR telah kedaluwarsa. Masa berlaku kode QR bukti pemesanan hanya 24 jam dari waktu pembuatan."
+      );
     }
 
-    // 6. Update status pembayaran menjadi lunas dan tandai token telah digunakan
-    const { error: updateError } = await supabaseAdmin
-      .from('bookings')
+    // 7. Update status pembayaran ke Paid dan tandai token telah terpakai
+    const { error: updateError } = await adminDb
+      .from("bookings")
       .update({
-        payment_status: 'Paid',
-        offline_token_used: true
+        payment_status: "Paid",
+        offline_token_used: true,
       })
-      .eq('id', booking.id);
+      .eq("id", booking.id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error("[Scan Offline API Error]:", updateError);
+      return apiError("Gagal memperbarui status pembayaran di database", 500);
+    }
 
-    // 7. Kirim notifikasi in-app sukses ke pengguna
+    // 8. Kirim notifikasi in-app ke pengguna
     try {
-      await supabaseAdmin.from('notifications').insert({
+      await adminDb.from("notifications").insert({
         user_id: booking.user_id,
-        title: 'Pembayaran Offline Berhasil',
+        title: "Pembayaran Offline Berhasil",
         message: `Terima kasih! Pembayaran offline (di tempat) untuk penitipan ${booking.cat_name} telah kami terima dan diverifikasi.`,
-        type: 'success',
+        type: "success",
         booking_id: booking.id,
-        is_read: false
+        is_read: false,
       });
     } catch (notifErr) {
-      console.warn('Notification insert failed:', notifErr.message);
+      console.warn("[Scan Offline Notice] Notification failed:", notifErr.message);
     }
 
-    // Hitung total akhir pembayaran
-    const finalTotal = (booking.estimated_total || 0) - (booking.discount_amount || 0) + (booking.late_fee_total || 0) - (booking.refund_amount || 0);
+    const finalTotal =
+      (booking.estimated_total || 0) -
+      (booking.discount_amount || 0) +
+      (booking.late_fee_total || 0) -
+      (booking.refund_amount || 0);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Pembayaran offline berhasil diproses dan diverifikasi',
-      booking: {
-        id: booking.id,
-        catName: booking.cat_name,
-        customerName: booking.profiles?.full_name || 'Pelanggan',
-        amount: finalTotal
-      }
-    });
-
-  } catch (error) {
-    console.error('Scan offline payment error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Gagal memproses verifikasi scan pembayaran offline' },
-      { status: 500 }
+    return apiSuccess(
+      {
+        booking: {
+          id: booking.id,
+          catName: booking.cat_name,
+          customerName: booking.profiles?.full_name || "Pelanggan",
+          amount: finalTotal,
+        },
+      },
+      "Pembayaran offline berhasil diproses dan diverifikasi"
     );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return apiValidationError(error);
+    }
+
+    console.error("[Scan Offline API Exception]:", error);
+    return apiError("Gagal memproses verifikasi scan pembayaran offline", 500);
   }
 }

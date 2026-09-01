@@ -1,65 +1,77 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
+import { awardPointsSchema } from "@/lib/validations/booking";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+  apiBadRequest,
+  apiValidationError,
+} from "@/lib/utils/response";
 
+/**
+ * POST /api/referral/award-points
+ * Memberikan poin reward referral secara aman ke akun pemilik kode referral.
+ */
 export async function POST(request) {
   try {
-    const { ownerId, bookingId, points } = await request.json();
-
-    if (!ownerId || !bookingId || !points) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    // Verify the caller is authenticated
     const supabase = await createClient();
+
+    // 1. Verifikasi user terotentikasi
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return apiUnauthorized();
     }
 
-    // Use admin client to bypass RLS for point updates
+    // 2. Parse & Validasi payload
+    const body = await request.json();
+    const { ownerId, bookingId, points } = awardPointsSchema.parse(body);
+
     const adminDb = createAdminClient();
 
-    // Verify the booking exists and has the referral_owner_id matching
+    // 3. Verifikasi booking ada dan mencocokkan data
     const { data: booking, error: bookingErr } = await adminDb
       .from("bookings")
-      .select("id, referral_owner_id, referral_code_used")
+      .select("id, user_id, referral_owner_id, referral_code_used")
       .eq("id", bookingId)
       .single();
 
     if (bookingErr || !booking) {
-      return NextResponse.json(
-        { error: "Booking not found" },
-        { status: 404 }
-      );
+      return apiNotFound("Data booking tidak ditemukan.");
     }
 
-    if (booking.referral_owner_id !== ownerId) {
-      return NextResponse.json(
-        { error: "Owner ID mismatch" },
-        { status: 400 }
-      );
+    // Keamanan: Pastikan pemanggil adalah pemilik pesanan atau admin
+    const { data: profileCaller } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isAuthorized = booking.user_id === user.id || profileCaller?.role === "admin";
+    if (!isAuthorized) {
+      return apiForbidden("Anda tidak berhak memicu pemberian poin untuk pesanan ini.");
     }
 
-    // Increment neko_points on the referral owner's profile
+    if (booking.referral_owner_id && booking.referral_owner_id !== ownerId) {
+      return apiBadRequest("ID pemilik referral tidak sesuai dengan data pesanan.");
+    }
+
+    // 4. Tambahkan neko_points ke profil penerima
     const { data: profile, error: profileErr } = await adminDb
       .from("profiles")
-      .select("neko_points")
+      .select("neko_points, full_name")
       .eq("id", ownerId)
       .single();
 
     if (profileErr || !profile) {
-      return NextResponse.json(
-        { error: "Profile not found" },
-        { status: 404 }
-      );
+      return apiNotFound("Profil pemilik referral tidak ditemukan.");
     }
 
     const newPoints = (profile.neko_points || 0) + points;
@@ -69,30 +81,32 @@ export async function POST(request) {
       .update({ neko_points: newPoints })
       .eq("id", ownerId);
 
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      console.error("[Award Points Error]:", updateErr);
+      return apiError("Gagal memperbarui poin referral.", 500);
+    }
 
-    // Send notification to the referral owner
+    // 5. Kirim notifikasi in-app ke pemilik referral
     try {
       await adminDb.from("notifications").insert({
         user_id: ownerId,
         title: "Poin Neko Diterima! 🎉",
-        message: `Anda mendapatkan ${points} Poin Neko karena kode referral Anda digunakan dalam pemesanan baru.`,
+        message: `Selamat! Anda mendapatkan ${points} Poin Neko karena kode referral Anda digunakan dalam pemesanan baru.`,
         type: "success",
         booking_id: bookingId,
+        is_read: false,
       });
     } catch (notifErr) {
-      console.warn("[Warning] Notification for points failed:", notifErr.message);
+      console.warn("[Award Points Notice] Notification failed:", notifErr.message);
     }
 
-    return NextResponse.json({
-      success: true,
-      newPoints,
-    });
+    return apiSuccess({ newPoints }, "Poin referral berhasil ditambahkan");
   } catch (err) {
-    console.error("Award points error:", err);
-    return NextResponse.json(
-      { error: err.message || "Gagal memberikan poin." },
-      { status: 500 }
-    );
+    if (err instanceof z.ZodError) {
+      return apiValidationError(err);
+    }
+
+    console.error("[Award Points Exception]:", err);
+    return apiError("Gagal memproses penambahan poin referral", 500);
   }
 }

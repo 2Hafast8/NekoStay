@@ -1,29 +1,35 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { verifyBookingAccess } from "@/lib/supabase/admin";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+} from "@/lib/utils/response";
 
+/**
+ * POST /api/bookings/[id]/wa-request-change
+ * Mengirim notifikasi internal ke Admin saat user mengajukan perubahan via WhatsApp.
+ */
 export async function POST(request, { params }) {
   try {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Auth check
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // 1. Verifikasi hak akses (Pemilik pesanan atau Admin)
+    const { isAllowed, user, booking } = await verifyBookingAccess(supabase, id);
+
+    if (!user) {
+      return apiUnauthorized();
     }
 
-    // 2. Fetch booking and profile
-    const { data: booking, error: bookingErr } = await supabase
-      .from("bookings")
-      .select("cat_name, user_id")
-      .eq("id", id)
-      .single();
+    if (!booking) {
+      return apiNotFound("Data booking tidak ditemukan.");
+    }
 
-    if (bookingErr || !booking) {
-      return NextResponse.json({ error: "Booking tidak ditemukan." }, { status: 404 });
+    if (!isAllowed) {
+      return apiForbidden("Anda tidak memiliki izin untuk pesanan ini.");
     }
 
     const { data: profile } = await supabase
@@ -35,7 +41,7 @@ export async function POST(request, { params }) {
     const ownerName = profile?.full_name || "Pelanggan";
     const catName = booking.cat_name || "Kucing";
 
-    // 3. Create admin notification via RPC
+    // 2. Buat notifikasi admin via RPC
     try {
       await supabase.rpc("create_admin_notification", {
         booking_id_param: id,
@@ -44,12 +50,12 @@ export async function POST(request, { params }) {
         type_param: "info",
       });
     } catch (notifErr) {
-      console.warn("[Warning] Admin notification creation for WA request failed:", notifErr.message);
+      console.warn("[WA Request Change Notice] Admin notification failed:", notifErr.message);
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess(null, "Permintaan perubahan berhasil dikirim ke Admin");
   } catch (err) {
-    console.error("WA request change error:", err);
-    return NextResponse.json({ error: "Gagal memproses permintaan." }, { status: 550 });
+    console.error("[WA Request Change Exception]:", err);
+    return apiError("Gagal memproses permintaan perubahan", 500);
   }
 }

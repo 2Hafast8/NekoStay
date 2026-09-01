@@ -1,59 +1,42 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
-import { CLASS_PRICES } from "@/lib/utils/pricing";
+import { z } from "zod";
+import { verifyAdmin } from "@/lib/supabase/admin";
+import { editBookingSchema } from "@/lib/validations/booking";
+import { CLASS_PRICES } from "@/lib/constants";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiNotFound,
+  apiValidationError,
+} from "@/lib/utils/response";
 
+/**
+ * PUT /api/bookings/[id]/edit
+ * Memperbarui detail tanggal dan kelas kamar pesanan (Hanya Admin).
+ */
 export async function PUT(request, { params }) {
   try {
     const supabase = await createClient();
     const { id } = await params;
-    
-    // 1. Auth check
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    
-    // 2. Admin role check
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // 1. Verifikasi Admin
+    const { isAdmin, user } = await verifyAdmin(supabase);
+    if (!user) {
+      return apiUnauthorized();
     }
-    
-    // 3. Parse body
-    const { className, checkInDate, checkOutDate } = await request.json();
-    
-    if (!className || !checkInDate || !checkOutDate) {
-      return NextResponse.json(
-        { error: "Semua field harus diisi." },
-        { status: 400 }
-      );
+    if (!isAdmin) {
+      return apiForbidden("Hanya Administrator yang berhak mengubah detail pesanan.");
     }
-    
-    if (!CLASS_PRICES[className]) {
-      return NextResponse.json(
-        { error: "Kelas tidak valid." },
-        { status: 400 }
-      );
-    }
-    
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    
-    if (checkOut <= checkIn) {
-      return NextResponse.json(
-        { error: "Tanggal Check-Out harus setelah Check-In." },
-        { status: 400 }
-      );
-    }
-    
-    // 4. Fetch the old booking details with profile info
+
+    // 2. Parse & Validasi payload
+    const body = await request.json();
+    const validatedData = editBookingSchema.parse(body);
+
+    const pricePerDay = CLASS_PRICES[validatedData.className];
+
+    // 3. Ambil data lama pesanan
     const { data: oldBooking, error: fetchError } = await supabase
       .from("bookings")
       .select(`
@@ -64,45 +47,41 @@ export async function PUT(request, { params }) {
       .single();
 
     if (fetchError || !oldBooking) {
-      return NextResponse.json(
-        { error: "Booking tidak ditemukan." },
-        { status: 404 }
-      );
+      return apiNotFound("Data booking tidak ditemukan");
     }
-    
-    const pricePerDay = CLASS_PRICES[className];
-    
-    // 5. Perform update
-    const { data: updatedBooking, error } = await supabase
+
+    // 4. Update pesanan di DB
+    const { data: updatedBooking, error: updateError } = await supabase
       .from("bookings")
       .update({
-        class: className,
+        class: validatedData.className,
         price_per_day: pricePerDay,
-        check_in_date: checkInDate,
-        check_out_date: checkOutDate,
+        check_in_date: validatedData.checkInDate,
+        check_out_date: validatedData.checkOutDate,
       })
       .eq("id", id)
       .select()
       .single();
-      
-    if (error) {
-      console.error("Error updating booking:", error);
-      return NextResponse.json(
-        { error: "Gagal memperbarui pesanan." },
-        { status: 500 }
-      );
+
+    if (updateError) {
+      console.error("[Edit API Error]:", updateError);
+      return apiError("Gagal memperbarui data pesanan", 500);
     }
 
-    // 6. Insert notification for the owner in-app
-    await supabase.from("notifications").insert({
-      user_id: oldBooking.user_id,
-      title: `Detail Pesanan Diperbarui: ${oldBooking.cat_name}`,
-      message: `Admin memperbarui detail pesanan ${oldBooking.cat_name}. Kelas: ${className}, Check-In: ${checkInDate}, Check-Out: ${checkOutDate}.`,
-      type: "info",
-      booking_id: oldBooking.id,
-    });
+    // 5. Notifikasi in-app untuk pemilik kucing
+    try {
+      await supabase.from("notifications").insert({
+        user_id: oldBooking.user_id,
+        title: `Detail Pesanan Diperbarui: ${oldBooking.cat_name}`,
+        message: `Admin memperbarui detail pesanan ${oldBooking.cat_name}. Kelas: ${validatedData.className}, Check-In: ${validatedData.checkInDate}, Check-Out: ${validatedData.checkOutDate}.`,
+        type: "info",
+        booking_id: oldBooking.id,
+      });
+    } catch (notifErr) {
+      console.warn("[Edit API Notice] User notification failed:", notifErr.message);
+    }
 
-    // 7. Send transactional email via Resend
+    // 6. Kirim email transaksi
     const userEmail = oldBooking.profiles?.email;
     if (userEmail) {
       try {
@@ -126,21 +105,17 @@ export async function PUT(request, { params }) {
           }
         );
       } catch (emailErr) {
-        console.warn("[Server Email Warning] Resend edit notification failed:", emailErr.message);
+        console.warn("[Edit API Email Notice]:", emailErr.message);
       }
     }
-    
-    return NextResponse.json({
-      success: true,
-      booking: updatedBooking,
-    });
-    
-  } catch (err) {
-    console.error("API /edit route error:", err);
-    return NextResponse.json(
-      { error: "Terjadi kesalahan internal." },
-      { status: 500 }
-    );
+
+    return apiSuccess({ booking: updatedBooking }, "Detail pesanan berhasil diperbarui");
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return apiValidationError(error);
+    }
+
+    console.error("[Edit API Exception]:", error);
+    return apiError("Gagal memperbarui pesanan", 500);
   }
 }
-

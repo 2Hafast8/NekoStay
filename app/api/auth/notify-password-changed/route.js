@@ -1,15 +1,24 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPasswordChangedNotification } from "@/lib/email/resend";
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+} from "@/lib/utils/response";
 
+/**
+ * POST /api/auth/notify-password-changed
+ * Mengirim notifikasi in-app dan email keamanan saat kata sandi pengguna diperbarui.
+ * Keamanan: Memerlukan sesi pengguna aktif terverifikasi.
+ */
 export async function POST(request) {
   try {
     const adminDb = createAdminClient();
     let userId = null;
     let userEmail = null;
 
-    // 1. Try token from Authorization header
+    // 1. Cek token dari header Authorization
     const authHeader = request.headers.get("authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
@@ -20,7 +29,7 @@ export async function POST(request) {
       }
     }
 
-    // 2. Fallback to server cookie session
+    // 2. Fallback ke cookie session server
     if (!userId) {
       try {
         const supabase = await createClient();
@@ -30,22 +39,16 @@ export async function POST(request) {
           userEmail = authData.user.email;
         }
       } catch (cookieErr) {
-        console.warn("[Notice] Cookie auth fallback skipped:", cookieErr.message);
+        console.warn("[Notice] Cookie auth check skipped:", cookieErr.message);
       }
     }
 
-    // 3. Fallback to payload body
-    const body = await request.json().catch(() => ({}));
-    if (!userId && body.userId) {
-      userId = body.userId;
-      userEmail = body.email || null;
-    }
-
+    // Jika tidak ada sesi aktif, tolak request
     if (!userId) {
-      return NextResponse.json({ error: "User identity not found" }, { status: 401 });
+      return apiUnauthorized("Sesi pengguna tidak valid.");
     }
 
-    // Fetch user profile for full_name and email fallback
+    // 3. Ambil data profil pengguna
     const { data: profile } = await adminDb
       .from("profiles")
       .select("full_name, email")
@@ -55,30 +58,28 @@ export async function POST(request) {
     const userName = profile?.full_name || "Pengguna NekoStay";
     const targetEmail = userEmail || profile?.email;
 
-    // 1. Insert in-app notification into DB immediately
+    // 4. Masukkan notifikasi in-app
     await adminDb.from("notifications").insert({
       user_id: userId,
       title: "Password Berhasil Diubah 🔒",
-      message: "Password akun NekoStay Anda telah berhasil diperbarui. Email pemberitahuan keamanan telah dikirimkan ke Gmail Anda.",
+      message: "Password akun NekoStay Anda telah berhasil diperbarui. Email pemberitahuan keamanan telah dikirimkan.",
       type: "success",
+      is_read: false,
     });
 
-    // 2. Send email in background (non-blocking with 4s timeout)
+    // 5. Kirim email notifikasi keamanan (non-blocking dengan timeout 4s)
     if (targetEmail) {
       Promise.race([
         sendPasswordChangedNotification(targetEmail, userName),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Email timeout")), 4000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Email timeout")), 4000)),
       ]).catch((emailErr) => {
-        console.warn("[Warning] Password change email error/timeout:", emailErr.message);
+        console.warn("[Password Change Email Notice]:", emailErr.message);
       });
     }
 
-    return NextResponse.json({ success: true });
+    return apiSuccess(null, "Notifikasi keamanan password berhasil dikirim");
   } catch (err) {
-    console.error("Notify password changed error:", err);
-    return NextResponse.json(
-      { error: err.message || "Gagal membuat notifikasi." },
-      { status: 500 }
-    );
+    console.error("[Notify Password Changed Exception]:", err);
+    return apiError("Gagal mengirim notifikasi keamanan password", 500);
   }
 }
