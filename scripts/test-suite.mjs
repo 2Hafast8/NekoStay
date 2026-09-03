@@ -11,6 +11,8 @@ import {
   getCheckoutCalculation,
   CLASS_PRICES,
 } from "../lib/utils/pricing.js";
+import { calculateCapacityAndWaitlist } from "../lib/utils/capacity.js";
+import { getCapacityFullRejectReason, MAX_WAITLIST_DAYS } from "../lib/constants/index.js";
 import {
   daysBetween,
   isLate,
@@ -25,6 +27,7 @@ import {
   bulkActionSchema,
   scanOfflineSchema,
   editBookingSchema,
+  offlineQrSchema,
 } from "../lib/validations/booking.js";
 import {
   apiSuccess,
@@ -192,6 +195,18 @@ group("Zod Validation Schemas", () => {
     token: "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
   });
   assert(validScan.success === true, "Token scan offline UUID valid harus lolos");
+
+  // Offline QR Request Schema
+  const validOfflineQr = offlineQrSchema.safeParse({
+    bookingId: "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+    sendEmail: false,
+  });
+  assert(validOfflineQr.success === true, "offlineQrSchema dengan bookingId valid harus lolos");
+
+  const invalidOfflineQr = offlineQrSchema.safeParse({
+    bookingId: "invalid-uuid-format",
+  });
+  assert(invalidOfflineQr.success === false, "offlineQrSchema dengan bookingId bukan UUID harus ditolak");
 });
 
 // -------------------------------------------------------------
@@ -212,6 +227,99 @@ group("API Response Helpers", () => {
 
   const badReqRes = apiBadRequest();
   assert(badReqRes.status === 400, "apiBadRequest harus mengembalikan status 400");
+});
+
+// -------------------------------------------------------------
+// 5. UNIT TEST: LOGIKA TOKEN & URL QR PEMBAYARAN OFFLINE
+// -------------------------------------------------------------
+group("Offline QR Token & Verification URL", () => {
+  const sampleToken = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+  const appUrl = "http://localhost:3000";
+  const qrUrl = `${appUrl}/scan-verify?token=${sampleToken}`;
+
+  assert(qrUrl.includes("/scan-verify?token="), "URL QR harus mengarahkan ke endpoint /scan-verify");
+  
+  const parsedUrl = new URL(qrUrl);
+  assert(parsedUrl.searchParams.get("token") === sampleToken, "URL QR harus memuat token UUID yang identik");
+
+  // Cek masa berlaku 24 jam
+  const now = Date.now();
+  const tokenCreatedRecent = new Date(now - 2 * 60 * 60 * 1000).getTime(); // 2 jam lalu
+  const diffHoursRecent = (now - tokenCreatedRecent) / (1000 * 60 * 60);
+  assert(diffHoursRecent < 24, "Token yang dibuat 2 jam lalu masih valid (< 24 jam)");
+
+  const tokenCreatedOld = new Date(now - 25 * 60 * 60 * 1000).getTime(); // 25 jam lalu
+  const diffHoursOld = (now - tokenCreatedOld) / (1000 * 60 * 60);
+  assert(diffHoursOld > 24, "Token yang dibuat 25 jam lalu harus kedaluwarsa (> 24 jam)");
+});
+
+// -------------------------------------------------------------
+// 6. UNIT TEST: LOGIKA KAPASITAS KAMAR & BATAS ANTRIAN 3 HARI
+// -------------------------------------------------------------
+group("Kapasitas Kamar & Batas Maksimal Antrian 3 Hari", () => {
+  assert(MAX_WAITLIST_DAYS === 3, "Batas maksimal toleransi antrian harus 3 hari");
+
+  // Kasus 1: Kamar masih tersedia (kapasitas 5, overlap 3)
+  const availableRes = calculateCapacityAndWaitlist({
+    effectiveCapacity: 5,
+    totalCages: 6,
+    maintenanceCages: 1,
+    overlappingBookings: [
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-05" },
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-06" },
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-07" },
+    ],
+    checkInDate: "2026-10-02",
+    checkOutDate: "2026-10-04",
+    className: "Premium",
+  });
+  assert(availableRes.isFull === false, "Kamar harus terdeteksi masih tersedia");
+  assert(availableRes.canWaitlist === true, "canWaitlist harus true jika kamar tersedia");
+  assert(availableRes.rejectReason === null, "rejectReason harus null jika kamar tersedia");
+
+  // Kasus 2: Kamar penuh tapi ada yang checkout 2 hari lagi (<= 3 hari toleransi)
+  const waitlistAllowedRes = calculateCapacityAndWaitlist({
+    effectiveCapacity: 2,
+    totalCages: 2,
+    maintenanceCages: 0,
+    overlappingBookings: [
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-04" }, // 2 hari dari check-in 2026-10-02
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-08" },
+    ],
+    checkInDate: "2026-10-02",
+    checkOutDate: "2026-10-06",
+    className: "Standard",
+  });
+  assert(waitlistAllowedRes.isFull === true, "Kamar harus terdeteksi penuh (2/2)");
+  assert(waitlistAllowedRes.daysUntilAvailable === 2, "Hari terdekat ketersediaan harus 2 hari");
+  assert(waitlistAllowedRes.canWaitlist === true, "Antrian harus diperbolehkan karena <= 3 hari");
+  assert(waitlistAllowedRes.rejectReason === null, "rejectReason harus null jika masih boleh antri");
+
+  // Kasus 3: Kamar penuh dan baru ada yang checkout 5 hari lagi (> 3 hari toleransi) -> OTOMATIS DITOLAK!
+  const waitlistRejectedRes = calculateCapacityAndWaitlist({
+    effectiveCapacity: 2,
+    totalCages: 2,
+    maintenanceCages: 0,
+    overlappingBookings: [
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-07" }, // 5 hari dari check-in 2026-10-02
+      { check_in_date: "2026-10-01", check_out_date: "2026-10-10" },
+    ],
+    checkInDate: "2026-10-02",
+    checkOutDate: "2026-10-06",
+    className: "Basic",
+  });
+  assert(waitlistRejectedRes.isFull === true, "Kamar harus terdeteksi penuh (2/2)");
+  assert(waitlistRejectedRes.daysUntilAvailable === 5, "Hari terdekat ketersediaan harus 5 hari");
+  assert(waitlistRejectedRes.canWaitlist === false, "Antrian harus ditolak karena > 3 hari toleransi");
+  assert(typeof waitlistRejectedRes.rejectReason === "string", "rejectReason harus berupa string");
+  assert(waitlistRejectedRes.rejectReason.includes("Basic"), "Alasan penolakan harus memuat nama kelas Basic");
+  assert(waitlistRejectedRes.rejectReason.includes("3 hari"), "Alasan penolakan harus memuat batas waktu 3 hari");
+
+  // Kasus 4: Verifikasi template alasan penolakan getCapacityFullRejectReason
+  const templateReason = getCapacityFullRejectReason("Premium", 4);
+  assert(templateReason.includes("Premium"), "Template harus memuat nama kelas Premium");
+  assert(templateReason.includes("penuh"), "Template harus memuat kata penuh");
+  assert(templateReason.includes("3 hari"), "Template harus memuat batas waktu 3 hari");
 });
 
 // -------------------------------------------------------------

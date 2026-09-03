@@ -23,6 +23,7 @@ import {
   Wallet,
   LayoutGrid,
   List,
+  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -83,6 +84,7 @@ export default function AdminBookingsPage() {
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isAutoRejecting, setIsAutoRejecting] = useState(false);
 
   // Approve Dialog
   const [isApproveOpen, setIsApproveOpen] = useState(false);
@@ -511,6 +513,34 @@ export default function AdminBookingsPage() {
     }
   };
 
+  const handleAutoRejectWaiting = async () => {
+    if (
+      !confirm(
+        "Jalankan evaluasi otomatis untuk seluruh pesanan berstatus Menunggu & Antrian?\n\nPesanan yang kapasitas kamarnya penuh dan waktu ketersediaan terdekat > 3 hari akan otomatis ditolak dengan template penolakan kamar penuh."
+      )
+    ) {
+      return;
+    }
+    setIsAutoRejecting(true);
+    try {
+      const res = await fetch("/api/bookings/auto-reject-waiting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal mengevaluasi antrian");
+      alert(
+        data.message ||
+          `Evaluasi selesai: ${data.data?.rejectedCount || 0} pesanan ditolak otomatis.`
+      );
+      fetchAllBookings();
+    } catch (err) {
+      alert(err.message || "Gagal mengevaluasi antrian kamar");
+    } finally {
+      setIsAutoRejecting(false);
+    }
+  };
+
   // Open Checkout and calculate on-the-fly values
   const openCheckoutModal = (booking) => {
     setSelectedBooking(booking);
@@ -636,6 +666,18 @@ export default function AdminBookingsPage() {
         </div>
 
         <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleAutoRejectWaiting}
+            disabled={isAutoRejecting}
+            className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl transition-colors cursor-pointer text-rose-600 dark:text-rose-400 flex items-center gap-1.5 border border-rose-500/20 disabled:opacity-50"
+            title="Periksa & Tolak Otomatis Antrian Kamar Penuh (>3 Hari)"
+          >
+            <Zap className="w-4 h-4 text-rose-500" />
+            <span className="hidden sm:inline text-xs font-bold">
+              {isAutoRejecting ? "Mengevaluasi..." : "Cek Antrian Penuh (>3 Hari)"}
+            </span>
+          </button>
           <button
             onClick={handleExportPDF}
             className="p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2"
@@ -1290,10 +1332,39 @@ export default function AdminBookingsPage() {
         onConfirm={handleReject}
         onCancel={() => setIsRejectOpen(false)}
       >
-        <div className="mt-4 space-y-1.5">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-            Alasan Penolakan
-          </label>
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+              Alasan Penolakan
+            </label>
+            <span className="text-[10px] text-muted-foreground font-semibold">Template Cepat:</span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                setRejectReason(
+                  `Mohon maaf, pemesanan tidak dapat diterima karena seluruh kamar/ruang kelas ${selectedBooking?.class || "ini"} telah penuh dan tidak tersedia ruang kosong dalam batas maksimal waktu 3 hari.`
+                )
+              }
+              className="px-2.5 py-1 text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold transition-colors cursor-pointer border border-rose-500/20"
+            >
+              🏢 Kamar Penuh (&gt; 3 Hari)
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setRejectReason(
+                  `Mohon maaf, pemesanan penitipan untuk kucing ${selectedBooking?.cat_name || "Anda"} belum dapat kami setujui karena persyaratan riwayat vaksinasi dan kesehatan belum terpenuhi.`
+                )
+              }
+              className="px-2.5 py-1 text-[11px] rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground font-semibold transition-colors cursor-pointer border border-border"
+            >
+              🩺 Riwayat Kesehatan
+            </button>
+          </div>
+
           <textarea
             required
             value={rejectReason}

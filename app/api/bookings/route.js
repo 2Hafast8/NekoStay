@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { bookingFormSchema } from "@/lib/validations/booking";
+import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
 import {
   apiSuccess,
   apiError,
@@ -67,6 +68,49 @@ export async function POST(request) {
 
     const estimatedTotal = totalDays * classData.price_per_day;
 
+    // 5. Cek kapasitas kamar dan toleransi antrian maksimal 3 hari
+    const { data: classRow } = await supabase
+      .from("classes")
+      .select("total_cages, maintenance_cages")
+      .eq("name", validatedData.class)
+      .maybeSingle();
+
+    const totalCages = classRow?.total_cages ?? 10;
+    const maintenanceCages = classRow?.maintenance_cages ?? 0;
+    const effectiveCapacity = Math.max(1, totalCages - maintenanceCages);
+
+    const { data: overlappingBookings } = await supabase
+      .from("bookings")
+      .select("id, check_in_date, check_out_date, status")
+      .eq("class", validatedData.class)
+      .in("status", ["Menunggu", "Aktif", "Antrian"])
+      .lt("check_in_date", validatedData.check_out_date)
+      .gt("check_out_date", validatedData.check_in_date)
+      .order("check_out_date", { ascending: true });
+
+    const capacityResult = calculateCapacityAndWaitlist({
+      effectiveCapacity,
+      totalCages,
+      maintenanceCages,
+      overlappingBookings: overlappingBookings || [],
+      checkInDate: validatedData.check_in_date,
+      checkOutDate: validatedData.check_out_date,
+      className: validatedData.class,
+    });
+
+    if (capacityResult.isFull && !capacityResult.canWaitlist) {
+      // Waktu tunggu melebihi toleransi maksimal 3 hari -> Otomatis Ditolak!
+      return apiBadRequest(
+        capacityResult.rejectReason ||
+          `Mohon maaf, pemesanan ditolak otomatis karena seluruh kamar kelas ${validatedData.class} penuh dan tidak tersedia ruang kosong dalam batas maksimal waktu 3 hari.`
+      );
+    }
+
+    // Tentukan status awal: jika penuh tapi masih <= 3 hari, masuk ke antrian (Waitlist)
+    const initialStatus = capacityResult.isFull
+      ? "Antrian"
+      : validatedData.status || "Menunggu";
+
     // 6. Simpan pesanan ke database Supabase
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
@@ -84,7 +128,7 @@ export async function POST(request) {
         price_per_day: classData.price_per_day,
         check_in_date: validatedData.check_in_date,
         check_out_date: validatedData.check_out_date,
-        status: validatedData.status || "Menunggu",
+        status: initialStatus,
         discount_amount: validatedData.discount_amount || 0,
       })
       .select()

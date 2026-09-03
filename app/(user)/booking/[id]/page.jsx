@@ -21,14 +21,18 @@ import {
   FileCheck,
   Mail,
   Clock,
+  QrCode,
+  Store,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
+import { OfflineQrModal } from "@/components/booking/OfflineQrModal";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
+import { toast } from "sonner";
 export default function BookingDetailPage({ params }) {
   const { id } = use(params);
   const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '';
@@ -79,6 +83,11 @@ function BookingDetailContent({ id }) {
   const [sandboxCountdown, setSandboxCountdown] = useState(null);
   const hasAutoVerified = useRef(false);
   const searchParams = useSearchParams();
+
+  // Offline QR & Pop-up Modal states
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [offlineToken, setOfflineToken] = useState(null);
+  const [offlineQrDataUrl, setOfflineQrDataUrl] = useState(null);
 
   // Review states
   const [rating, setRating] = useState(5);
@@ -371,6 +380,30 @@ function BookingDetailContent({ id }) {
     }
   };
 
+  // Generate QR Code data URL langsung di sisi client jika token sudah ada
+  useEffect(() => {
+    if (booking?.offline_payment_token && !booking.offline_token_used) {
+      setOfflineToken(booking.offline_payment_token);
+      if (!offlineQrDataUrl) {
+        const appUrl =
+          typeof window !== "undefined" ? window.location.origin : "";
+        const qrUrl = `${appUrl}/scan-verify?token=${booking.offline_payment_token}`;
+        import("qrcode")
+          .then(({ default: qrcode }) => {
+            qrcode
+              .toDataURL(qrUrl, {
+                margin: 2,
+                width: 320,
+                color: { dark: "#18181b", light: "#ffffff" },
+              })
+              .then((url) => setOfflineQrDataUrl(url))
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }
+    }
+  }, [booking?.offline_payment_token, booking?.offline_token_used, offlineQrDataUrl]);
+
   const handleSendReceipt = async () => {
     setIsReceiptSending(true);
     setErrorMsg(null);
@@ -382,9 +415,38 @@ function BookingDetailContent({ id }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || (language === "en" ? "Failed to send receipt" : "Gagal mengirim bukti pemesanan"));
+        throw new Error(
+          data.error ||
+            (language === "en"
+              ? "Failed to send receipt"
+              : "Gagal mengirim bukti pemesanan")
+        );
       }
       setReceiptSent(true);
+      if (data.token) setOfflineToken(data.token);
+      if (data.qrDataUrl) {
+        setOfflineQrDataUrl(data.qrDataUrl);
+      } else if (data.token) {
+        const appUrl =
+          typeof window !== "undefined" ? window.location.origin : "";
+        const qrUrl = `${appUrl}/scan-verify?token=${data.token}`;
+        const qrcode =
+          (await import("qrcode")).default || (await import("qrcode"));
+        const url = await qrcode.toDataURL(qrUrl, {
+          margin: 2,
+          width: 320,
+          color: { dark: "#18181b", light: "#ffffff" },
+        });
+        setOfflineQrDataUrl(url);
+      }
+      toast.success(
+        language === "en"
+          ? "Booking receipt PDF sent to your email!"
+          : "Bukti pemesanan PDF telah dikirim ke email Anda!"
+      );
+      // Buka pop-up modal QR Code langsung setelah email terkirim
+      setIsQrModalOpen(true);
+      await loadBookingDetails();
     } catch (err) {
       setErrorMsg(err.message);
     } finally {
@@ -916,30 +978,43 @@ function BookingDetailContent({ id }) {
                     </h4>
                     <p className="text-xs text-muted-foreground dark:text-zinc-405 leading-relaxed">
                       {language === "en"
-                        ? "Pay in cash or debit card at NekoStay when dropping off your cat. Click the button below to receive a booking receipt via email."
-                        : "Bayar secara tunai atau kartu debit di kasir NekoStay saat mengantar kucing. Klik tombol di bawah untuk menerima bukti pemesanan via email."}
+                        ? "Pay in cash or debit card at NekoStay when dropping off your cat. Click the button below to receive a booking receipt via email and view your payment QR code."
+                        : "Bayar secara tunai atau kartu debit di kasir NekoStay saat mengantar kucing. Klik tombol di bawah untuk menerima bukti pemesanan via email dan melihat kode QR pembayaran."}
                     </p>
 
-                    {receiptSent ? (
+                    {receiptSent || (booking.offline_payment_token && !booking.offline_token_used) ? (
                       <div className="space-y-3">
                         <div className="p-3 bg-emerald-500/5 dark:bg-emerald-950/10 border border-emerald-500/10 dark:border-emerald-900/20 rounded-xl flex items-start gap-2">
                           <FileCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                           <p className="text-[11px] text-emerald-600 dark:text-emerald-455 leading-normal">
                             {language === "en"
-                              ? "Booking PDF receipt has been sent to your email. Please show it at the desk when you check-in."
-                              : "Bukti pemesanan PDF telah dikirim ke email Anda. Harap tunjukkan kepada kasir saat mengantar kucing."}
+                              ? "Booking PDF receipt has been sent to your email. You can open the QR code below to show at the desk."
+                              : "Bukti pemesanan PDF telah dikirim ke email Anda. Anda dapat membuka kode QR di bawah untuk ditunjukkan ke kasir saat check-in."}
                           </p>
                         </div>
-                        <button
-                          onClick={handleSendReceipt}
-                          disabled={isReceiptSending}
-                          className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-foreground dark:text-zinc-200 font-bold text-[11px] hover:bg-muted/60 dark:hover:bg-zinc-900/60 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                          {isReceiptSending
-                            ? (language === "en" ? "Sending..." : "Mengirim...")
-                            : (language === "en" ? "Resend Receipt with New QR Code" : "Kirim Ulang Bukti dengan QR Baru")}
-                        </button>
+
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsQrModalOpen(true)}
+                            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs hover:shadow-md hover:shadow-emerald-600/15 transition-all cursor-pointer"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            <span>{language === "en" ? "View Desk QR Code" : "Lihat QR Code Pembayaran"}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleSendReceipt}
+                            disabled={isReceiptSending}
+                            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-muted-foreground hover:text-foreground font-semibold text-xs hover:bg-muted/60 dark:hover:bg-zinc-900/60 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                            {isReceiptSending
+                              ? (language === "en" ? "Resending Receipt..." : "Mengirim Ulang Bukti...")
+                              : (language === "en" ? "Resend Receipt with New QR Code" : "Kirim Ulang Bukti dengan QR Baru")}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
@@ -1136,6 +1211,16 @@ function BookingDetailContent({ id }) {
           />
         </div>
       </ConfirmDialog>
+
+      {/* Pop-up Modal QR Code Pembayaran Offline */}
+      <OfflineQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        booking={booking}
+        token={offlineToken || booking?.offline_payment_token}
+        qrDataUrl={offlineQrDataUrl}
+        language={language}
+      />
     </div>
   );
 }

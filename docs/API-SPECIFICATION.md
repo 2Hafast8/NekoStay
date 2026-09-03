@@ -32,6 +32,7 @@
 | `/api/bookings/[id]/payment-status` | `PATCH` | Admin Only | Memperbarui status pembayaran secara manual. |
 | `/api/bookings/[id]/report` | `POST` | Admin Only | Menambahkan laporan harian kondisi kucing. |
 | `/api/bookings/[id]/wa-request-change` | `POST` | Owner / Admin | Notifikasi admin saat user mengajukan perubahan via WA. |
+| `/api/bookings/auto-reject-waiting` | `POST` | Admin Only | Evaluasi & otomatis tolak antrian jika kamar penuh >3 hari. |
 
 ---
 
@@ -41,6 +42,7 @@
 |---|---|---|---|
 | `/api/payments/create` | `POST` | Authenticated | Menginisiasi transaksi Snap Midtrans untuk pembayaran online. |
 | `/api/payments/webhook` | `POST` | Webhook Signature | Callback notifikasi status pembayaran dari server Midtrans. |
+| `/api/payments/offline-qr` | `POST` | Authenticated | Menghasilkan QR Code data URL & token pembayaran kasir. |
 | `/api/payments/scan-offline` | `POST` | Admin Only | Memvalidasi pemindaian QR token pembayaran tunai di kasir. |
 | `/api/payments/send-receipt` | `POST` | Owner / Admin | Mengirimkan bukti pembayaran PDF ke email pelanggan. |
 | `/api/payments/check-status` | `GET` | Authenticated | Cek status transaksi pembayaran terkini. |
@@ -87,4 +89,5 @@
 | `/api/auth/callback` | `GET` | Public | Handler OAuth & Email Verification callback Supabase. |
 | `/api/auth/notify-password-changed` | `POST` | Authenticated | Mengirim alert keamanan in-app & email setelah reset password. |
 | `/api/cron/check-late` | `GET` | Cron Secret | Cron harian perhitungan akumulatif denda 8% keterlambatan. |
+| `/api/cron/check-waiting` | `GET` | Cron Secret | Cron harian evaluasi antrian penuh dan penolakan otomatis >3 hari. |
 

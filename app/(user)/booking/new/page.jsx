@@ -21,6 +21,7 @@ import { ImageUpload } from "@/components/shared/ImageUpload";
 import { formatRupiah } from "@/lib/utils/format";
 import { getBookingSummary } from "@/lib/utils/pricing";
 import { formatDate } from "@/lib/utils/dates";
+import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 export default function NewBookingPage() {
@@ -364,25 +365,18 @@ function BookingFormContent() {
 
       const count = overlappingBookings?.length || 0;
 
-      if (count >= effectiveCapacity) {
-        // FULL! Find earliest checkout date
-        const earliestBooking = overlappingBookings[0];
-        const earliestDate = earliestBooking?.check_out_date || checkOutDate;
-        
-        // Calculate days difference from today
-        const today = new Date();
-        const checkOut = new Date(earliestDate);
-        const daysDiff = Math.max(1, Math.ceil((checkOut - today) / (1000 * 60 * 60 * 24)));
+      const capacityResult = calculateCapacityAndWaitlist({
+        effectiveCapacity,
+        totalCages,
+        maintenanceCages,
+        overlappingBookings: overlappingBookings || [],
+        checkInDate,
+        checkOutDate,
+        className: bookingClass,
+      });
 
-        setAvailabilityData({
-          isFull: true,
-          effectiveCapacity,
-          totalCages,
-          maintenanceCages,
-          overlappingCount: count,
-          earliestCheckoutDate: earliestDate,
-          daysUntilAvailable: daysDiff,
-        });
+      if (capacityResult.isFull) {
+        setAvailabilityData(capacityResult);
         setShowWaitlistModal(true);
       } else {
         // Available! Proceed to step 3
@@ -1380,35 +1374,59 @@ function BookingFormContent() {
                   </span>
                 </div>
                 <p className="text-[11px]">
-                  Berdasarkan tanggal check-out dari pesanan lain yang sedang berjalan di kelas ini.
+                  Berdasarkan tanggal check-out dari pesanan aktif lain di kelas {bookingClass}.
                 </p>
               </div>
 
-              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-700 dark:text-purple-300 font-medium text-[11px]">
-                💬 <strong>Konfirmasi Antrian:</strong> Apakah Anda tetap ingin membuat pesanan dan masuk ke <strong>Daftar Antrian (Waitlist)</strong>? Admin kami akan memverifikasi dan mengonfirmasi pesanan Anda jika ada kandang yang selesai lebih awal.
-              </div>
+              {availabilityData?.canWaitlist ? (
+                <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-2xl text-purple-700 dark:text-purple-300 font-medium text-[11px] space-y-1">
+                  <div className="font-bold flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Masih Dalam Batas Waktu Tunggu (Maksimal 3 Hari)</span>
+                  </div>
+                  <p>
+                    Kamar diperkirakan tersedia dalam <strong>~{availabilityData.daysUntilAvailable} hari</strong> (≤ 3 hari). Anda dapat memilih untuk tetap memesan dan masuk ke <strong>Daftar Antrian (Waitlist)</strong>.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-700 dark:text-rose-400 text-xs space-y-2">
+                  <div className="font-extrabold flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Pemesanan Ditolak Otomatis (Kamar Penuh)</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Sesuai kebijakan NekoStay, batas maksimal jarak waktu tunggu antrian pemesanan adalah <strong>3 hari</strong>. Karena perkiraan kamar kosong terdekat adalah <strong>~{availabilityData?.daysUntilAvailable} hari lagi</strong> (&gt; 3 hari), pesanan tidak dapat masuk antrian dan otomatis ditolak.
+                  </p>
+                  <div className="p-2.5 bg-background/80 dark:bg-zinc-950/60 rounded-xl border border-rose-500/20 text-[11px] italic">
+                    "{availabilityData?.rejectReason}"
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowWaitlistModal(false)}
-                className="px-4 py-3 rounded-xl border border-border text-xs font-bold hover:bg-muted cursor-pointer transition-colors text-center"
+                className="px-5 py-3 rounded-xl border border-border text-xs font-bold hover:bg-muted cursor-pointer transition-colors text-center"
               >
                 Ubah Tanggal / Kelas
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsWaitlistBooking(true);
-                  setShowWaitlistModal(false);
-                  setStep(3);
-                }}
-                className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Clock className="w-4 h-4" />
-                Tetap Pesan (Masuk Antrian)
-              </button>
+
+              {availabilityData?.canWaitlist && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWaitlistBooking(true);
+                    setShowWaitlistModal(false);
+                    setStep(3);
+                  }}
+                  className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Clock className="w-4 h-4" />
+                  Tetap Pesan (Masuk Antrian)
+                </button>
+              )}
             </div>
           </div>
         </div>

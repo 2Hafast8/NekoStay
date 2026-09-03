@@ -18,7 +18,11 @@
 * **Formulir Pemesanan Cerdas (3 Langkah)**: Input data kucing (nama, umur, ras, makanan favorit, riwayat kesehatan, kehamilan, catatan khusus), upload foto ke Supabase Storage, dan pilih paket kamar (`Basic`, `Standard`, `Premium`).
 * **Sistem Pembayaran Fleksibel**:
   - **Online**: Integrasi Snap Midtrans (Virtual Account, GoPay, QRIS, Kartu Kredit).
-  - **Kasir (Offline)**: Unduh bukti pemesanan resmi berformat PDF yang dilengkapi **QR Code Pembayaran Kasir** dengan batas waktu 24 jam.
+  - **Kasir (Offline)**: Pop-up modal QR Code interaktif berskala responsif (25% - 100%+ zoom), unduh bukti pemesanan PDF resmi, dan token bayar di kasir dengan masa berlaku 24 jam.
+* **Manajemen Kapasitas Kamar & Antrian Cerdas**:
+  - Pengecekan ketersediaan kamar dan perkiraan hari terdekat (`earliestCheckoutDate`).
+  - **Toleransi Antrian Maksimal 3 Hari**: Jika kamar penuh dan perkiraan ketersediaan terdekat `≤ 3 hari`, pengguna dapat masuk antrian (*Waitlist*).
+  - **Penolakan Otomatis (> 3 Hari)**: Jika perkiraan kamar kosong melebihi 3 hari, sistem otomatis menolak pemesanan dengan template penolakan resmi karena kamar penuh.
 * **Laporan Kondisi Kucing Realtime**: Memantau laporan perkembangan harian kucing (foto terbaru, nafsu makan, status kesehatan: Sehat / Kurang Fit / Perlu Perhatian) dari dashboard dan notifikasi email.
 * **Program Loyalitas & Referral**: Dapatkan kode referral unik (`NEKO-XXXXXXXX`) saat mendaftar. Bagikan ke teman untuk mendapatkan diskon 10% dan kumpulkan Poin Neko.
 * **Ulasan & Rating**: Berikan penilaian bintang 1-5 dan ulasan setelah pesanan selesai, serta lihat balasan resmi dari admin.
@@ -26,7 +30,8 @@
 
 ### 👑 Panel Manajemen Admin (Admin Control Center)
 * **Executive Analytics Dashboard**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts.
-* **Manajemen & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan alasan, atau lakukan persetujuan massal (*bulk actions*).
+* **Manajemen & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan template alasan cepat, atau lakukan persetujuan massal (*bulk actions*).
+* **Evaluasi Otomatis Antrian Penuh**: Tombol 1-klik `Cek Antrian Penuh (>3 Hari)` dan background cron `GET /api/cron/check-waiting` untuk membersihkan dan menolak antrian yang melebihi batas 3 hari.
 * **QR Camera Scanner Kasir (`/admin/scanner`)**: Pemindaian kamera langsung untuk memvalidasi pembayaran tunai di kasir secara instan dan aman (*one-time use*).
 * **Pembuat Laporan Kucing Harian (`/admin/reports`)**: Input laporan kondisi fisik & mental kucing dengan upload foto yang langsung terkirim ke email pelanggan.
 * **WhatsApp Multi-Device Gateway (`/admin/whatsapp`)**: Scan QR pairing WhatsApp Baileys, monitoring riwayat log interaksi pesan masuk/keluar, dan simulasi auto-responder.
