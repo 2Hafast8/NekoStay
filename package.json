@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "wa:bot": "node scripts/whatsapp-bot.mjs",
+    "wa:bot:stop": "node scripts/stop-whatsapp-bot.mjs",
     "wa:bot:pair": "node scripts/whatsapp-bot.mjs --pairing",
     "test": "node scripts/test-suite.mjs",
     "lint": "eslint"

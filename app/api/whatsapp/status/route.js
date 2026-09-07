@@ -34,17 +34,35 @@ export async function GET(request) {
       .eq("id", "active_session")
       .maybeSingle();
 
-    const status = botState?.status || "disconnected";
-    const qrCode = botState?.qr_code || null;
-    const connectedPhone = botState?.connected_phone || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344";
+    // Heartbeat check: Bot Baileys mengirim heartbeat setiap 15 detik saat aktif.
+    // Jika heartbeat terakhir sudah lebih dari 45 detik, berarti proses bot offline / belum dijalankan.
+    const lastHeartbeatTime = botState?.last_heartbeat ? new Date(botState.last_heartbeat).getTime() : 0;
+    const isAlive = (Date.now() - lastHeartbeatTime) < 45000;
+
+    const status = isAlive ? (botState?.status || "disconnected") : "disconnected";
+    const qrCode = isAlive ? (botState?.qr_code || null) : null;
+    const connectedPhone = isAlive ? (botState?.connected_phone || null) : null;
+
+    // Sinkronkan database jika proses bot offline tapi status database masih tertinggal 'connected' / 'qr_ready'
+    if (!isAlive && (botState?.status === "connected" || botState?.status === "qr_ready")) {
+      await supabase
+        .from("whatsapp_bot_state")
+        .update({
+          status: "disconnected",
+          qr_code: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", "active_session");
+    }
 
     return NextResponse.json({
       success: true,
       status,
       qrCode,
-      connectedPhone,
+      connectedPhone: connectedPhone || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344",
       adminPhoneConfigured: process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344",
       lastHeartbeat: botState?.last_heartbeat,
+      isAlive,
     });
   } catch (error) {
     console.error("WhatsApp status route error:", error);

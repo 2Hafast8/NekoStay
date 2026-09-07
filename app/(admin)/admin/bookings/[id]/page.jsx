@@ -28,6 +28,7 @@ import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -76,6 +77,13 @@ export default function AdminBookingDetailPage({ params }) {
   // Resend Receipt States
   const [isResendingReceipt, setIsResendingReceipt] = useState(false);
   const [resendReceiptMsg, setResendReceiptMsg] = useState(null);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
+  useAutoDismiss(replySuccess, setReplySuccess);
+  useAutoDismiss(reportSuccess, setReportSuccess);
+  useAutoDismiss(notesSaveMsg, setNotesSaveMsg);
+  useAutoDismiss(resendReceiptMsg, setResendReceiptMsg);
 
   const supabase = createClient();
 

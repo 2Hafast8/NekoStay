@@ -23,6 +23,7 @@ import {
   Clock,
   QrCode,
   Store,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -32,6 +33,7 @@ import { OfflineQrModal } from "@/components/booking/OfflineQrModal";
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import { toast } from "sonner";
 export default function BookingDetailPage({ params }) {
   const { id } = use(params);
@@ -74,6 +76,9 @@ function BookingDetailContent({ id }) {
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
 
   // Payment states
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -598,9 +603,19 @@ function BookingDetailContent({ id }) {
       </div>
 
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2 animate-pulse">
-          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 

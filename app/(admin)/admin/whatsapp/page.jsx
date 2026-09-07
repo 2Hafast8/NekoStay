@@ -31,6 +31,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 
+const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 export default function AdminWhatsAppLogsPage() {
   const { t, language } = useLanguage();
   const [contacts, setContacts] = useState([]);
@@ -39,8 +41,8 @@ export default function AdminWhatsAppLogsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingContacts, setIsLoadingContacts] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simText, setSimText] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [replyText, setReplyText] = useState("");
   const [copiedId, setCopiedId] = useState(null);
 
   // Connection State & Modal
@@ -248,9 +250,12 @@ export default function AdminWhatsAppLogsPage() {
                 ? newRow.sender_name
                 : null;
 
+            const newRemoteJid = newRow.metadata?.remote_jid || null;
+
             if (idx >= 0) {
               copy[idx] = {
                 ...copy[idx],
+                remoteJid: newRemoteJid || copy[idx].remoteJid,
                 senderName: rowCustomerName || copy[idx].senderName,
                 lastMessage: newRow.message_text,
                 lastMessageDirection: newRow.direction,
@@ -265,6 +270,7 @@ export default function AdminWhatsAppLogsPage() {
               return [
                 {
                   phoneNumber: rowPhone,
+                  remoteJid: newRemoteJid,
                   senderName: rowCustomerName || `Pelanggan ${rowPhone.slice(-4)}`,
                   lastMessage: newRow.message_text,
                   lastMessageDirection: newRow.direction,
@@ -286,36 +292,46 @@ export default function AdminWhatsAppLogsPage() {
     };
   }, [selectedPhone, supabase]);
 
-  // 7. Handle Simulation Message Send
-  const handleSendSimulation = async (e) => {
+  // 7. Handle Direct Admin Reply Send
+  const handleSendAdminReply = async (e) => {
     e.preventDefault();
-    if (!simText.trim() || !selectedPhone) return;
+    if (!replyText.trim() || !selectedPhone) return;
+
+    if (waStatus !== "connected") {
+      toast.error(
+        "Bot WhatsApp sedang offline. Silakan hubungkan bot terlebih dahulu agar pesan dapat terkirim langsung ke WhatsApp pelanggan."
+      );
+      setIsConnectModalOpen(true);
+      return;
+    }
 
     const currentContact = contacts.find((c) => c.phoneNumber === selectedPhone);
-    const senderName = currentContact?.senderName || "Pelanggan NekoStay";
+    const customerName = currentContact?.senderName || `Pelanggan ${selectedPhone.slice(-4)}`;
+    const remoteJid = currentContact?.remoteJid || null;
 
     try {
-      setIsSimulating(true);
-      const res = await fetch("/api/whatsapp/simulate", {
+      setIsSendingReply(true);
+      const res = await fetch("/api/whatsapp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           phoneNumber: selectedPhone,
-          senderName,
-          messageText: simText.trim(),
+          messageText: replyText.trim(),
+          customerName,
+          remoteJid,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Simulasi gagal");
+      if (!res.ok) throw new Error(data.error || "Gagal mengirim pesan WhatsApp");
 
-      setSimText("");
-      toast.success("Pesan simulasi terkirim & dibalas oleh bot!");
+      setReplyText("");
+      toast.success("Pesan admin berhasil dikirim ke WhatsApp!");
       fetchMessagesForPhone(selectedPhone);
     } catch (err) {
-      toast.error(err.message || "Gagal mengirim simulasi");
+      toast.error(err.message || "Gagal mengirim pesan");
     } finally {
-      setIsSimulating(false);
+      setIsSendingReply(false);
     }
   };
 
@@ -365,6 +381,8 @@ export default function AdminWhatsAppLogsPage() {
       case "class_menu":
       case "awaiting_class_fill":
         return { label: "Ubah Kelas", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20" };
+      case "chat_with_admin":
+        return { label: "Chat Admin Langsung", color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" };
       case "completed":
         return { label: "Pengajuan Selesai", color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" };
       default:
@@ -610,6 +628,28 @@ export default function AdminWhatsAppLogsPage() {
                 <span>{messages.length} Pesan</span>
               </div>
 
+              {/* Bot Offline Notification Banner */}
+              {waStatus !== "connected" && (
+                <div className="bg-rose-500/10 dark:bg-rose-500/15 border-b border-rose-500/25 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-rose-700 dark:text-rose-400">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                    <span>
+                      <strong>Bot WhatsApp Sedang Offline</strong> — Auto-reply & sinkronisasi live HP tidak aktif. Jalankan bot di PC admin via <code>Start-WhatsApp-Bot.vbs</code> atau <code>npm run wa:bot</code>.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsConnectModalOpen(true);
+                      handleStartConnect();
+                    }}
+                    className="underline text-[11px] font-bold hover:text-rose-800 dark:hover:text-rose-300 shrink-0 cursor-pointer self-start sm:self-auto"
+                  >
+                    Buka Panduan Sambungkan WA
+                  </button>
+                </div>
+              )}
+
               {/* Messages Scroll Area */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 no-scrollbar bg-slate-50/50 dark:bg-zinc-950/50">
                 {isLoadingMessages ? (
@@ -634,7 +674,9 @@ export default function AdminWhatsAppLogsPage() {
                       {msgs.map((m) => {
                         const isOutgoing = m.direction === "outgoing";
                         const metadata = m.metadata || {};
-                        const bookingId = metadata.bookingId || (m.message_text.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/) || [])[0];
+                        const rawCandidate = typeof metadata.bookingId === "string" ? metadata.bookingId.trim() : (typeof m.booking_id === "string" ? m.booking_id.trim() : "");
+                        const extractedUuid = (m.message_text?.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/) || [])[0];
+                        const bookingId = (rawCandidate && UUID_REGEX.test(rawCandidate) ? rawCandidate : null) || extractedUuid || null;
 
                         return (
                           <div
@@ -646,10 +688,19 @@ export default function AdminWhatsAppLogsPage() {
                           >
                             <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] font-bold text-muted-foreground">
                               {isOutgoing ? (
-                                <>
-                                  <Bot className="w-3 h-3 text-primary" />
-                                  <span className="text-primary font-extrabold">NekoStay Bot</span>
-                                </>
+                                m.sender_role === "admin" ? (
+                                  <>
+                                    <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
+                                      {m.sender_name || "Admin NekoStay"}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Bot className="w-3 h-3 text-primary" />
+                                    <span className="text-primary font-extrabold">NekoStay Bot</span>
+                                  </>
+                                )
                               ) : (
                                 <>
                                   <User className="w-3 h-3 text-emerald-500" />
@@ -658,25 +709,38 @@ export default function AdminWhatsAppLogsPage() {
                               )}
                               <span>•</span>
                               <span>{formatTimeOnly(m.created_at)}</span>
+                              {isOutgoing && m.sender_role === "admin" && (
+                                <span className={cn(
+                                  "text-[9px] font-extrabold ml-0.5",
+                                  m.metadata?.status === "delivered" ? "text-emerald-600 dark:text-emerald-400" :
+                                  m.metadata?.status === "failed" ? "text-rose-500" : "text-amber-500 animate-pulse"
+                                )}>
+                                  {m.metadata?.status === "delivered" ? "✓ Terkirim" :
+                                   m.metadata?.status === "failed" ? "Gagal ⚠️" : "Mengirim..."}
+                                </span>
+                              )}
                             </div>
 
                             <div
                               className={cn(
                                 "p-3.5 sm:p-4 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-xs whitespace-pre-line break-words border",
                                 isOutgoing
-                                  ? "bg-primary/10 dark:bg-primary/15 border-primary/20 text-foreground dark:text-zinc-100 rounded-tr-xs"
+                                  ? m.sender_role === "admin"
+                                    ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/30 text-foreground dark:text-zinc-100 rounded-tr-xs"
+                                    : "bg-primary/10 dark:bg-primary/15 border-primary/20 text-foreground dark:text-zinc-100 rounded-tr-xs"
                                   : "bg-white dark:bg-zinc-900 border-border dark:border-zinc-800 text-foreground dark:text-zinc-100 rounded-tl-xs"
                               )}
                             >
                               {m.message_text}
 
-                              {bookingId && (
+                              {bookingId && UUID_REGEX.test(bookingId) && (
                                 <div className="mt-3.5 pt-3 border-t border-border/80 dark:border-zinc-800 bg-muted/40 dark:bg-zinc-950/60 p-3 rounded-xl space-y-2">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-[10px] font-black text-primary uppercase tracking-wider flex items-center gap-1">
                                       <Sparkles className="w-3 h-3" /> Terdeteksi ID Booking
                                     </span>
                                     <button
+                                      type="button"
                                       onClick={() => copyToClipboard(bookingId, m.id)}
                                       className="text-[10px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 bg-background px-2 py-0.5 rounded border border-border cursor-pointer"
                                     >
@@ -691,7 +755,7 @@ export default function AdminWhatsAppLogsPage() {
 
                                   <div className="flex items-center gap-2 pt-1">
                                     <Link
-                                      href={`/admin/bookings/${bookingId}`}
+                                      href={`/admin/bookings/${encodeURIComponent(bookingId)}`}
                                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-primary/20"
                                     >
                                       <span>📝 Kelola / Edit Booking</span>
@@ -710,36 +774,82 @@ export default function AdminWhatsAppLogsPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Bot Simulation Footer */}
-              <div className="p-3.5 bg-card dark:bg-zinc-900 border-t border-border dark:border-zinc-800">
-                <form onSubmit={handleSendSimulation} className="flex items-center gap-2">
+              {/* Admin Direct WhatsApp Reply Footer */}
+              <div className="p-3.5 sm:p-4 bg-card dark:bg-zinc-900 border-t border-border dark:border-zinc-800 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] px-0.5">
+                  <span className="flex items-center gap-1.5 font-bold text-foreground">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    Kirim Balasan Langsung ke WhatsApp Pelanggan
+                  </span>
+                  <span className="text-[10px] flex items-center gap-1.5 font-semibold">
+                    {waStatus === "connected" ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        WA Bot Online (Siap Mengirim)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsConnectModalOpen(true);
+                          handleStartConnect();
+                        }}
+                        className="text-rose-500 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        WA Bot Offline (Klik untuk Hubungkan)
+                      </button>
+                    )}
+                  </span>
+                </div>
+
+                <form onSubmit={handleSendAdminReply} className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <input
                       type="text"
-                      placeholder={`Ketik pesan simulasi untuk menguji respon bot WhatsApp (cth: "1", "menu", format ubah)...`}
-                      value={simText}
-                      onChange={(e) => setSimText(e.target.value)}
-                      disabled={isSimulating}
-                      className="w-full pl-4 pr-10 py-2.5 bg-muted/60 dark:bg-zinc-950 border border-border dark:border-zinc-800 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
+                      placeholder={
+                        waStatus === "connected"
+                          ? `Ketik balasan admin untuk dikirim langsung ke WhatsApp ${formatPhoneNumber(selectedContact?.phoneNumber)}...`
+                          : `Bot WhatsApp offline — Sambungkan bot untuk membalas langsung ke nomor pelanggan...`
+                      }
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      disabled={isSendingReply}
+                      className="w-full pl-4 pr-10 py-2.5 bg-muted/60 dark:bg-zinc-950 border border-border dark:border-zinc-800 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all placeholder:text-muted-foreground"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Bot className="w-4 h-4 text-primary/60" />
+                      <Send className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isSimulating || !simText.trim()}
-                    className="px-4 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm shadow-primary/20 shrink-0 cursor-pointer"
+                    disabled={isSendingReply || !replyText.trim()}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 shrink-0 cursor-pointer"
                   >
-                    {isSimulating ? (
+                    {isSendingReply ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Send className="w-3.5 h-3.5" />
                     )}
-                    <span>Simulasi Kirim</span>
+                    <span>Kirim Pesan</span>
                   </button>
                 </form>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-muted-foreground px-0.5">
+                  <span>
+                    💬 Pesan dikirim resmi dari nomor WhatsApp Admin ke HP pelanggan secara real-time.
+                  </span>
+                  <a
+                    href={`https://wa.me/${selectedContact.phoneNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-foreground underline flex items-center gap-1 self-start sm:self-auto"
+                  >
+                    Atau buka aplikasi WhatsApp Web
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                </div>
               </div>
             </>
           ) : (
@@ -878,11 +988,12 @@ export default function AdminWhatsAppLogsPage() {
                   </div>
 
                   <div className="bg-muted/40 dark:bg-zinc-950/60 p-4 rounded-2xl border border-border text-left space-y-2 text-xs">
-                    <p className="font-extrabold text-foreground">💡 Tips Menjalankan Bot:</p>
+                    <p className="font-extrabold text-foreground">💡 Tips Menjalankan & Menghentikan Bot:</p>
                     <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground leading-relaxed">
-                      <li><strong>Lewat CMD/Terminal</strong>: Buka terminal dan jalankan <code>npm run wa:bot</code>.</li>
-                      <li><strong>Lewat File Windows (Senyap)</strong>: Klik ganda file <code>Start-WhatsApp-Bot.vbs</code> di folder project Anda (bot akan jalan diam-diam di background).</li>
-                      <li>Begitu bot aktif, QR Code akan otomatis muncul di layar ini secara live untuk di-scan!</li>
+                      <li><strong>Menjalankan di Terminal</strong>: Buka terminal dan jalankan <code>npm run wa:bot</code>.</li>
+                      <li><strong>Menjalankan di Background</strong>: Klik ganda file <code>Start-WhatsApp-Bot.vbs</code> di folder project Anda.</li>
+                      <li><strong>Menghentikan Bot</strong>: Klik ganda file <code>Stop-WhatsApp-Bot.vbs</code> atau jalankan <code>npm run wa:bot:stop</code> di terminal.</li>
+                      <li>Begitu bot aktif, status otomatis terhubung atau QR Code langsung muncul live untuk di-scan!</li>
                     </ol>
                   </div>
 

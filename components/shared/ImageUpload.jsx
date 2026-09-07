@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { UploadCloud, X, Cat } from "lucide-react";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export function ImageUpload({
   onUpload,
@@ -16,6 +17,10 @@ export function ImageUpload({
   const [preview, setPreview] = useState(initialPreview);
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  // Auto-dismiss upload errors after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
+
   const fileInputRef = useRef(null);
 
   useEffect(() => {

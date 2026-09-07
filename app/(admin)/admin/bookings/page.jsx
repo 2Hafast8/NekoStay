@@ -28,6 +28,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 import { formatRupiah } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/dates";
 import { getCheckoutCalculation } from "@/lib/utils/pricing";
@@ -85,6 +86,7 @@ export default function AdminBookingsPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
   const [isAutoRejecting, setIsAutoRejecting] = useState(false);
+  const [isAutoRejectConfirmOpen, setIsAutoRejectConfirmOpen] = useState(false);
 
   // Approve Dialog
   const [isApproveOpen, setIsApproveOpen] = useState(false);
@@ -236,7 +238,7 @@ export default function AdminBookingsPage() {
 
   const handleExportPDF = async () => {
     if (!filteredBookings || filteredBookings.length === 0) {
-      alert("Tidak ada data untuk diekspor.");
+      toast.error("Tidak ada data untuk diekspor.");
       return;
     }
 
@@ -391,7 +393,7 @@ export default function AdminBookingsPage() {
       doc.save(`Laporan_Pesanan_NekoStay_${sanitizeName(activeTab)}_${selectedYear}_${selectedMonth}.pdf`);
     } catch (error) {
       console.error("Gagal mengekspor PDF:", error);
-      alert("Terjadi kesalahan saat memproses ekspor PDF.");
+      toast.error("Terjadi kesalahan saat memproses ekspor PDF.");
     }
   };
 
@@ -474,12 +476,12 @@ export default function AdminBookingsPage() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
-      alert(result.message || "Berhasil menyetujui pesanan.");
+      toast.success(result.message || "Berhasil menyetujui pesanan.");
       setSelectedIds([]);
       fetchAllBookings();
     } catch (err) {
       console.error("Bulk approve error:", err);
-      alert(err.message || "Gagal menyetujui pesanan terpilih.");
+      toast.error(err.message || "Gagal menyetujui pesanan terpilih.");
     } finally {
       setIsBulkLoading(false);
     }
@@ -493,34 +495,27 @@ export default function AdminBookingsPage() {
          method: "POST",
          headers: { "Content-Type": "application/json" },
          body: JSON.stringify({
-           ids: selectedIds,
-           action: "reject",
-           rejectReason: bulkRejectReason,
+            ids: selectedIds,
+            action: "reject",
+            rejectReason: bulkRejectReason,
          }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
-      alert(result.message || "Berhasil menolak pesanan.");
+      toast.success(result.message || "Berhasil menolak pesanan.");
       setSelectedIds([]);
       setBulkRejectReason("");
       setIsBulkRejectOpen(false);
       fetchAllBookings();
     } catch (err) {
       console.error("Bulk reject error:", err);
-      alert(err.message || "Gagal menolak pesanan terpilih.");
+      toast.error(err.message || "Gagal menolak pesanan terpilih.");
     } finally {
       setIsBulkLoading(false);
     }
   };
 
   const handleAutoRejectWaiting = async () => {
-    if (
-      !confirm(
-        "Jalankan evaluasi otomatis untuk seluruh pesanan berstatus Menunggu & Antrian?\n\nPesanan yang kapasitas kamarnya penuh dan waktu ketersediaan terdekat > 3 hari akan otomatis ditolak dengan template penolakan kamar penuh."
-      )
-    ) {
-      return;
-    }
     setIsAutoRejecting(true);
     try {
       const res = await fetch("/api/bookings/auto-reject-waiting", {
@@ -529,15 +524,16 @@ export default function AdminBookingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal mengevaluasi antrian");
-      alert(
+      toast.success(
         data.message ||
           `Evaluasi selesai: ${data.data?.rejectedCount || 0} pesanan ditolak otomatis.`
       );
       fetchAllBookings();
     } catch (err) {
-      alert(err.message || "Gagal mengevaluasi antrian kamar");
+      toast.error(err.message || "Gagal mengevaluasi antrian kamar");
     } finally {
       setIsAutoRejecting(false);
+      setIsAutoRejectConfirmOpen(false);
     }
   };
 
@@ -668,7 +664,7 @@ export default function AdminBookingsPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={handleAutoRejectWaiting}
+            onClick={() => setIsAutoRejectConfirmOpen(true)}
             disabled={isAutoRejecting}
             className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl transition-colors cursor-pointer text-rose-600 dark:text-rose-400 flex items-center gap-1.5 border border-rose-500/20 disabled:opacity-50"
             title="Periksa & Tolak Otomatis Antrian Kamar Penuh (>3 Hari)"
@@ -1166,12 +1162,13 @@ export default function AdminBookingsPage() {
                                         });
                                         if (!res.ok) {
                                           const data = await res.json();
-                                          alert(data.error || 'Gagal mengubah status');
+                                          toast.error(data.error || 'Gagal mengubah status pembayaran');
                                           return;
                                         }
+                                        toast.success('Status pembayaran berhasil diperbarui');
                                         fetchAllBookings();
                                       } catch (err) {
-                                        alert(err.message || 'Terjadi kesalahan');
+                                        toast.error(err.message || 'Terjadi kesalahan');
                                       }
                                     }}
                                     className={b.payment_status === opt.value ? 'text-orange-600 dark:text-orange-400 font-bold' : ''}
@@ -1539,6 +1536,19 @@ export default function AdminBookingsPage() {
           />
         </div>
       </ConfirmDialog>
+
+      {/* AUTO REJECT CONFIRMATION DIALOG */}
+      <ConfirmDialog
+        isOpen={isAutoRejectConfirmOpen}
+        title="Evaluasi & Tolak Otomatis Antrian Kamar?"
+        description="Jalankan evaluasi otomatis untuk seluruh pesanan berstatus Menunggu & Antrian. Pesanan yang kapasitas kamarnya penuh dan waktu ketersediaan terdekat > 3 hari akan otomatis ditolak dengan template penolakan kamar penuh."
+        confirmText="Jalankan Evaluasi"
+        cancelText="Batal"
+        variant="warning"
+        isLoading={isAutoRejecting}
+        onConfirm={handleAutoRejectWaiting}
+        onCancel={() => setIsAutoRejectConfirmOpen(false)}
+      />
     </div>
   );
 }

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2, Copy, Share2, Users, Gift } from "lucide-react";
+import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2, Copy, Share2, Users, Gift, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -34,6 +35,11 @@ export default function ProfilePage() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
+  useAutoDismiss(successMsg, setSuccessMsg);
+  useAutoDismiss(copySuccess, setCopySuccess);
 
   const supabase = createClient();
   const containerRef = useRef(null);
@@ -146,16 +152,36 @@ export default function ProfilePage() {
       </div>
 
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-4 text-xs font-semibold leading-relaxed flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-          <span>{successMsg}</span>
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-4 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -350,6 +376,11 @@ function ChangePasswordCard({ language }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
+  useAutoDismiss(successMsg, setSuccessMsg);
+
   const supabase = createClient();
 
   const cardRef = useRef(null);
@@ -435,16 +466,36 @@ function ChangePasswordCard({ language }) {
       </div>
 
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-4 text-xs font-bold flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-          <span>{successMsg}</span>
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 

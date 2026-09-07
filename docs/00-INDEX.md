@@ -12,6 +12,7 @@
 
 | File | Deskripsi & Fokus Utama |
 |------|-------------------------|
+| [SYSTEM_WALKTHROUGH.md](./SYSTEM_WALKTHROUGH.md) | **Complete System Code Flow Walkthrough** - Alur kode detail 10 subsistem, diagram Mermaid, data flow traces, dan referensi implementasi file. |
 | [C4-ARCHITECTURE.md](./C4-ARCHITECTURE.md) | **Arsitektur C4 Code-Level** - Diagram Mermaid Context, Container, Component, & Code Signatures. |
 | [API-SPECIFICATION.md](./API-SPECIFICATION.md) | **Spesifikasi Lengkap 30 REST API Endpoints** - Auth levels, payload schema, dan status respons. |
 | [SECURITY-AUDIT.md](./SECURITY-AUDIT.md) | **Laporan Audit Keamanan OWASP Top 10 & Compliance** - DevSecOps, proteksi RBAC, dan kepatuhan GDPR/PDP. |

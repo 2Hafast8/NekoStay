@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { resolveRemoteJid } from "@/lib/whatsapp/jid";
 
 export async function GET(request) {
   try {
@@ -79,9 +80,14 @@ export async function GET(request) {
           ? log.sender_name
           : null;
 
+      const logRemoteJid =
+        log.metadata?.remote_jid ||
+        resolveRemoteJid(p, log.metadata);
+
       if (!contactMap.has(p)) {
         contactMap.set(p, {
           phoneNumber: p,
+          remoteJid: logRemoteJid,
           senderName: logCustomerName || `Pelanggan ${p.slice(-4)}`,
           lastMessage: log.message_text,
           lastMessageDirection: log.direction,
@@ -94,6 +100,9 @@ export async function GET(request) {
       } else {
         const c = contactMap.get(p);
         c.totalMessages += 1;
+        if (!c.remoteJid && logRemoteJid) {
+          c.remoteJid = logRemoteJid;
+        }
         // Prioritise real customer name over fallback
         if (logCustomerName && (!c.senderName || c.senderName.startsWith("Pelanggan "))) {
           c.senderName = logCustomerName;

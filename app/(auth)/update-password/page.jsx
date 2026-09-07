@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cat, KeyRound, Sparkles, ArrowRight, AlertCircle, CheckCircle2, RefreshCw } from "lucide-react";
+import { Cat, KeyRound, Sparkles, ArrowRight, AlertCircle, CheckCircle2, RefreshCw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -15,6 +16,16 @@ export default function UpdatePasswordPage() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [isExpired, setIsExpired] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useEffect(() => {
+    if (!errorMsg || isExpired) return;
+    const timer = setTimeout(() => setErrorMsg(null), 3000);
+    return () => clearTimeout(timer);
+  }, [errorMsg, isExpired]);
+
+  useAutoDismiss(successMsg, setSuccessMsg);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -154,10 +165,22 @@ export default function UpdatePasswordPage() {
         </div>
 
         {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold space-y-2">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>{errorMsg}</span>
+          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold space-y-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+              {!isExpired && (
+                <button
+                  type="button"
+                  onClick={() => setErrorMsg(null)}
+                  className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+                  title="Tutup notifikasi"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             {isExpired && (
               <Link
@@ -172,9 +195,19 @@ export default function UpdatePasswordPage() {
         )}
 
         {successMsg && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>{successMsg}</span>
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSuccessMsg(null)}
+              className="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-500 transition-colors cursor-pointer"
+              title="Tutup notifikasi"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 

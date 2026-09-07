@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Settings,
   Check,
@@ -31,6 +31,10 @@ import {
   Palette,
   RefreshCcw,
   Save,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatRupiah } from "@/lib/utils/format";
@@ -39,6 +43,8 @@ import { ImageUpload } from "@/components/shared/ImageUpload";
 import { useBrandColor } from "@/components/providers/BrandColorProvider";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 
 const DEFAULT_HERO = {
   badge_id: "Penitipan Kucing Premium",
@@ -201,6 +207,117 @@ export default function AdminSettingsPage() {
   const [maintenanceCagesMap, setMaintenanceCagesMap] = useState({});
   const [isUpdatingClass, setIsUpdatingClass] = useState(null);
 
+  // Real active bookings state for calculating real occupied cages
+  const [activeBookings, setActiveBookings] = useState([]);
+
+  // Helper to count occupied cages (bookings with status 'Aktif')
+  const getOccupiedCagesCount = (className, classId) => {
+    if (!className && !classId) return 0;
+    const targetName = (className || "").trim().toLowerCase();
+    const targetId = (classId || "").trim().toLowerCase();
+    return activeBookings.filter((b) => {
+      if (b.status !== "Aktif") return false;
+      const bClass = (b.class || "").trim().toLowerCase();
+      return (
+        bClass === targetName ||
+        bClass === targetId ||
+        targetName.includes(bClass) ||
+        bClass.includes(targetName)
+      );
+    }).length;
+  };
+
+  // Helper to count waiting bookings (status 'Menunggu')
+  const getWaitingCagesCount = (className, classId) => {
+    if (!className && !classId) return 0;
+    const targetName = (className || "").trim().toLowerCase();
+    const targetId = (classId || "").trim().toLowerCase();
+    return activeBookings.filter((b) => {
+      if (b.status !== "Menunggu") return false;
+      const bClass = (b.class || "").trim().toLowerCase();
+      return (
+        bClass === targetName ||
+        bClass === targetId ||
+        targetName.includes(bClass) ||
+        bClass.includes(targetName)
+      );
+    }).length;
+  };
+
+  // Helper to get active cat names for tooltip / detail
+  const getActiveCatsForClass = (className, classId) => {
+    if (!className && !classId) return [];
+    const targetName = (className || "").trim().toLowerCase();
+    const targetId = (classId || "").trim().toLowerCase();
+    return activeBookings
+      .filter((b) => {
+        if (b.status !== "Aktif") return false;
+        const bClass = (b.class || "").trim().toLowerCase();
+        return (
+          bClass === targetName ||
+          bClass === targetId ||
+          targetName.includes(bClass) ||
+          bClass.includes(targetName)
+        );
+      })
+      .map((b) => b.cat_name || "Kucing");
+  };
+
+  // Card Slider ref & navigation helpers
+  const classSliderRef = useRef(null);
+
+  const scrollClassSlider = (direction) => {
+    if (!classSliderRef.current) return;
+    const scrollAmount = 310;
+    classSliderRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+
+  const scrollToClassIndex = (index) => {
+    if (!classSliderRef.current) return;
+    const cards = classSliderRef.current.children;
+    if (cards[index]) {
+      cards[index].scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  };
+
+  // Edit Class Modal State
+  const [showEditClassModal, setShowEditClassModal] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [editClassForm, setEditClassForm] = useState({
+    id: "",
+    name: "",
+    price_per_day: "",
+    description: "",
+    facilitiesText: "",
+    image_url: "",
+    total_cages: "10",
+    maintenance_cages: "0",
+  });
+
+  const handleOpenEditModal = (cls) => {
+    setEditingClass(cls);
+    setEditClassForm({
+      id: cls.id,
+      name: cls.name || "",
+      price_per_day: String(cls.price_per_day || prices[cls.id] || ""),
+      description: cls.description || descriptions[cls.id] || "",
+      facilitiesText: Array.isArray(cls.facilities)
+        ? cls.facilities.join(", ")
+        : facilitiesMap[cls.id] || "",
+      image_url: cls.image_url || roomImages[cls.id] || "",
+      total_cages: String(cls.total_cages ?? totalCagesMap[cls.id] ?? 10),
+      maintenance_cages: String(cls.maintenance_cages ?? maintenanceCagesMap[cls.id] ?? 0),
+    });
+    setShowEditClassModal(true);
+  };
+
   // New Class Form State
   const [showAddClassModal, setShowAddClassModal] = useState(false);
   const [newClassForm, setNewClassForm] = useState({
@@ -275,6 +392,33 @@ export default function AdminSettingsPage() {
   const [successMsg, setSuccessMsg] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Modern Confirmation Modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "Konfirmasi",
+    variant: "danger",
+    onConfirm: () => {},
+  });
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useEffect(() => {
+    if (!successMsg) return;
+    const timer = setTimeout(() => {
+      setSuccessMsg(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [successMsg]);
+
+  useEffect(() => {
+    if (!errorMsg) return;
+    const timer = setTimeout(() => {
+      setErrorMsg(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [errorMsg]);
 
   const supabase = createClient();
 
@@ -356,6 +500,16 @@ export default function AdminSettingsPage() {
           }
         });
       }
+
+      // 4. Fetch Active & Pending Bookings for real-time cage occupancy
+      const { data: bookingsData } = await supabase
+        .from("bookings")
+        .select("id, cat_name, class, status, check_in_date, check_out_date")
+        .in("status", ["Aktif", "Menunggu"]);
+
+      if (bookingsData) {
+        setActiveBookings(bookingsData);
+      }
     } catch (err) {
       console.error("Error loading settings:", err);
     } finally {
@@ -428,6 +582,28 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     loadAllSettings();
+
+    // Supabase Realtime subscription to keep active bookings / cage occupancy in sync
+    const channel = supabase
+      .channel(`admin-settings-bookings-${Math.random().toString(36).substring(7)}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bookings" },
+        async () => {
+          const { data: updatedBookings } = await supabase
+            .from("bookings")
+            .select("id, cat_name, class, status, check_in_date, check_out_date")
+            .in("status", ["Aktif", "Menunggu"]);
+          if (updatedBookings) {
+            setActiveBookings(updatedBookings);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Save Class Details
@@ -466,6 +642,70 @@ export default function AdminSettingsPage() {
       loadAllSettings();
     } catch (err) {
       setErrorMsg(err.message || "Gagal memperbarui kamar.");
+    } finally {
+      setIsUpdatingClass(null);
+    }
+  };
+
+  // Save Edit Class from Modal
+  const handleSaveEditClass = async (e) => {
+    e.preventDefault();
+    if (!editingClass) return;
+
+    setIsUpdatingClass(editingClass.id);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const price = parseInt(editClassForm.price_per_day, 10);
+    if (!editClassForm.name.trim() || isNaN(price) || price <= 0) {
+      setErrorMsg("Nama kelas dan tarif per hari (angka positif) wajib diisi.");
+      setIsUpdatingClass(null);
+      return;
+    }
+
+    const facilitiesArray = (editClassForm.facilitiesText || "")
+      .split(",")
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0);
+
+    const totalCages = parseInt(editClassForm.total_cages || "10", 10);
+    const maintenanceCages = parseInt(editClassForm.maintenance_cages || "0", 10);
+
+    const currentOccupied = getOccupiedCagesCount(editingClass.name, editingClass.id);
+    if (totalCages - maintenanceCages < currentOccupied) {
+      const confirmSave = window.confirm(
+        `Perhatian: Total kandang efektif (${totalCages - maintenanceCages}) lebih kecil daripada kandang yang sedang terpakai saat ini (${currentOccupied}). Apakah Anda yakin ingin tetap menyimpan?`
+      );
+      if (!confirmSave) {
+        setIsUpdatingClass(null);
+        return;
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from("classes")
+        .update({
+          name: editClassForm.name.trim(),
+          price_per_day: price,
+          description: editClassForm.description.trim(),
+          facilities: facilitiesArray,
+          image_url: editClassForm.image_url || null,
+          total_cages: isNaN(totalCages) ? 10 : totalCages,
+          maintenance_cages: isNaN(maintenanceCages) ? 0 : maintenanceCages,
+        })
+        .eq("id", editingClass.id);
+
+      if (error) throw error;
+
+      setSuccessMsg(`Kelas kamar "${editClassForm.name}" berhasil diperbarui!`);
+      toast.success(`Kelas kamar "${editClassForm.name}" berhasil diperbarui!`);
+      setShowEditClassModal(false);
+      setEditingClass(null);
+      await loadAllSettings();
+    } catch (err) {
+      setErrorMsg(err.message || "Gagal memperbarui kelas kamar.");
+      toast.error(err.message || "Gagal memperbarui kelas kamar.");
     } finally {
       setIsUpdatingClass(null);
     }
@@ -525,22 +765,31 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Delete Class
-  const handleDeleteClass = async (cls) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus kelas "${cls.name}"?`)) return;
+  // Delete Class with Modern Modal
+  const handleDeleteClass = (cls) => {
+    setConfirmModal({
+      isOpen: true,
+      title: `Hapus Kelas ${cls.name}?`,
+      description: `Apakah Anda yakin ingin menghapus kelas "${cls.name}"? Pelanggan tidak akan dapat memilih paket kamar ini lagi.`,
+      confirmText: "Hapus Kelas",
+      variant: "danger",
+      onConfirm: async () => {
+        setErrorMsg(null);
+        setSuccessMsg(null);
 
-    setErrorMsg(null);
-    setSuccessMsg(null);
+        try {
+          const { error } = await supabase.from("classes").delete().eq("id", cls.id);
+          if (error) throw error;
 
-    try {
-      const { error } = await supabase.from("classes").delete().eq("id", cls.id);
-      if (error) throw error;
-
-      setSuccessMsg(`Kelas kamar "${cls.name}" berhasil dihapus.`);
-      loadAllSettings();
-    } catch (err) {
-      setErrorMsg(err.message || "Gagal menghapus kelas kamar.");
-    }
+          setSuccessMsg(`Kelas kamar "${cls.name}" berhasil dihapus.`);
+          toast.success(`Kelas kamar "${cls.name}" berhasil dihapus.`);
+          loadAllSettings();
+        } catch (err) {
+          setErrorMsg(err.message || "Gagal menghapus kelas kamar.");
+          toast.error(err.message || "Gagal menghapus kelas kamar.");
+        }
+      },
+    });
   };
 
   // Create New Promo
@@ -610,17 +859,27 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Delete Promo
-  const handleDeletePromo = async (promo) => {
-    if (!confirm(`Hapus kode promo "${promo.code}"?`)) return;
-    try {
-      const { error } = await supabase.from("promos").delete().eq("id", promo.id);
-      if (error) throw error;
-      setSuccessMsg(`Kode promo "${promo.code}" berhasil dihapus.`);
-      loadAllSettings();
-    } catch (err) {
-      setErrorMsg("Gagal menghapus kode promo.");
-    }
+  // Delete Promo with Modern Modal
+  const handleDeletePromo = (promo) => {
+    setConfirmModal({
+      isOpen: true,
+      title: `Hapus Promo ${promo.code}?`,
+      description: `Apakah Anda yakin ingin menghapus voucher promo "${promo.title}" (Kode: ${promo.code})?`,
+      confirmText: "Hapus Promo",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from("promos").delete().eq("id", promo.id);
+          if (error) throw error;
+          setSuccessMsg(`Kode promo "${promo.code}" berhasil dihapus.`);
+          toast.success(`Kode promo "${promo.code}" berhasil dihapus.`);
+          loadAllSettings();
+        } catch (err) {
+          setErrorMsg("Gagal menghapus kode promo.");
+          toast.error("Gagal menghapus kode promo.");
+        }
+      },
+    });
   };
 
   // Save Hero Section
@@ -738,37 +997,41 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Reset all landing settings to default
-  const handleResetToDefault = async () => {
-    if (
-      !confirm(
-        "Apakah Anda yakin ingin mengembalikan seluruh konten Landing Page, Hero Banner, Keunggulan, FAQ, dan Kontak ke kondisi awal bawaan?"
-      )
-    )
-      return;
+  // Reset all landing settings to default with Modern Modal
+  const handleResetToDefault = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Kembalikan ke Tampilan Awal Bawaan?",
+      description: "Apakah Anda yakin ingin mengembalikan seluruh konten Landing Page, Hero Banner, Keunggulan, FAQ, dan Kontak ke kondisi awal bawaan pabrik?",
+      confirmText: "Reset ke Default",
+      variant: "danger",
+      onConfirm: async () => {
+        setIsResetting(true);
+        setSuccessMsg(null);
+        setErrorMsg(null);
 
-    setIsResetting(true);
-    setSuccessMsg(null);
-    setErrorMsg(null);
+        try {
+          await supabase.from("landing_settings").upsert([
+            { id: "hero", content: DEFAULT_HERO, updated_at: new Date().toISOString() },
+            { id: "why_us", content: DEFAULT_WHY_US, updated_at: new Date().toISOString() },
+            { id: "faqs", content: DEFAULT_FAQS, updated_at: new Date().toISOString() },
+            { id: "contact", content: DEFAULT_CONTACT, updated_at: new Date().toISOString() },
+          ]);
 
-    try {
-      await supabase.from("landing_settings").upsert([
-        { id: "hero", content: DEFAULT_HERO, updated_at: new Date().toISOString() },
-        { id: "why_us", content: DEFAULT_WHY_US, updated_at: new Date().toISOString() },
-        { id: "faqs", content: DEFAULT_FAQS, updated_at: new Date().toISOString() },
-        { id: "contact", content: DEFAULT_CONTACT, updated_at: new Date().toISOString() },
-      ]);
-
-      setHeroForm(DEFAULT_HERO);
-      setWhyUsItems(DEFAULT_WHY_US);
-      setFaqItems(DEFAULT_FAQS);
-      setContactForm(DEFAULT_CONTACT);
-      setSuccessMsg("Seluruh konten Landing Page berhasil dikembalikan ke tampilan awal bawaan!");
-    } catch (err) {
-      setErrorMsg(err.message || "Gagal melakukan reset ke default.");
-    } finally {
-      setIsResetting(false);
-    }
+          setHeroForm(DEFAULT_HERO);
+          setWhyUsItems(DEFAULT_WHY_US);
+          setFaqItems(DEFAULT_FAQS);
+          setContactForm(DEFAULT_CONTACT);
+          setSuccessMsg("Seluruh konten Landing Page berhasil dikembalikan ke tampilan awal bawaan!");
+          toast.success("Konten Landing Page berhasil direset ke default.");
+        } catch (err) {
+          setErrorMsg(err.message || "Gagal mengembalikan pengaturan.");
+          toast.error(err.message || "Gagal mengembalikan pengaturan.");
+        } finally {
+          setIsResetting(false);
+        }
+      },
+    });
   };
 
   return (
@@ -789,18 +1052,38 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Global Alerts */}
+      {/* Global Alerts (Auto-dismisses in 3s or can be closed manually) */}
       {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-2xl p-4 text-xs font-bold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{errorMsg}</span>
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded-2xl p-4 text-xs font-bold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-          <span>{successMsg}</span>
+        <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -932,21 +1215,61 @@ export default function AdminSettingsPage() {
         <GsapDataLoader type="cards" message="Memuat Pengaturan Sistem..." rows={6} />
       ) : (
         <>
-          {/* TAB 1: KELAS KAMAR */}
+          {/* TAB 1: KELAS KAMAR (CARD SLIDE MODE) */}
           {activeTab === "rooms" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-100 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" />
-              <span>Kelola Kelas Kamar & Tarif</span>
-            </h3>
-            <button
-              onClick={() => setShowAddClassModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/10 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Kelas Baru</span>
-            </button>
+          {/* Header Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-100 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                <span>Kelola Kelas Kamar & Tarif</span>
+                <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-primary/10 text-primary">
+                  Card Slide
+                </span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Geser kartu ke samping atau gunakan tombol panah untuk meninjau dan mengedit paket kamar.
+              </p>
+            </div>
+
+            <div className="flex items-center flex-wrap gap-2.5">
+              {/* Slider Navigation Arrows */}
+              {classes.length > 0 && (
+                <div className="flex items-center gap-1 bg-muted/40 dark:bg-zinc-800/40 p-1 rounded-2xl border border-border/70">
+                  <button
+                    type="button"
+                    onClick={() => scrollClassSlider("left")}
+                    className="p-2 rounded-xl hover:bg-card dark:hover:bg-zinc-800 text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Geser ke Kiri"
+                    aria-label="Slide Kiri"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[11px] font-black px-2.5 text-muted-foreground select-none">
+                    {classes.length} Kelas
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => scrollClassSlider("right")}
+                    className="p-2 rounded-xl hover:bg-card dark:hover:bg-zinc-800 text-muted-foreground hover:text-foreground transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Geser ke Kanan"
+                    aria-label="Slide Kanan"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Add New Class Button */}
+              <button
+                onClick={() => setShowAddClassModal(true)}
+                className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/10 transition-all active:scale-98"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Kelas Baru</span>
+              </button>
+            </div>
           </div>
 
           {classes.length === 0 ? (
@@ -954,169 +1277,195 @@ export default function AdminSettingsPage() {
               Belum ada kelas kamar. Klik 'Tambah Kelas Baru' untuk membuat kelas.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {classes.map((cls) => (
+            <div className="space-y-4">
+              {/* HORIZONTAL CARD SLIDER */}
+              <div className="relative">
+                {/* Scrollable Track */}
                 <div
-                  key={cls.id}
-                  className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4 flex flex-col justify-between"
+                  ref={classSliderRef}
+                  className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 pt-1 px-1 no-scrollbar"
+                  style={{ scrollbarWidth: "thin" }}
                 >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                      <div>
-                        <h4 className="text-base font-black text-foreground dark:text-zinc-100">
-                          {cls.name}
-                        </h4>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
-                          ID Kelas: {cls.id.slice(0, 8)}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteClass(cls)}
-                        className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
-                        title="Hapus Kelas"
+                  {classes.map((cls, idx) => {
+                    const totalCages = parseInt(cls.total_cages ?? totalCagesMap[cls.id] ?? 10, 10);
+                    const maintenanceCages = parseInt(cls.maintenance_cages ?? maintenanceCagesMap[cls.id] ?? 0, 10);
+                    const occupiedCages = getOccupiedCagesCount(cls.name, cls.id);
+                    const waitingCages = getWaitingCagesCount(cls.name, cls.id);
+                    const activeCats = getActiveCatsForClass(cls.name, cls.id);
+                    const availableCages = Math.max(0, totalCages - maintenanceCages - occupiedCages);
+                    const occupancyRate = totalCages > 0 ? Math.min(100, Math.round((occupiedCages / totalCages) * 100)) : 0;
+                    const maintenanceRate = totalCages > 0 ? Math.min(100, Math.round((maintenanceCages / totalCages) * 100)) : 0;
+                    const priceFormatted = Number(cls.price_per_day || prices[cls.id] || 0).toLocaleString("id-ID");
+                    const imgUrl = cls.image_url || roomImages[cls.id] || "";
+                    const facilitiesList = Array.isArray(cls.facilities)
+                      ? cls.facilities
+                      : (facilitiesMap[cls.id] || "").split(",").map((f) => f.trim()).filter(Boolean);
+
+                    return (
+                      <div
+                        key={cls.id}
+                        className="w-[260px] sm:w-[280px] md:w-[300px] shrink-0 snap-center bg-card dark:bg-zinc-900 border border-border/80 dark:border-zinc-800 rounded-3xl overflow-hidden flex flex-col justify-between shadow-xs hover:shadow-md hover:border-primary/50 transition-all duration-300 group"
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                        {/* Compact Top Image Banner */}
+                        <div className="relative w-full h-36 bg-muted/40 overflow-hidden border-b border-border/60">
+                          {imgUrl ? (
+                            <img
+                              src={imgUrl}
+                              alt={cls.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/40 bg-muted/20">
+                              <Cat className="w-8 h-8 mb-1 opacity-50 text-primary" />
+                              <span className="text-[10px] font-bold">Belum Ada Foto</span>
+                            </div>
+                          )}
 
-                    {/* Image Upload */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
-                        Foto Kamar / Kandang
-                      </label>
-                      <ImageUpload
-                        value={roomImages[cls.id] || ""}
-                        onChange={(url) =>
-                          setRoomImages({ ...roomImages, [cls.id]: url })
-                        }
-                        folder="rooms"
-                      />
-                    </div>
+                          {/* Index Badge */}
+                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white text-[10px] font-black uppercase tracking-wider">
+                              #{idx + 1}
+                            </span>
+                          </div>
 
-                    {/* Cage Capacity & Maintenance Status */}
-                    <div className="p-3 bg-muted/20 border border-border dark:border-zinc-800 rounded-2xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-                          <Cat className="w-3.5 h-3.5 text-primary" />
-                          Kapasitas & Perawatan Kandang
-                        </span>
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                          (parseInt(totalCagesMap[cls.id] || 10) - parseInt(maintenanceCagesMap[cls.id] || 0)) > 0
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        }`}>
-                          {Math.max(0, parseInt(totalCagesMap[cls.id] || 10) - parseInt(maintenanceCagesMap[cls.id] || 0))} Siap Pakai
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-muted-foreground uppercase">
-                            Total Kandang
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={totalCagesMap[cls.id] ?? 10}
-                            onChange={(e) =>
-                              setTotalCagesMap({
-                                ...totalCagesMap,
-                                [cls.id]: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 bg-card border border-border rounded-xl text-xs font-extrabold text-foreground"
-                          />
+                          {/* Price Tag */}
+                          <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-xl bg-primary/95 backdrop-blur-xs text-primary-foreground text-xs font-black shadow-md">
+                            Rp {priceFormatted}
+                            <span className="text-[10px] font-normal opacity-90">/hari</span>
+                          </div>
                         </div>
 
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-rose-500 uppercase">
-                            Dalam Perbaikan
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={maintenanceCagesMap[cls.id] ?? 0}
-                            onChange={(e) =>
-                              setMaintenanceCagesMap({
-                                ...maintenanceCagesMap,
-                                [cls.id]: e.target.value,
-                              })
-                            }
-                            className="w-full px-3 py-2 bg-card border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs font-extrabold text-rose-600 dark:text-rose-400"
-                          />
+                        {/* Compact Card Content */}
+                        <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                          <div className="space-y-2.5">
+                            {/* Title and ID */}
+                            <div>
+                              <h4 className="text-sm font-black text-foreground dark:text-zinc-100 group-hover:text-primary transition-colors line-clamp-1">
+                                {cls.name}
+                              </h4>
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                ID: {cls.id.slice(0, 8)}
+                              </span>
+                            </div>
+
+                            {/* Description excerpt */}
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed min-h-[2rem]">
+                              {cls.description || descriptions[cls.id] || "Tidak ada deskripsi layanan."}
+                            </p>
+
+                            {/* Real Data Cage Capacity Card Section */}
+                            <div className="p-2.5 rounded-2xl bg-muted/40 dark:bg-zinc-800/40 border border-border/60 space-y-2 text-[11px]">
+                              <div className="flex items-center justify-between font-bold">
+                                <span className="text-muted-foreground flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                                  <Cat className="w-3.5 h-3.5 text-primary" />
+                                  Kapasitas Real
+                                </span>
+                                <span className="text-foreground font-black text-xs">
+                                  {totalCages} <span className="text-[10px] font-normal text-muted-foreground">Kandang</span>
+                                </span>
+                              </div>
+
+                              {/* Real Occupancy Grid */}
+                              <div className="grid grid-cols-2 gap-1.5 text-center">
+                                <div className="p-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider">Terpakai (Real)</div>
+                                  <div className="text-xs font-black">{occupiedCages} Kandang</div>
+                                </div>
+                                <div className="p-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider">Tersedia</div>
+                                  <div className="text-xs font-black">{availableCages} Kandang</div>
+                                </div>
+                              </div>
+
+                              {/* Mini occupancy progress bar */}
+                              <div className="w-full bg-muted dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden flex">
+                                <div
+                                  className="bg-amber-500 transition-all duration-500"
+                                  style={{ width: `${occupancyRate}%` }}
+                                  title={`Terpakai: ${occupiedCages} (${occupancyRate}%)`}
+                                />
+                                {maintenanceRate > 0 && (
+                                  <div
+                                    className="bg-rose-500 transition-all duration-500"
+                                    style={{ width: `${maintenanceRate}%` }}
+                                    title={`Perbaikan: ${maintenanceCages} (${maintenanceRate}%)`}
+                                  />
+                                )}
+                              </div>
+
+                              {/* Sub-status badges & Penghuni info */}
+                              <div className="space-y-1 pt-0.5 border-t border-border/40 text-[10px]">
+                                {(maintenanceCages > 0 || waitingCages > 0) && (
+                                  <div className="flex items-center justify-between font-bold">
+                                    {maintenanceCages > 0 ? (
+                                      <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                        {maintenanceCages} Rusak
+                                      </span>
+                                    ) : <span />}
+                                    {waitingCages > 0 && (
+                                      <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                        {waitingCages} Menunggu
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {activeCats.length > 0 && (
+                                  <div className="text-muted-foreground truncate" title={`Penghuni saat ini: ${activeCats.join(', ')}`}>
+                                    🐾 <span className="font-semibold text-foreground/80">Kucing:</span> {activeCats.join(", ")}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Facilities chips */}
+                            {facilitiesList.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {facilitiesList.slice(0, 3).map((fac, fIdx) => (
+                                  <span
+                                    key={fIdx}
+                                    className="px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground text-[10px] font-medium truncate max-w-[120px]"
+                                  >
+                                    {fac}
+                                  </span>
+                                ))}
+                                {facilitiesList.length > 3 && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-muted/40 text-muted-foreground text-[10px] font-bold">
+                                    +{facilitiesList.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Action Buttons: Tombol Khusus Edit & Hapus */}
+                          <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(cls)}
+                              className="flex-1 py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-98"
+                              title="Edit Pengaturan Kelas"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit Kelas</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClass(cls)}
+                              className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/40 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-colors"
+                              title="Hapus Kelas"
+                              aria-label="Hapus Kelas"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Price Input */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
-                        Tarif per Hari (Rp)
-                      </label>
-                      <input
-                        type="number"
-                        value={prices[cls.id] ?? ""}
-                        onChange={(e) =>
-                          setPrices({ ...prices, [cls.id]: e.target.value })
-                        }
-                        className="w-full px-4 py-2.5 bg-muted/30 border border-border dark:border-zinc-800 rounded-xl text-sm font-bold text-foreground"
-                      />
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
-                        Deskripsi Layanan
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={descriptions[cls.id] ?? ""}
-                        onChange={(e) =>
-                          setDescriptions({
-                            ...descriptions,
-                            [cls.id]: e.target.value,
-                          })
-                        }
-                        className="w-full px-4 py-2 bg-muted/30 border border-border dark:border-zinc-800 rounded-xl text-xs font-medium text-foreground resize-none"
-                      />
-                    </div>
-
-                    {/* Facilities list */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
-                        Fasilitas (Dipisah Koma)
-                      </label>
-                      <input
-                        type="text"
-                        value={facilitiesMap[cls.id] ?? ""}
-                        onChange={(e) =>
-                          setFacilitiesMap({
-                            ...facilitiesMap,
-                            [cls.id]: e.target.value,
-                          })
-                        }
-                        placeholder="Contoh: AC, Makan 3x, Grooming"
-                        className="w-full px-4 py-2 bg-muted/30 border border-border dark:border-zinc-800 rounded-xl text-xs font-medium text-foreground"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleUpdateClass(cls)}
-                    disabled={isUpdatingClass === cls.id}
-                    className="w-full mt-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {isUpdatingClass === cls.id ? (
-                      "Memperbarui..."
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Simpan Perubahan</span>
-                      </>
-                    )}
-                  </button>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </div>
@@ -2269,6 +2618,188 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
+      {/* MODAL EDIT KELAS KAMAR */}
+      {showEditClassModal && editingClass && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 w-full max-w-lg p-6 sm:p-8 rounded-3xl space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <h3 className="text-base font-black text-foreground dark:text-zinc-100 flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-primary" />
+                <span>Edit Kelas Kamar: {editingClass.name}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditClassModal(false);
+                  setEditingClass(null);
+                }}
+                className="text-muted-foreground hover:text-foreground text-xs font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditClass} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-muted-foreground uppercase">Nama Kelas Kamar</label>
+                <input
+                  type="text"
+                  required
+                  value={editClassForm.name}
+                  onChange={(e) => setEditClassForm({ ...editClassForm, name: e.target.value })}
+                  placeholder="Contoh: Deluxe Suite / Executive"
+                  className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground"
+                />
+              </div>
+
+              {/* Real-Time Live Occupancy Banner */}
+              {(() => {
+                const currentOccupied = getOccupiedCagesCount(editingClass.name, editingClass.id);
+                const currentWaiting = getWaitingCagesCount(editingClass.name, editingClass.id);
+                const currentTotal = parseInt(editClassForm.total_cages || "0", 10);
+                const currentMaint = parseInt(editClassForm.maintenance_cages || "0", 10);
+                const currentAvailable = Math.max(0, currentTotal - currentMaint - currentOccupied);
+                const activeCats = getActiveCatsForClass(editingClass.name, editingClass.id);
+                const isOverCapacity = currentTotal - currentMaint < currentOccupied;
+
+                return (
+                  <div className="p-3.5 rounded-2xl bg-muted/40 dark:bg-zinc-800/50 border border-border/70 space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-extrabold text-foreground flex items-center gap-1.5">
+                        <Cat className="w-4 h-4 text-primary" />
+                        Status Kandang Terpakai (Real)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 font-black text-[10px] border border-amber-500/20">
+                        {currentOccupied} Terpakai Saat Ini
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="p-2 rounded-xl bg-card border border-border/60">
+                        <div className="text-[10px] text-muted-foreground font-semibold">Total</div>
+                        <div className="font-black text-foreground">{currentTotal} Kandang</div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-card border border-border/60">
+                        <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Terpakai (Real)</div>
+                        <div className="font-black text-amber-600 dark:text-amber-400">{currentOccupied} Kandang</div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-card border border-border/60">
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Sisa Tersedia</div>
+                        <div className="font-black text-emerald-600 dark:text-emerald-400">{currentAvailable} Kandang</div>
+                      </div>
+                    </div>
+
+                    {activeCats.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground leading-tight">
+                        🐾 <span className="font-semibold text-foreground">Kucing yang sedang menginap:</span> {activeCats.join(", ")}
+                      </p>
+                    )}
+
+                    {isOverCapacity && (
+                      <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Perhatian: Total kandang efektif ({currentTotal - currentMaint}) lebih kecil dari jumlah kandang yang sedang terpakai ({currentOccupied})!</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-extrabold text-muted-foreground uppercase">Total Kandang</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editClassForm.total_cages}
+                    onChange={(e) => setEditClassForm({ ...editClassForm, total_cages: e.target.value })}
+                    placeholder="10"
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-extrabold text-rose-500 uppercase">Dalam Perbaikan</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editClassForm.maintenance_cages}
+                    onChange={(e) => setEditClassForm({ ...editClassForm, maintenance_cages: e.target.value })}
+                    placeholder="0"
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-rose-200 dark:border-rose-900/50 rounded-xl text-sm font-bold text-rose-600 dark:text-rose-400"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-muted-foreground uppercase">Tarif per Hari (Rp)</label>
+                <input
+                  type="number"
+                  required
+                  value={editClassForm.price_per_day}
+                  onChange={(e) => setEditClassForm({ ...editClassForm, price_per_day: e.target.value })}
+                  placeholder="Contoh: 150000"
+                  className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl text-sm font-bold text-foreground"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-muted-foreground uppercase">Deskripsi Ringkas</label>
+                <textarea
+                  rows={2}
+                  value={editClassForm.description}
+                  onChange={(e) => setEditClassForm({ ...editClassForm, description: e.target.value })}
+                  placeholder="Deskripsi keunggulan kelas kamar ini..."
+                  className="w-full px-4 py-2 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground resize-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-muted-foreground uppercase">Fasilitas (Dipisah Koma)</label>
+                <input
+                  type="text"
+                  value={editClassForm.facilitiesText}
+                  onChange={(e) => setEditClassForm({ ...editClassForm, facilitiesText: e.target.value })}
+                  placeholder="Contoh: AC, Air Minum Filter, Grooming 2x"
+                  className="w-full px-4 py-2 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-extrabold text-muted-foreground uppercase">Foto Kamar / Kandang</label>
+                <ImageUpload
+                  value={editClassForm.image_url}
+                  onChange={(url) => setEditClassForm({ ...editClassForm, image_url: url })}
+                  folder="rooms"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditClassModal(false);
+                    setEditingClass(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-border text-xs font-bold hover:bg-muted cursor-pointer"
+                >
+                  Batal
+                </button>
+                <GsapTextButton
+                  type="submit"
+                  isLoading={isUpdatingClass === editingClass.id}
+                  idleText="Simpan Perubahan"
+                  loadingText="Menyimpan..."
+                  successText="Tersimpan!"
+                  className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 cursor-pointer disabled:opacity-50"
+                />
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 2: BUAT KODE PROMO BARU */}
       {showAddPromoModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -2402,6 +2933,21 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Modern Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmText={confirmModal.confirmText}
+        variant={confirmModal.variant}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={async () => {
+          const action = confirmModal.onConfirm;
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+          if (action) await action();
+        }}
+      />
     </div>
   );
 }

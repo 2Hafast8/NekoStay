@@ -32,6 +32,7 @@ export async function POST(request) {
       id: "active_session",
       status: "disconnected",
       qr_code: null,
+      disconnect_requested_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 

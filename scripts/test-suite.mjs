@@ -4,6 +4,26 @@
  * Sesuai skill `javascript-testing-patterns`.
  */
 
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = path.resolve(__dirname, "../.env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, "utf-8");
+  envContent.split("\n").forEach((line) => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
+      const idx = trimmed.indexOf("=");
+      const key = trimmed.slice(0, idx).trim();
+      const val = trimmed.slice(idx + 1).trim();
+      if (!process.env[key]) process.env[key] = val;
+    }
+  });
+}
+
 import {
   calculateEstimatedTotal,
   calculateLateFee,
@@ -37,6 +57,16 @@ import {
   apiNotFound,
   apiBadRequest,
 } from "../lib/utils/response.js";
+import { resolveRemoteJid } from "../lib/whatsapp/jid.js";
+import {
+  processIncomingWhatsAppMessage,
+  BOT_FLOW_STATES,
+  ADMIN_CHAT_INACTIVITY_TIMEOUT_MS,
+  recordConversationActivity,
+  setConversationSession,
+  getConversationSession,
+  checkAndExpireInactiveAdminChats,
+} from "../lib/whatsapp/bot-service.js";
 
 let totalTests = 0;
 let passedTests = 0;
@@ -53,9 +83,9 @@ function assert(condition, message) {
   }
 }
 
-function group(title, fn) {
+async function group(title, fn) {
   console.log(`\n📌 [TEST SUITE] ${title}`);
-  fn();
+  await fn();
 }
 
 // -------------------------------------------------------------
@@ -320,6 +350,187 @@ group("Kapasitas Kamar & Batas Maksimal Antrian 3 Hari", () => {
   assert(templateReason.includes("Premium"), "Template harus memuat nama kelas Premium");
   assert(templateReason.includes("penuh"), "Template harus memuat kata penuh");
   assert(templateReason.includes("3 hari"), "Template harus memuat batas waktu 3 hari");
+});
+
+// -------------------------------------------------------------
+// 7. UNIT TEST: RESOLUSI WHATSAPP JID & ROUTING (LID VS PHONE)
+// -------------------------------------------------------------
+group("WhatsApp JID & LID Routing Resolution", () => {
+  // Test 1: Nomor HP lokal Indonesia dengan awalan 0
+  const jid08 = resolveRemoteJid("082371986344");
+  assert(jid08 === "6282371986344@s.whatsapp.net", `Format 08 harus dikonversi ke 62...@s.whatsapp.net (Didapat: ${jid08})`);
+
+  // Test 2: Nomor HP dengan awalan 62
+  const jid62 = resolveRemoteJid("6282371986344");
+  assert(jid62 === "6282371986344@s.whatsapp.net", `Format 62 harus menghasilkan 62...@s.whatsapp.net (Didapat: ${jid62})`);
+
+  // Test 3: Nomor HP dengan tanda baca / spasi (+62 823-7198-6344)
+  const jidFormatted = resolveRemoteJid("+62 823-7198-6344");
+  assert(jidFormatted === "6282371986344@s.whatsapp.net", `Nomor dengan format tanda baca harus dibersihkan ke 62...@s.whatsapp.net (Didapat: ${jidFormatted})`);
+
+  // Test 4: WhatsApp Linked Identity (LID) 14 digit tidak berawalan 62
+  const jidLid = resolveRemoteJid("37486524936348");
+  assert(jidLid === "37486524936348@lid", `Nomor LID 14 digit harus di-route ke @lid bukan @s.whatsapp.net (Didapat: ${jidLid})`);
+
+  // Test 5: JID yang sudah memiliki akhiran @lid
+  const jidExistingLid = resolveRemoteJid("37486524936348@lid");
+  assert(jidExistingLid === "37486524936348@lid", `JID @lid yang sudah lengkap tidak boleh diubah (Didapat: ${jidExistingLid})`);
+
+  // Test 6: JID yang sudah memiliki akhiran @s.whatsapp.net
+  const jidExistingNet = resolveRemoteJid("6282371986344@s.whatsapp.net");
+  assert(jidExistingNet === "6282371986344@s.whatsapp.net", `JID @s.whatsapp.net yang sudah lengkap tidak boleh diubah (Didapat: ${jidExistingNet})`);
+
+  // Test 7: Metadata override remote_jid harus diprioritaskan
+  const jidMetadata = resolveRemoteJid("37486524936348", { remote_jid: "37486524936348@lid" });
+  assert(jidMetadata === "37486524936348@lid", `Metadata remote_jid harus diprioritaskan (Didapat: ${jidMetadata})`);
+});
+
+// -------------------------------------------------------------
+// 8. INTEGRATION TEST: WHATSAPP CHAT WITH ADMIN & BOT REACTIVATION FLOW
+// -------------------------------------------------------------
+await group("WhatsApp Chat with Admin & Bot Reactivation Flow", async () => {
+  assert(BOT_FLOW_STATES.CHAT_WITH_ADMIN === "chat_with_admin", "State CHAT_WITH_ADMIN harus terdefinisi 'chat_with_admin'");
+
+  const testPhone = "628999888777";
+  const testName = "Budi Santoso";
+
+  // Langkah 1: Pengguna mengirim pesan pertama kali / sapaan -> Bot menampilkan Menu Utama dengan Pilihan 3
+  const initialGreeting = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "Halo",
+  });
+  assert(typeof initialGreeting === "string", "Respon salam pembuka harus berupa string pesan");
+  assert(initialGreeting.includes("3️⃣ *Chat dengan Admin*"), "Menu pembuka harus menampilkan Pilihan 3: Chat dengan Admin");
+
+  // Langkah 2: Pengguna memilih angka 3 -> Bot mengonfirmasi jeda dan menghubungkan ke Admin
+  const replyChoice3 = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "3",
+  });
+  assert(typeof replyChoice3 === "string", "Respon pilihan 3 harus berupa string pesan");
+  assert(replyChoice3.includes("Layanan Terhubung Langsung ke Admin"), "Pilihan 3 harus mengonfirmasi peralihan ke Admin");
+  assert(replyChoice3.includes("Balasan otomatis bot telah dijeda"), "Pilihan 3 harus menginformasikan bahwa auto-reply bot dijeda");
+
+  // Langkah 3: Pengguna mengirim chat biasa dalam mode Admin -> Bot HARUS DIAM (return null)
+  const userChat1 = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "Halo kak admin, saya mau tanya apakah besok ada slot kamar kosong?",
+  });
+  assert(userChat1 === null, "Pesan bebas saat dalam mode Chat dengan Admin harus return null (bot tidak auto-reply)");
+
+  const userChat2 = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "Tolong respon ya admin, terima kasih.",
+  });
+  assert(userChat2 === null, "Pesan lanjutan juga harus tetap return null agar obrolan manual tidak diganggu");
+
+  // Langkah 4: Pengguna mengetik pemicu khusus "MENU" -> Bot kembali aktif dan menampilkan Menu Utama
+  const menuReactivateReply = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "MENU",
+  });
+  assert(typeof menuReactivateReply === "string", "Pemicu MENU harus mengembalikan balasan dari bot");
+  assert(menuReactivateReply.includes("Chat dengan Admin"), "Pemicu MENU harus mengaktifkan kembali bot dan menyajikan menu");
+
+  // Langkah 5: Masuk lagi ke mode Admin, lalu uji pemicu Template Jadwal -> Bot langsung memproses template
+  await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "3",
+  });
+
+  const scheduleTemplateMsg = `*Format Perubahan Jadwal*
+ID Booking: NEKO-TST-001
+Nama Kucing: Mochi
+Jenis: Memajukan Jadwal
+Tanggal Check-In Baru: 2026-09-12
+Tanggal Check-Out Baru: 2026-09-15
+Alasan: Liburan dimajukan 1 hari`;
+
+  const templateReply = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: scheduleTemplateMsg,
+  });
+  assert(typeof templateReply === "string", "Pengiriman template harus direspons langsung oleh bot");
+  assert(templateReply.includes("Pengajuan Ubah Jadwal Anda Telah Diterima"), "Template perubahan jadwal berhasil diproses dan dikonfirmasi");
+
+  // Langkah 6: Verifikasi batas waktu inaktivitas obrolan admin adalah 1 jam (3.600.000 ms)
+  assert(
+    ADMIN_CHAT_INACTIVITY_TIMEOUT_MS === 3600000,
+    `Batas waktu inaktivitas obrolan admin harus 1 jam (3.600.000 ms), didapat: ${ADMIN_CHAT_INACTIVITY_TIMEOUT_MS}`
+  );
+
+  // Langkah 7: Pengguna kembali masuk ke mode Chat Admin
+  await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "3",
+  });
+  const currentSession = getConversationSession(testPhone);
+  assert(currentSession?.state === BOT_FLOW_STATES.CHAT_WITH_ADMIN, "Sesi harus berada dalam status CHAT_WITH_ADMIN");
+
+  // Langkah 8: Pesan dalam batas aktif (< 1 jam) tetap hening / null
+  const activeChat = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "Apakah admin masih di sana?",
+  });
+  assert(activeChat === null, "Pesan saat sesi masih aktif (< 1 jam) harus return null (tanpa auto-reply)");
+
+  // Langkah 9: Simulasikan telah berlalu lebih dari 1 jam tanpa aktivitas chat
+  // Mundurkan lastActivityAt menjadi 1 jam 5 menit lalu
+  setConversationSession(testPhone, {
+    lastActivityAt: Date.now() - (3600000 + 5 * 60 * 1000),
+  });
+
+  // Pelanggan mengirim pesan baru setelah 1 jam inaktivitas -> Bot HARUS OTOMATIS AKTIF KEMBALI
+  const autoRevivedReply = await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "Halo kucing saya bagaimana ya?",
+  });
+  assert(typeof autoRevivedReply === "string", "Setelah 1 jam inaktivitas, pesan pelanggan harus langsung dibalas oleh bot");
+  assert(autoRevivedReply.includes("Chat dengan Admin"), "Bot yang auto-hidup kembali harus menyajikan menu layanan bot");
+
+  // Langkah 10: Pengujian fungsi checkAndExpireInactiveAdminChats (Background Sweep)
+  // Masuk lagi ke mode admin
+  await processIncomingWhatsAppMessage({
+    phoneNumber: testPhone,
+    senderName: testName,
+    messageText: "3",
+  });
+  // Simulasikan 1 jam idle
+  setConversationSession(testPhone, {
+    lastActivityAt: Date.now() - 3605000,
+  });
+
+  let expiredNotified = false;
+  await checkAndExpireInactiveAdminChats(async ({ phoneNumber }) => {
+    if (phoneNumber === testPhone) expiredNotified = true;
+  });
+  assert(expiredNotified === true, "checkAndExpireInactiveAdminChats harus mendeteksi sesi yang idle 1 jam");
+  const expiredSession = getConversationSession(testPhone);
+  assert(expiredSession?.state === BOT_FLOW_STATES.IDLE, "Status sesi harus otomatis kembali ke IDLE setelah di-sweep");
+
+  // Pembersihan: Hapus log testing dari database Supabase agar tidak mengotori dashboard WhatsApp
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+      await supabase.from("whatsapp_logs").delete().eq("phone_number", testPhone);
+      await supabase.from("notifications").delete().ilike("message", `%${testPhone}%`);
+    }
+  } catch (err) {
+    // Non-blocking cleanup
+  }
 });
 
 // -------------------------------------------------------------

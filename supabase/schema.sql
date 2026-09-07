@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.classes (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT UNIQUE NOT NULL CHECK (name IN ('Basic', 'Standard', 'Premium')),
+  name          TEXT UNIQUE NOT NULL,
   price_per_day INTEGER NOT NULL,
   description   TEXT,
   facilities    TEXT[]
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   cat_photo_url            TEXT,
 
   -- Data Pemesanan
-  class                    TEXT NOT NULL CHECK (class IN ('Basic', 'Standard', 'Premium')),
+  class                    TEXT NOT NULL,
   price_per_day            INTEGER NOT NULL,
   check_in_date            DATE NOT NULL,
   check_out_date           DATE NOT NULL,

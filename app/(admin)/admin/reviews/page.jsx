@@ -9,6 +9,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export default function AdminReviewsPage() {
   const { t } = useLanguage();
@@ -23,6 +24,10 @@ export default function AdminReviewsPage() {
   const [replyText, setReplyText] = useState("");
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [replySuccess, setReplySuccess] = useState(null);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(errorMsg, setErrorMsg);
+  useAutoDismiss(replySuccess, setReplySuccess);
 
   // Filter rating state
   const [selectedRating, setSelectedRating] = useState("all");

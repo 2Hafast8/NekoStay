@@ -15,6 +15,7 @@ import {
   Info,
   Ticket,
   Clock,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
@@ -24,6 +25,7 @@ import { formatDate } from "@/lib/utils/dates";
 import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 export default function NewBookingPage() {
   return (
     <div className="min-h-screen bg-background dark:bg-zinc-950 p-4 sm:p-6 lg:p-8">
@@ -119,6 +121,13 @@ function BookingFormContent() {
   const [validationErrors, setValidationErrors] = useState({});
   const [serverError, setServerError] = useState(null);
   const [pastCats, setPastCats] = useState([]);
+
+  // Auto-dismiss alert notifications after 3 seconds
+  useAutoDismiss(serverError, setServerError);
+  useAutoDismiss(referralError, setReferralError);
+  useAutoDismiss(referralSuccess, setReferralSuccess);
+  useAutoDismiss(promoError, setPromoError);
+  useAutoDismiss(promoSuccess, setPromoSuccess);
 
   // Load past cats and user points
   useEffect(() => {
@@ -598,9 +607,19 @@ function BookingFormContent() {
       )}
 
       {serverError && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-sm font-semibold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{serverError}</span>
+        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-sm font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>{serverError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setServerError(null)}
+            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
+            title="Tutup notifikasi"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
