@@ -1412,8 +1412,9 @@ export default function AdminSettingsPage() {
                                   </div>
                                 )}
                                 {activeCats.length > 0 && (
-                                  <div className="text-muted-foreground truncate" title={`Penghuni saat ini: ${activeCats.join(', ')}`}>
-                                    🐾 <span className="font-semibold text-foreground/80">Kucing:</span> {activeCats.join(", ")}
+                                  <div className="text-muted-foreground truncate flex items-center gap-1.5" title={`Penghuni saat ini: ${activeCats.join(', ')}`}>
+                                    <Cat className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    <span><span className="font-semibold text-foreground/80">Kucing:</span> {activeCats.join(", ")}</span>
                                   </div>
                                 )}
                               </div>
@@ -2690,8 +2691,9 @@ export default function AdminSettingsPage() {
                     </div>
 
                     {activeCats.length > 0 && (
-                      <p className="text-[11px] text-muted-foreground leading-tight">
-                        🐾 <span className="font-semibold text-foreground">Kucing yang sedang menginap:</span> {activeCats.join(", ")}
+                      <p className="text-[11px] text-muted-foreground leading-tight flex items-center gap-1.5">
+                        <Cat className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span><span className="font-semibold text-foreground">Kucing yang sedang menginap:</span> {activeCats.join(", ")}</span>
                       </p>
                     )}
 

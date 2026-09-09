@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, XCircle, Loader2, Cat, ArrowRight, ShieldCheck, Home } from "lucide-react";
+import { formatRupiah } from "@/lib/utils/format";
 
 function ScanResultContent() {
   const searchParams = useSearchParams();
@@ -15,14 +17,14 @@ function ScanResultContent() {
   useEffect(() => {
     if (!token) {
       setState("error");
-      setErrorMsg("Token pembayaran tidak ditemukan pada URL.");
+      setErrorMsg("Token pembayaran tidak ditemukan pada tautan QR ini.");
       return;
     }
 
     fetch("/api/payments/scan-offline", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token: token.trim() }),
     })
       .then((res) => res.json().then((d) => ({ ok: res.ok, d })))
       .then(({ ok, d }) => {
@@ -35,88 +37,126 @@ function ScanResultContent() {
         }
       })
       .catch(() => {
-        setErrorMsg("Kesalahan jaringan saat memverifikasi pembayaran.");
+        setErrorMsg("Terjadi gangguan koneksi saat memverifikasi pembayaran.");
         setState("error");
       });
   }, [token]);
 
-  const formatRupiah = (val) =>
-    `Rp ${(val || 0).toLocaleString("id-ID")}`;
-
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-black text-orange-500">🐱 NekoStay</h1>
-          <p className="text-xs text-zinc-500 mt-1">Verifikasi Pembayaran Offline</p>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 sm:p-6 transition-colors duration-300">
+      <div className="w-full max-w-md space-y-6">
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-3xl bg-primary/10 text-primary mb-1 border border-primary/20 shadow-xs">
+            <Cat className="w-6 h-6" />
+          </div>
+          <h1 className="text-2xl font-black text-foreground tracking-tight">
+            NekoStay Care
+          </h1>
+          <p className="text-xs text-muted-foreground font-medium">
+            Verifikasi Pembayaran & Check-In Kasir Offline
+          </p>
         </div>
 
-        {/* Loading */}
+        {/* LOADING STATE */}
         {state === "loading" && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-10 text-center space-y-4">
-            <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto" />
-            <p className="text-sm font-bold text-zinc-300 animate-pulse">
-              Memverifikasi pembayaran...
-            </p>
+          <div className="bg-card border border-border rounded-3xl p-10 text-center space-y-4 shadow-lg">
+            <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto" />
+            <div className="space-y-1">
+              <p className="text-sm font-extrabold text-foreground animate-pulse">
+                Memverifikasi Pembayaran...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Mohon tunggu, sistem sedang memeriksa keabsahan token QR Anda.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Success */}
+        {/* SUCCESS STATE */}
         {state === "success" && data && (
-          <div className="bg-zinc-900 border border-emerald-500/30 rounded-3xl p-8 text-center space-y-5 shadow-2xl shadow-emerald-500/10">
-            <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center border-2 border-emerald-500/20">
+          <div className="bg-card border border-emerald-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-xl shadow-emerald-500/10 animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-3xl flex items-center justify-center border border-emerald-500/25">
               <CheckCircle2 className="w-9 h-9 text-emerald-500" />
             </div>
+
             <div className="space-y-1">
-              <h2 className="text-xl font-black text-zinc-50">
+              <h2 className="text-xl font-black text-foreground">
                 Pembayaran Terverifikasi!
               </h2>
-              <p className="text-xs text-emerald-400 font-semibold">
-                Status berhasil diubah menjadi Lunas
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                Status pesanan telah resmi diubah menjadi Lunas
               </p>
             </div>
 
-            <div className="space-y-3 text-left bg-zinc-800/40 rounded-2xl p-5 border border-zinc-700/60">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Nama Kucing</span>
-                <span className="font-bold text-zinc-100">{data.catName}</span>
+            <div className="space-y-2.5 text-left bg-muted/40 rounded-2xl p-4 border border-border/70 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold">Nama Kucing:</span>
+                <span className="font-extrabold text-foreground flex items-center gap-1">
+                  <Cat className="w-3.5 h-3.5 text-primary" />
+                  <span>{data.catName}</span>
+                </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">Pemilik</span>
-                <span className="font-bold text-zinc-100">{data.customerName}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold">Pemilik:</span>
+                <span className="font-bold text-foreground">{data.customerName}</span>
               </div>
-              <div className="flex justify-between text-sm border-t border-zinc-700/50 pt-3 font-extrabold">
-                <span className="text-zinc-200">Total Bayar</span>
-                <span className="text-emerald-400 text-base">
+              <div className="flex justify-between items-baseline border-t border-border/60 pt-2.5">
+                <span className="text-muted-foreground font-bold uppercase text-[10px]">
+                  Total Tagihan:
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-base font-black">
                   {formatRupiah(data.amount)}
                 </span>
               </div>
             </div>
 
-            <p className="text-[10px] text-zinc-600 font-medium">
-              Halaman ini dapat ditutup.
+            <div className="pt-2 space-y-2">
+              <Link
+                href="/"
+                className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Kembali ke Beranda NekoStay</span>
+              </Link>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground font-medium pt-1">
+              Terima kasih telah mempercayakan kucing kesayangan Anda di NekoStay.
             </p>
           </div>
         )}
 
-        {/* Error */}
+        {/* ERROR STATE */}
         {state === "error" && (
-          <div className="bg-zinc-900 border border-rose-500/30 rounded-3xl p-8 text-center space-y-5 shadow-2xl shadow-rose-500/10">
-            <div className="mx-auto w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center border-2 border-rose-500/20">
+          <div className="bg-card border border-rose-500/30 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-xl shadow-rose-500/10 animate-in fade-in zoom-in duration-200">
+            <div className="mx-auto w-16 h-16 bg-rose-500/10 rounded-3xl flex items-center justify-center border border-rose-500/25">
               <XCircle className="w-9 h-9 text-rose-500" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-lg font-black text-zinc-50">
-                Verifikasi Gagal
+
+            <div className="space-y-1.5">
+              <h2 className="text-lg font-black text-foreground">
+                Verifikasi Tidak Berhasil
               </h2>
-              <p className="text-xs text-rose-400 font-medium leading-relaxed">
+              <p className="text-xs text-rose-600 dark:text-rose-400 font-medium leading-relaxed max-w-xs mx-auto">
                 {errorMsg}
               </p>
             </div>
-            <p className="text-[10px] text-zinc-600 font-medium">
-              Hubungi admin jika masalah berlanjut.
-            </p>
+
+            <div className="p-3.5 bg-muted/40 rounded-2xl text-[11px] text-muted-foreground text-left space-y-1 border border-border">
+              <span className="font-bold text-foreground block">Catatan Keamanan:</span>
+              <span>Kode QR hanya berlaku 24 jam dan hanya bisa diverifikasi satu kali untuk mencegah penyalahgunaan.</span>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                href="/"
+                className="w-full py-2.5 border border-border hover:bg-muted text-foreground text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Kembali ke Beranda</span>
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -128,8 +168,8 @@ export default function ScanVerifyPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
       }
     >

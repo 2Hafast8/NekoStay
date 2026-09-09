@@ -61,7 +61,7 @@ export async function POST(request) {
     // 4. Masukkan notifikasi in-app
     await adminDb.from("notifications").insert({
       user_id: userId,
-      title: "Password Berhasil Diubah 🔒",
+      title: "Password Berhasil Diubah",
       message: "Password akun NekoStay Anda telah berhasil diperbarui. Email pemberitahuan keamanan telah dikirimkan.",
       type: "success",
       is_read: false,

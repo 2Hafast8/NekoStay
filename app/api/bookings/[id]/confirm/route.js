@@ -65,7 +65,7 @@ export async function POST(request, { params }) {
     try {
       await supabase.from("notifications").insert({
         user_id: booking.user_id,
-        title: "Pesanan Penitipan Dikonfirmasi! 🎉",
+        title: "Pesanan Penitipan Dikonfirmasi!",
         message: `Pesanan penitipan untuk kucing ${booking.cat_name} telah dikonfirmasi dan aktif. Silakan antar kucing Anda sesuai jadwal.`,
         type: "success",
         booking_id: id,

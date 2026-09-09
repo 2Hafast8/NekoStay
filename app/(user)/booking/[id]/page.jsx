@@ -22,8 +22,22 @@ import {
   Mail,
   Clock,
   QrCode,
+  RefreshCcw,
   Store,
   X,
+  Copy,
+  CheckCircle2,
+  ChevronRight,
+  ShieldCheck,
+  Tag,
+  Sparkles,
+  MessageCircle,
+  ExternalLink,
+  Info,
+  User,
+  Utensils,
+  Heart,
+  Baby,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -93,6 +107,14 @@ function BookingDetailContent({ id }) {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [offlineToken, setOfflineToken] = useState(null);
   const [offlineQrDataUrl, setOfflineQrDataUrl] = useState(null);
+  const [isRefreshingQr, setIsRefreshingQr] = useState(false);
+
+  // Auto-close QR modal if booking is paid
+  useEffect(() => {
+    if (booking?.payment_status === "Paid" && isQrModalOpen) {
+      setIsQrModalOpen(false);
+    }
+  }, [booking?.payment_status, isQrModalOpen]);
 
   // Review states
   const [rating, setRating] = useState(5);
@@ -100,8 +122,19 @@ function BookingDetailContent({ id }) {
   const [reviewText, setReviewText] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [userReviewData, setUserReviewData] = useState(null);
   const [checkingReview, setCheckingReview] = useState(true);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  // Copy booking ID state
+  const [copiedId, setCopiedId] = useState(false);
+  const handleCopyId = () => {
+    if (!booking?.id) return;
+    navigator.clipboard.writeText(booking.id);
+    setCopiedId(true);
+    toast.success(language === "en" ? "Booking ID copied!" : "ID Pesanan berhasil disalin!");
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   const supabase = createClient();
 
@@ -135,12 +168,13 @@ function BookingDetailContent({ id }) {
       // Check if user has already reviewed this stay
       const { data: existingReview } = await supabase
         .from("reviews")
-        .select("id")
+        .select("id, rating, review_text, created_at, reply_text")
         .eq("booking_id", id)
         .maybeSingle();
 
       if (existingReview) {
         setHasReviewed(true);
+        setUserReviewData(existingReview);
       }
     } catch (err) {
       console.error("Error fetching booking details:", err);
@@ -387,7 +421,11 @@ function BookingDetailContent({ id }) {
 
   // Generate QR Code data URL langsung di sisi client jika token sudah ada
   useEffect(() => {
-    if (booking?.offline_payment_token && !booking.offline_token_used) {
+    if (
+      booking?.offline_payment_token &&
+      !booking.offline_token_used &&
+      booking?.payment_status !== "Paid"
+    ) {
       setOfflineToken(booking.offline_payment_token);
       if (!offlineQrDataUrl) {
         const appUrl =
@@ -406,8 +444,16 @@ function BookingDetailContent({ id }) {
           })
           .catch(() => {});
       }
+    } else if (booking?.payment_status === "Paid") {
+      setOfflineQrDataUrl(null);
+      setOfflineToken(null);
     }
-  }, [booking?.offline_payment_token, booking?.offline_token_used, offlineQrDataUrl]);
+  }, [
+    booking?.offline_payment_token,
+    booking?.offline_token_used,
+    booking?.payment_status,
+    offlineQrDataUrl,
+  ]);
 
   const handleSendReceipt = async () => {
     setIsReceiptSending(true);
@@ -456,6 +502,72 @@ function BookingDetailContent({ id }) {
       setErrorMsg(err.message);
     } finally {
       setIsReceiptSending(false);
+    }
+  };
+
+  const handleRefreshQr = async () => {
+    if (booking?.payment_status === "Paid") {
+      toast.info(
+        language === "en"
+          ? "Booking is already paid."
+          : "Pesanan ini sudah lunas."
+      );
+      setIsQrModalOpen(false);
+      return;
+    }
+
+    setIsRefreshingQr(true);
+    try {
+      const res = await fetch("/api/payments/offline-qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id, sendEmail: false, refresh: true }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          result.error ||
+            (language === "en"
+              ? "Failed to refresh QR code"
+              : "Gagal memperbarui QR code")
+        );
+      }
+
+      const newToken = result.data?.token;
+      let newQrDataUrl = result.data?.qrDataUrl;
+
+      if (!newQrDataUrl && newToken) {
+        const appUrl =
+          typeof window !== "undefined" ? window.location.origin : "";
+        const qrUrl = `${appUrl}/scan-verify?token=${newToken}`;
+        const { default: qrcode } = await import("qrcode");
+        newQrDataUrl = await qrcode.toDataURL(qrUrl, {
+          margin: 2,
+          width: 320,
+          color: { dark: "#18181b", light: "#ffffff" },
+        });
+      }
+
+      if (newToken) setOfflineToken(newToken);
+      if (newQrDataUrl) setOfflineQrDataUrl(newQrDataUrl);
+
+      setBooking((prev) => ({
+        ...prev,
+        offline_payment_token: newToken || prev?.offline_payment_token,
+        offline_token_used: false,
+        offline_token_created_at: new Date().toISOString(),
+      }));
+
+      toast.success(
+        language === "en"
+          ? "Payment QR Code refreshed successfully!"
+          : "Kode QR pembayaran berhasil diperbarui!"
+      );
+    } catch (err) {
+      console.error("Refresh QR error:", err);
+      toast.error(err.message || "Gagal memperbarui QR Code.");
+    } finally {
+      setIsRefreshingQr(false);
     }
   };
 
@@ -519,6 +631,12 @@ function BookingDetailContent({ id }) {
 
       setReviewSuccess(true);
       setHasReviewed(true);
+      setUserReviewData({
+        rating,
+        review_text: reviewText,
+        created_at: new Date().toISOString(),
+        reply_text: null,
+      });
     } catch (err) {
       setErrorMsg(err.message);
     } finally {
@@ -563,43 +681,128 @@ function BookingDetailContent({ id }) {
 
   return (
     <div className="space-y-8 mt-4">
-      {/* Back Button */}
+      {/* Top Back Navigation */}
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+        className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200 group"
       >
-        <ArrowLeft className="w-4 h-4" />
-        {language === "en" ? "Back to Dashboard" : "Kembali ke Dashboard"}
+        <div className="p-1.5 rounded-xl bg-muted/60 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" />
+        </div>
+        <span>{language === "en" ? "Back to Dashboard" : "Kembali ke Dashboard"}</span>
       </Link>
 
-      {/* Header Info */}
-      <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10" />
-        <div className="flex items-center gap-4">
-          <div className="p-4 bg-secondary dark:bg-zinc-800 text-primary rounded-2xl">
-            <Cat className="w-8 h-8" />
-          </div>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-black text-foreground dark:text-zinc-100">
-                {booking.cat_name}
-              </h1>
-              <BookingStatus status={booking.status} />
+      {/* Hero Header Card */}
+      <div className="relative overflow-hidden bg-card/90 dark:bg-zinc-900/90 backdrop-blur-md border border-border/70 dark:border-zinc-800/80 p-6 sm:p-7 rounded-3xl shadow-sm">
+        {/* Ambient decorative gradient */}
+        <div className="absolute top-0 right-0 w-80 h-40 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent rounded-bl-full pointer-events-none -z-0" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          {/* Left: Avatar + Title + ID + Badges */}
+          <div className="flex items-start sm:items-center gap-4">
+            {/* Cat Avatar Thumbnail */}
+            <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-primary/10 border border-primary/20 shrink-0 flex items-center justify-center text-primary shadow-xs">
+              {booking.cat_photo_url ? (
+                <img
+                  src={booking.cat_photo_url}
+                  alt={booking.cat_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Cat className="w-7 h-7 opacity-80" />
+              )}
+              <div className="absolute -bottom-1 -right-1 p-1 bg-card dark:bg-zinc-900 rounded-full border border-border">
+                <Sparkles className="w-3 h-3 text-primary" />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground dark:text-zinc-405 mt-1.5">
-              ID: {booking.id}
-            </p>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+                  {booking.cat_name}
+                </h1>
+                <BookingStatus status={booking.status} />
+
+                {/* Payment Status Pill */}
+                {booking.payment_status === "Paid" ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900">
+                    <Check className="w-3 h-3" />
+                    {language === "en" ? "Paid" : "Lunas"}
+                  </span>
+                ) : booking.payment_status === "Failed" ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900">
+                    <AlertCircle className="w-3 h-3" />
+                    {language === "en" ? "Failed" : "Gagal"}
+                  </span>
+                ) : booking.payment_status === "Refunded" ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900">
+                    <Coins className="w-3 h-3" />
+                    {language === "en" ? "Refunded" : "Di-refund"}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900">
+                    <Wallet className="w-3 h-3" />
+                    {language === "en" ? "Unpaid" : "Belum Bayar"}
+                  </span>
+                )}
+              </div>
+
+              {/* Subtitle & Booking ID with Copy */}
+              <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground pt-0.5">
+                <span className="font-semibold text-foreground/80 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
+                  Kelas {booking.class}
+                </span>
+                <span>•</span>
+                <div className="inline-flex items-center gap-1.5 bg-muted/50 dark:bg-zinc-800/60 px-2.5 py-0.5 rounded-xl border border-border/50 font-mono text-[11px]">
+                  <span>ID: {booking.id.slice(0, 8)}...{booking.id.slice(-4)}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className="p-1 rounded hover:bg-card text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title={language === "en" ? "Copy Booking ID" : "Salin ID Pesanan"}
+                  >
+                    {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Quick Action Buttons */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {booking.status === "Menunggu" && (
+              <button
+                onClick={() => setIsCancelOpen(true)}
+                className="px-4 py-2.5 border border-rose-200 hover:border-rose-300 dark:border-rose-900/40 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-2xl transition-all cursor-pointer shadow-xs active:scale-98"
+              >
+                {language === "en" ? "Cancel Booking" : "Batalkan Pesanan"}
+              </button>
+            )}
+
+            {/* View QR Code button if offline token exists and NOT paid */}
+            {booking.payment_status !== "Paid" && booking.offline_payment_token && !booking.offline_token_used && (
+              <button
+                onClick={() => setIsQrModalOpen(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-600/20 active:scale-98"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>{language === "en" ? "View Desk QR" : "QR Kasir"}</span>
+              </button>
+            )}
+
+            {/* WhatsApp Support button */}
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 bg-muted/60 hover:bg-muted dark:bg-zinc-800/80 text-foreground text-xs font-bold rounded-2xl border border-border/80 transition-all flex items-center gap-1.5 cursor-pointer active:scale-98"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{language === "en" ? "Support" : "Bantuan WA"}</span>
+            </a>
           </div>
         </div>
-
-        {booking.status === "Menunggu" && (
-          <button
-            onClick={() => setIsCancelOpen(true)}
-            className="px-5 py-3 border border-rose-200 hover:border-rose-300 dark:border-rose-950/40 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 dark:text-rose-450 text-xs font-bold rounded-2xl transition-all cursor-pointer w-fit"
-          >
-            {language === "en" ? "Cancel Booking" : "Batalkan Pesanan"}
-          </button>
-        )}
       </div>
 
       {errorMsg && (
@@ -619,38 +822,86 @@ function BookingDetailContent({ id }) {
         </div>
       )}
 
-      {/* Main Grid */}
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Side: Booking details */}
+        {/* Left Side: Cat info, Periodic Reports, Review */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* Review stay card if completed */}
+
+          {/* Review Stay Card (if booking is completed) */}
           {booking.status === "Selesai" && !checkingReview && (
-            <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-8 rounded-3xl space-y-6">
-              <div className="flex items-center gap-2 font-bold text-foreground dark:text-zinc-150 text-lg border-b border-border/60 dark:border-zinc-800/60 pb-3">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                <span>{language === "en" ? "Rate Your Stay Experience" : "Beri Ulasan & Penilaian"}</span>
+            <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-7 rounded-3xl space-y-6 shadow-xs">
+              <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
+                <div className="flex items-center gap-2 font-black text-foreground dark:text-zinc-150 text-base">
+                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                  <span>{language === "en" ? "Your Stay Experience & Review" : "Ulasan Pengalaman Penitipan"}</span>
+                </div>
+                {(reviewSuccess || hasReviewed) && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                    <Check className="w-3 h-3" />
+                    {language === "en" ? "Reviewed" : "Sudah Diulas"}
+                  </span>
+                )}
               </div>
 
               {reviewSuccess || hasReviewed ? (
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 rounded-2xl text-center space-y-2">
-                  <div className="p-2 bg-emerald-500 text-white rounded-full w-fit mx-auto">
-                    <Check className="w-5 h-5" />
+                <div className="space-y-4">
+                  <div className="p-5 bg-muted/30 dark:bg-zinc-950/40 border border-border/70 dark:border-zinc-800/70 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`w-4 h-4 ${
+                              star <= (userReviewData?.rating || rating)
+                                ? "fill-amber-500 text-amber-500"
+                                : "text-zinc-300 dark:text-zinc-700"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {userReviewData?.created_at
+                          ? formatDate(userReviewData.created_at, "long")
+                          : (language === "en" ? "Recently Submitted" : "Baru saja dikirim")}
+                      </span>
+                    </div>
+
+                    {userReviewData?.review_text ? (
+                      <p className="text-xs text-foreground font-medium leading-relaxed bg-card dark:bg-zinc-900/80 p-3.5 rounded-xl border border-border/50">
+                        "{userReviewData.review_text}"
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        {language === "en" ? "No written review provided." : "Tidak ada ulasan tertulis."}
+                      </p>
+                    )}
+
+                    {/* Admin Reply if present */}
+                    {userReviewData?.reply_text && (
+                      <div className="space-y-2 pt-2 border-t border-border/50">
+                        {userReviewData.reply_text.split("\n---\n").map((rText, rIdx) => (
+                          <div
+                            key={rIdx}
+                            className="bg-amber-500/5 dark:bg-amber-500/[0.03] border border-amber-500/15 p-3.5 rounded-xl space-y-1"
+                          >
+                            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              {language === "en" ? `Admin Reply #${rIdx + 1}` : `Balasan Staf NekoStay #${rIdx + 1}`}
+                            </span>
+                            <p className="text-xs text-muted-foreground dark:text-zinc-300 font-medium leading-relaxed">
+                              {rText}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <h4 className="text-sm font-bold text-foreground dark:text-zinc-200">
-                    {language === "en" ? "Thank You!" : "Terima Kasih!"}
-                  </h4>
-                  <p className="text-xs text-muted-foreground dark:text-zinc-400">
-                    {language === "en" 
-                      ? "Your review has been saved and displayed on the homepage."
-                      : "Ulasan Anda sangat berarti bagi kami dan telah berhasil dipublikasikan di halaman beranda."}
-                  </p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitReview} className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
-                      {language === "en" ? "Rating" : "Penilaian Bintang"}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                      {language === "en" ? "Rate Your Experience" : "Beri Penilaian Bintang"}
                     </label>
                     <div className="flex items-center gap-1.5">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -660,10 +911,10 @@ function BookingDetailContent({ id }) {
                           onClick={() => setRating(star)}
                           onMouseEnter={() => setHoverRating(star)}
                           onMouseLeave={() => setHoverRating(0)}
-                          className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          className="p-1 hover:scale-115 transition-transform cursor-pointer"
                         >
                           <Star
-                            className={`w-8 h-8 transition-colors ${
+                            className={`w-7 h-7 transition-colors ${
                               star <= (hoverRating || rating)
                                 ? "fill-amber-500 text-amber-500"
                                 : "text-zinc-300 dark:text-zinc-700"
@@ -675,7 +926,7 @@ function BookingDetailContent({ id }) {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-muted-foreground dark:text-zinc-400 uppercase tracking-wider block">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
                       {language === "en" ? "Review Details" : "Tulis Ulasan Anda"}
                     </label>
                     <textarea
@@ -685,17 +936,17 @@ function BookingDetailContent({ id }) {
                       rows={3}
                       placeholder={
                         language === "en"
-                          ? "Share your experience with NekoStay, the room condition, or the staff care..."
-                          : "Ceritakan pengalaman Anda bersama NekoStay, bagaimana pelayanan staf, kenyamanan kandang si mpus, dll..."
+                          ? "Share your experience with NekoStay, room cleanliness, staff friendliness..."
+                          : "Ceritakan pengalaman Anda, bagaimana kebersihan kandang, kenyamanan mpus, keramahan staf..."
                       }
-                      className="w-full px-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-sm focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground dark:text-zinc-200"
+                      className="w-full px-4 py-3 bg-muted/30 dark:bg-zinc-950/30 border border-border dark:border-zinc-800 rounded-xl text-xs focus:outline-hidden focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-medium text-foreground resize-none leading-relaxed"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmittingReview}
-                    className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-98"
                   >
                     {isSubmittingReview ? (language === "en" ? "Submitting..." : "Mengirim...") : (language === "en" ? "Submit Review" : "Kirim Ulasan")}
                   </button>
@@ -704,128 +955,176 @@ function BookingDetailContent({ id }) {
             </div>
           )}
 
-          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-6">
-            <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-150 border-b border-border/60 dark:border-zinc-800/60 pb-3 flex items-center gap-2">
-              <FileText className="w-4.5 h-4.5 text-primary" />
-              <span>{language === "en" ? "Boarding Information Details" : "Detail Informasi Penitipan"}</span>
-            </h3>
+          {/* Cat Profile & Boarding Info Card */}
+          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-7 rounded-3xl space-y-6 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
+              <h3 className="text-sm font-black text-foreground dark:text-zinc-150 flex items-center gap-2">
+                <FileText className="w-4.5 h-4.5 text-primary" />
+                <span>{language === "en" ? "Cat & Boarding Details" : "Detail Informasi Kucing"}</span>
+              </h3>
+              <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                <Cat className="w-3.5 h-3.5 text-primary" />
+                <span>{booking.cat_name}</span>
+              </span>
+            </div>
 
+            {/* Photo Banner if available */}
             {booking.cat_photo_url && (
-              <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-border/80 dark:border-zinc-800 shadow-xs mb-4">
+              <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-border/80 dark:border-zinc-800 shadow-xs group">
                 <img
                   src={booking.cat_photo_url}
-                  alt="Kucing"
-                  className="object-cover w-full h-full"
+                  alt={booking.cat_name}
+                  className="object-cover w-full h-full group-hover:scale-103 transition-transform duration-500"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                <div className="absolute bottom-3.5 left-4 right-4 flex items-center justify-between text-white text-xs">
+                  <span className="font-extrabold text-sm">{booking.cat_name}</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-black/50 backdrop-blur-xs font-medium text-[11px]">
+                    {booking.class} Room
+                  </span>
+                </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6 text-sm">
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
+            {/* Spec Chips Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-2xl bg-muted/30 dark:bg-zinc-950/30 border border-border/60 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                   {language === "en" ? "Gender" : "Jenis Kelamin"}
                 </span>
-                <strong className="text-foreground dark:text-zinc-200">
-                  {booking.cat_gender === "Jantan" ? t("book_cat_gender_m") : t("book_cat_gender_f")}
-                </strong>
+                <span className="font-bold text-foreground text-xs">
+                  {booking.cat_gender === "Jantan"
+                    ? (language === "en" ? "Male" : "Jantan")
+                    : (language === "en" ? "Female" : "Betina")}
+                </span>
               </div>
 
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
-                  {language === "en" ? "Cat's Age" : "Usia Kucing"}
+              <div className="p-3 rounded-2xl bg-muted/30 dark:bg-zinc-950/30 border border-border/60 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  {language === "en" ? "Age" : "Usia Kucing"}
                 </span>
-                <strong className="text-foreground dark:text-zinc-200">{booking.cat_age}</strong>
+                <span className="font-bold text-foreground text-xs">
+                  {booking.cat_age || "-"}
+                </span>
               </div>
 
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
-                  {t("book_cat_health")}
+              <div className="p-3 rounded-2xl bg-muted/30 dark:bg-zinc-950/30 border border-border/60 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  {language === "en" ? "Initial Health" : "Kondisi Kesehatan"}
                 </span>
-                <strong className="text-foreground dark:text-zinc-200">
-                  {booking.cat_health_status === "Sehat" ? t("book_cat_health_healthy") : booking.cat_health_status === "Sakit" ? t("book_cat_health_sick") : t("book_cat_health_med")}
-                </strong>
+                <span className={`inline-flex items-center gap-1 font-bold text-xs ${
+                  booking.cat_health_status === "Sehat"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : booking.cat_health_status === "Sakit"
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-amber-600 dark:text-amber-400"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    booking.cat_health_status === "Sehat"
+                      ? "bg-emerald-500"
+                      : booking.cat_health_status === "Sakit"
+                        ? "bg-rose-500"
+                        : "bg-amber-500"
+                  }`} />
+                  {booking.cat_health_status === "Sehat"
+                    ? (language === "en" ? "Healthy" : "Sehat")
+                    : booking.cat_health_status === "Sakit"
+                      ? (language === "en" ? "Sick" : "Sakit")
+                      : (language === "en" ? "Under Medication" : "Dalam Pengobatan")}
+                </span>
               </div>
 
               {booking.cat_favorite_food && (
-                <div className="space-y-0.5">
-                  <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
-                    {t("book_cat_food")}
+                <div className="p-3 rounded-2xl bg-muted/30 dark:bg-zinc-950/30 border border-border/60 space-y-1 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    {language === "en" ? "Favorite Food" : "Makanan Favorit"}
                   </span>
-                  <strong className="text-foreground dark:text-zinc-200">
+                  <span className="font-bold text-foreground text-xs truncate block" title={booking.cat_favorite_food}>
                     {booking.cat_favorite_food}
-                  </strong>
+                  </span>
                 </div>
               )}
 
               {booking.cat_is_pregnant && (
-                <div className="space-y-0.5">
-                  <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 space-y-1 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">
                     {language === "en" ? "Pregnancy Condition" : "Kondisi Hamil"}
                   </span>
-                  <strong className="text-rose-600 dark:text-rose-450 font-bold">
-                    {t("book_cat_pregnant")}
-                  </strong>
-                </div>
-              )}
-
-              {booking.cat_notes && (
-                <div className="col-span-2 space-y-0.5">
-                  <span className="text-xs font-semibold text-muted-foreground dark:text-zinc-400 block">
-                    {language === "en" ? "Special Notes" : "Catatan Tambahan"}
+                  <span className="font-bold text-rose-600 text-xs flex items-center gap-1">
+                    <Baby className="w-3.5 h-3.5" />
+                    {language === "en" ? "Pregnant" : "Sedang Hamil"}
                   </span>
-                  <p className="text-xs font-medium text-foreground dark:text-zinc-300 bg-muted/40 dark:bg-zinc-950/40 p-3 rounded-xl border border-border/40 dark:border-zinc-850/40 mt-1 leading-relaxed">
-                    {booking.cat_notes}
-                  </p>
                 </div>
               )}
             </div>
+
+            {/* Special Notes from Owner */}
+            {booking.cat_notes && (
+              <div className="p-4 rounded-2xl bg-muted/40 dark:bg-zinc-950/40 border border-border/60 space-y-1.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                  {language === "en" ? "Special Notes from You" : "Catatan Tambahan Pemilik"}
+                </span>
+                <p className="text-xs text-foreground/90 font-medium leading-relaxed italic">
+                  "{booking.cat_notes}"
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Condition Reports from Admin */}
-          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-6">
-            <h3 className="text-sm font-extrabold text-foreground dark:text-zinc-150 border-b border-border/60 dark:border-zinc-800/60 pb-3 flex items-center gap-2">
-              <HeartPulse className="w-4.5 h-4.5 text-primary" />
-              <span>{language === "en" ? "Cat Health Status Reports (Periodic Updates)" : "Riwayat Kondisi Kucing (Update Berkala)"}</span>
-            </h3>
+          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 sm:p-7 rounded-3xl space-y-6 shadow-xs">
+            <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
+              <h3 className="text-sm font-black text-foreground dark:text-zinc-150 flex items-center gap-2">
+                <HeartPulse className="w-4.5 h-4.5 text-primary" />
+                <span>{language === "en" ? "Cat Health Status Reports" : "Riwayat Kondisi Kucing (Update Berkala)"}</span>
+              </h3>
+              <span className="text-[11px] font-bold text-muted-foreground">
+                {reports.length} {language === "en" ? "Reports" : "Laporan"}
+              </span>
+            </div>
 
             {reports.length === 0 ? (
-              <div className="text-center py-12 space-y-3">
-                <div className="p-3 bg-secondary dark:bg-zinc-800 text-primary rounded-full w-fit mx-auto">
+              <div className="text-center py-12 space-y-3 bg-muted/20 dark:bg-zinc-950/20 rounded-2xl border border-dashed border-border/80">
+                <div className="p-3.5 bg-primary/10 text-primary rounded-full w-fit mx-auto">
                   <HeartPulse className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-sm font-bold text-foreground dark:text-zinc-200">
-                    {language === "en" ? "No Reports Yet" : "Belum Ada Laporan"}
+                    {language === "en" ? "No Reports Yet" : "Belum Ada Laporan Kondisi"}
                   </h4>
-                  <p className="text-xs text-muted-foreground dark:text-zinc-405 max-w-xs mx-auto leading-relaxed">
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
                     {language === "en"
                       ? "Daily health updates and cat photos will be regularly posted here by NekoStay staff."
-                      : "Laporan kesehatan dan foto harian kucing Anda akan diupdate berkala oleh admin NekoStay."}
+                      : "Laporan kesehatan dan foto harian kucing Anda akan diupdate berkala oleh tim NekoStay selama masa penitipan."}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                {reports.map((report) => (
+              <div className="space-y-4">
+                {reports.map((report, rIdx) => (
                   <div
                     key={report.id}
-                    className="p-5 border border-border/80 dark:border-zinc-805 rounded-2xl space-y-4 hover:border-primary/20 transition-colors bg-muted/10"
+                    className="p-5 border border-border/80 dark:border-zinc-800/80 rounded-2xl space-y-3.5 bg-card/60 dark:bg-zinc-900/40 hover:border-primary/30 transition-colors shadow-2xs"
                   >
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <span className="text-xs font-bold text-muted-foreground dark:text-zinc-400 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-primary" />
-                        <span>{language === "en" ? "Report" : "Laporan"}: {formatDate(report.report_date, "long")}</span>
+                        <span>{formatDate(report.report_date, "long")}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">
+                          (Update #{reports.length - rIdx})
+                        </span>
                       </span>
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold rounded-full border ${
                           report.health_status === "Sehat"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900"
                             : report.health_status === "Kurang Fit"
                               ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900"
-                              : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-450 dark:border-rose-900"
+                              : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900"
                         }`}
                       >
-                        <span className={`w-2 h-2 rounded-full ${
+                        <span className={`w-1.5 h-1.5 rounded-full ${
                           report.health_status === "Sehat"
                             ? "bg-emerald-500"
                             : report.health_status === "Kurang Fit"
@@ -837,7 +1136,7 @@ function BookingDetailContent({ id }) {
                     </div>
 
                     {report.photo_url && (
-                      <div className="relative aspect-video max-w-md rounded-xl overflow-hidden border border-border/60 dark:border-zinc-800">
+                      <div className="relative aspect-video max-w-md rounded-xl overflow-hidden border border-border/70 dark:border-zinc-800 shadow-2xs">
                         <img
                           src={report.photo_url}
                           alt="Foto Kucing Terkini"
@@ -847,7 +1146,7 @@ function BookingDetailContent({ id }) {
                     )}
 
                     {report.notes && (
-                      <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed bg-card dark:bg-zinc-900/60 p-3 rounded-lg border border-border/40 dark:border-zinc-850/40">
+                      <p className="text-xs text-foreground/90 font-medium leading-relaxed bg-muted/40 dark:bg-zinc-950/40 p-3.5 rounded-xl border border-border/50">
                         {report.notes}
                       </p>
                     )}
@@ -858,24 +1157,65 @@ function BookingDetailContent({ id }) {
           </div>
         </div>
 
-        {/* Right Side: Price Details & Booking Meta */}
+        {/* Right Side: Stay Journey, Invoice & Payment Hub */}
         <div className="space-y-6">
-          {/* Payment Status Card */}
+
+          {/* Stay Journey & Schedule Card */}
+          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-5 shadow-xs">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border/60 pb-3">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span>{language === "en" ? "Stay Schedule & Room" : "Jadwal & Kelas Kamar"}</span>
+            </h3>
+
+            {/* Visual Date Journey */}
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="p-3 rounded-2xl bg-muted/40 dark:bg-zinc-950/40 border border-border/60 space-y-0.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Check-In
+                </span>
+                <div className="text-xs font-black text-foreground">
+                  {formatDate(booking.check_in_date)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-muted/40 dark:bg-zinc-950/40 border border-border/60 space-y-0.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Check-Out
+                </span>
+                <div className="text-xs font-black text-foreground">
+                  {formatDate(booking.check_out_date)}
+                </div>
+              </div>
+            </div>
+
+            {/* Duration & Room Summary Pill */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-primary/5 border border-primary/15 text-xs">
+              <span className="font-bold text-foreground flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-primary" />
+                Kelas {booking.class}
+              </span>
+              <span className="font-black text-primary">
+                {booking.total_days} {language === "en" ? "Days" : "Hari"} Menginap
+              </span>
+            </div>
+          </div>
+
+          {/* Payment Hub Card */}
           {booking.status !== "Dibatalkan" && (
-            <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-6">
-              <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
-                <h3 className="text-xs font-extrabold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider flex items-center gap-1.5">
+            <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-5 shadow-xs">
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-primary" />
-                  <span>{language === "en" ? "Payment Details" : "Informasi Pembayaran"}</span>
+                  <span>{language === "en" ? "Payment Hub" : "Status Pembayaran"}</span>
                 </h3>
-                
+
                 {booking.payment_status === "Paid" ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900">
                     <Check className="w-3 h-3" />
                     {language === "en" ? "Paid" : "Lunas"}
                   </span>
                 ) : booking.payment_status === "Failed" ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-455 dark:border-rose-900">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900">
                     <AlertCircle className="w-3 h-3" />
                     {language === "en" ? "Failed" : "Gagal"}
                   </span>
@@ -894,153 +1234,148 @@ function BookingDetailContent({ id }) {
 
               {/* Status: Paid */}
               {booking.payment_status === "Paid" ? (
-                <div className="space-y-2 text-xs font-medium text-muted-foreground dark:text-zinc-400 leading-relaxed">
-                  <p className="text-emerald-600 dark:text-emerald-450 font-bold">
-                    {language === "en" ? "Thank you! Your payment has been received." : "Terima kasih! Pembayaran Anda telah kami terima."}
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 space-y-2 text-xs">
+                  <p className="text-emerald-700 dark:text-emerald-400 font-extrabold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    {language === "en" ? "Payment Confirmed & Verified" : "Pembayaran Telah Diterima"}
                   </p>
-                  <p>
-                    {language === "en" 
-                      ? "Your cat's stay is fully paid. Please show up with your pet at the check-in time."
-                      : "Status penitipan Anda telah lunas. Silakan datang membawa kucing Anda sesuai jadwal check-in."}
+                  <p className="text-muted-foreground leading-relaxed text-[11px]">
+                    {language === "en"
+                      ? "Thank you! Your cat's stay is fully secured. Please drop off your pet according to the check-in schedule."
+                      : "Terima kasih! Penitipan kucing Anda telah terkonfirmasi lunas. Silakan bawa kucing Anda ke NekoStay sesuai jadwal check-in."}
                   </p>
                 </div>
 
               /* Status: Refunded */
               ) : booking.payment_status === "Refunded" ? (
-                <div className="space-y-2 text-xs font-medium text-muted-foreground dark:text-zinc-400 leading-relaxed">
-                  <p className="text-blue-600 dark:text-blue-400 font-bold">
-                    {language === "en" ? "This transaction has been refunded." : "Transaksi ini telah dikembalikan (refund)."}
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 space-y-1.5 text-xs">
+                  <p className="text-blue-700 dark:text-blue-400 font-extrabold flex items-center gap-1.5">
+                    <Coins className="w-4 h-4 text-blue-500" />
+                    {language === "en" ? "Refund Processed" : "Pengembalian Dana Diproses"}
+                  </p>
+                  <p className="text-muted-foreground leading-relaxed text-[11px]">
+                    {language === "en"
+                      ? "This transaction has been refunded."
+                      : "Transaksi ini telah dikembalikan dananya (refund) sesuai kebijakan NekoStay."}
                   </p>
                 </div>
 
               /* Status: Menunggu — belum bisa bayar */
               ) : booking.status === "Menunggu" ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-amber-500/5 dark:bg-amber-950/10 border border-amber-500/10 dark:border-amber-900/20 rounded-2xl flex items-start gap-3">
-                    <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                        {language === "en" ? "Waiting for Admin Approval" : "Menunggu Persetujuan Admin"}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground dark:text-zinc-400 leading-relaxed">
-                        {language === "en"
-                          ? "Payment methods will be available after the admin approves your booking request. You will be notified via email once your booking is confirmed."
-                          : "Metode pembayaran akan tersedia setelah admin menyetujui pesanan Anda. Anda akan diberitahu melalui email setelah pesanan dikonfirmasi."}
-                      </p>
-                    </div>
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                      {language === "en" ? "Waiting for Admin Approval" : "Menunggu Persetujuan Admin"}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      {language === "en"
+                        ? "Payment methods will become available after admin approves your booking request."
+                        : "Metode pembayaran akan aktif segera setelah admin menyetujui pesanan Anda."}
+                    </p>
                   </div>
                 </div>
 
-              /* Status: Aktif/Selesai & Unpaid/Failed — tampilkan opsi pembayaran */
+              /* Status: Unpaid & Confirmed/Active — opsi pembayaran */
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Verifying Payment Overlay */}
                   {isVerifyingPayment && (
-                    <div className="p-4 bg-primary/5 dark:bg-primary/10 border border-primary/10 dark:border-primary/20 rounded-2xl flex items-center gap-3 animate-pulse">
-                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
-                      <div className="space-y-1">
-                        <p className="text-xs font-bold text-primary">
-                          {language === "en" ? "Verifying Payment..." : "Memverifikasi Pembayaran..."}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground dark:text-zinc-400">
-                          {language === "en"
-                            ? "Checking your payment status with Midtrans. Please wait..."
-                            : "Mengecek status pembayaran Anda ke Midtrans. Harap tunggu..."}
-                        </p>
-                      </div>
+                    <div className="p-3.5 bg-primary/10 border border-primary/20 rounded-2xl flex items-center gap-3 animate-pulse">
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+                      <p className="text-xs font-bold text-primary">
+                        {language === "en" ? "Verifying Payment with Midtrans..." : "Memverifikasi Pembayaran..."}
+                      </p>
                     </div>
                   )}
 
-                  {/* Option 1: Midtrans Snap */}
-                  <div className="space-y-2.5">
-                    <h4 className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                      {language === "en" ? "Method 1: Pay Online (Midtrans Sandbox)" : "Metode 1: Bayar Online via Midtrans"}
-                    </h4>
-                    <p className="text-xs text-muted-foreground dark:text-zinc-405 leading-relaxed">
+                  {/* Method 1: Midtrans Online */}
+                  <div className="p-4 rounded-2xl bg-muted/30 dark:bg-zinc-950/40 border border-border/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-primary" />
+                        {language === "en" ? "Online Payment" : "Bayar Online (Instan)"}
+                      </span>
+                      <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        Midtrans
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {language === "en"
-                        ? "Pay securely using Bank Transfer, Credit Card, or E-wallet sandbox simulator."
-                        : "Bayar secara instan dan aman menggunakan Virtual Account, QRIS simulator, dll."}
+                        ? "Pay securely via Virtual Account, QRIS, Credit Card, or E-wallet."
+                        : "Bayar instan via Virtual Account, QRIS, atau E-wallet."}
                     </p>
                     <button
                       onClick={handlePayment}
                       disabled={isPaymentLoading || sandboxCountdown !== null}
-                      className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer disabled:opacity-50"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/95 transition-all shadow-sm shadow-primary/15 cursor-pointer disabled:opacity-50 active:scale-98"
                     >
-                      <CreditCard className="w-4 h-4" />
+                      <CreditCard className="w-3.5 h-3.5" />
                       {sandboxCountdown !== null
                         ? (language === "en" ? `Sandbox simulation... (${sandboxCountdown}s)` : `Simulasi Sandbox... (${sandboxCountdown}s)`)
-                        : isPaymentLoading 
-                          ? (language === "en" ? "Processing..." : "Memproses...") 
-                          : (language === "en" ? "Pay Now" : "Bayar Sekarang")}
+                        : isPaymentLoading
+                          ? (language === "en" ? "Processing..." : "Memproses...")
+                          : (language === "en" ? "Pay Online Now" : "Bayar Online Sekarang")}
                     </button>
                   </div>
 
-                  {/* Divider */}
-                  <div className="relative flex py-1 items-center">
-                    <div className="flex-grow border-t border-border/50 dark:border-zinc-800/50"></div>
-                    <span className="flex-shrink mx-4 text-zinc-400 dark:text-zinc-650 text-[10px] uppercase font-bold tracking-wider">
-                      {language === "en" ? "Or" : "Atau"}
-                    </span>
-                    <div className="flex-grow border-t border-border/50 dark:border-zinc-800/50"></div>
-                  </div>
+                  {/* Method 2: Offline at Desk */}
+                  <div className="p-4 rounded-2xl bg-muted/30 dark:bg-zinc-950/40 border border-border/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Store className="w-3.5 h-3.5 text-emerald-600" />
+                        {language === "en" ? "Pay at Hotel Desk" : "Bayar di Kasir (Offline)"}
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        QR Scan
+                      </span>
+                    </div>
 
-                  {/* Option 2: Pay Offline */}
-                  <div className="space-y-2.5">
-                    <h4 className="text-xs font-bold text-foreground dark:text-zinc-200 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                      {language === "en" ? "Method 2: Pay Offline (At Hotel Desk)" : "Metode 2: Bayar di Tempat (Offline)"}
-                    </h4>
-                    <p className="text-xs text-muted-foreground dark:text-zinc-405 leading-relaxed">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {language === "en"
-                        ? "Pay in cash or debit card at NekoStay when dropping off your cat. Click the button below to receive a booking receipt via email and view your payment QR code."
-                        : "Bayar secara tunai atau kartu debit di kasir NekoStay saat mengantar kucing. Klik tombol di bawah untuk menerima bukti pemesanan via email dan melihat kode QR pembayaran."}
+                        ? "Show your payment QR code to cashier when dropping off your cat."
+                        : "Tunjukkan QR Code pemesanan ke kasir saat mengantar kucing."}
                     </p>
 
                     {receiptSent || (booking.offline_payment_token && !booking.offline_token_used) ? (
-                      <div className="space-y-3">
-                        <div className="p-3 bg-emerald-500/5 dark:bg-emerald-950/10 border border-emerald-500/10 dark:border-emerald-900/20 rounded-xl flex items-start gap-2">
-                          <FileCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                          <p className="text-[11px] text-emerald-600 dark:text-emerald-455 leading-normal">
-                            {language === "en"
-                              ? "Booking PDF receipt has been sent to your email. You can open the QR code below to show at the desk."
-                              : "Bukti pemesanan PDF telah dikirim ke email Anda. Anda dapat membuka kode QR di bawah untuk ditunjukkan ke kasir saat check-in."}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setIsQrModalOpen(true)}
-                            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs hover:shadow-md hover:shadow-emerald-600/15 transition-all cursor-pointer"
+                            className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/15 transition-all cursor-pointer active:scale-98"
                           >
-                            <QrCode className="w-4 h-4" />
-                            <span>{language === "en" ? "View Desk QR Code" : "Lihat QR Code Pembayaran"}</span>
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>{language === "en" ? "View Desk QR Code" : "Buka QR Code Kasir"}</span>
                           </button>
-
                           <button
                             type="button"
-                            onClick={handleSendReceipt}
-                            disabled={isReceiptSending}
-                            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-muted-foreground hover:text-foreground font-semibold text-xs hover:bg-muted/60 dark:hover:bg-zinc-900/60 transition-all cursor-pointer disabled:opacity-50"
+                            onClick={handleRefreshQr}
+                            disabled={isRefreshingQr}
+                            title={language === "en" ? "Refresh QR Code" : "Perbarui QR Code"}
+                            className="p-2.5 rounded-xl border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer disabled:opacity-50"
                           >
-                            <Mail className="w-3.5 h-3.5" />
-                            {isReceiptSending
-                              ? (language === "en" ? "Resending Receipt..." : "Mengirim Ulang Bukti...")
-                              : (language === "en" ? "Resend Receipt with New QR Code" : "Kirim Ulang Bukti dengan QR Baru")}
+                            <RefreshCcw className={`w-3.5 h-3.5 text-primary ${isRefreshingQr ? "animate-spin" : ""}`} />
                           </button>
                         </div>
+                        <button
+                          type="button"
+                          onClick={handleSendReceipt}
+                          disabled={isReceiptSending}
+                          className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-muted-foreground hover:text-foreground text-[11px] font-semibold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Mail className="w-3 h-3" />
+                          <span>{isReceiptSending ? "Mengirim..." : "Kirim Ulang PDF ke Email"}</span>
+                        </button>
                       </div>
                     ) : (
                       <button
                         onClick={handleSendReceipt}
                         disabled={isReceiptSending}
-                        className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-foreground dark:text-zinc-200 font-bold text-xs hover:bg-muted/60 dark:hover:bg-zinc-900/60 transition-all cursor-pointer disabled:opacity-50"
+                        className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border text-foreground font-bold text-xs hover:bg-muted transition-all cursor-pointer disabled:opacity-50 active:scale-98"
                       >
-                        <Mail className="w-4 h-4" />
-                        {isReceiptSending
-                          ? (language === "en" ? "Sending Receipt..." : "Mengirim Bukti...")
-                          : (language === "en" ? "Choose Offline & Send Receipt" : "Pilih Bayar di Tempat & Kirim Bukti")}
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>{isReceiptSending ? "Memproses..." : "Pilih Bayar di Kasir & QR"}</span>
                       </button>
                     )}
                   </div>
@@ -1049,146 +1384,85 @@ function BookingDetailContent({ id }) {
             </div>
           )}
 
-          {/* Booking Info Box */}
-          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-6">
-            <h3 className="text-xs font-extrabold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider">
-              {language === "en" ? "Service Information" : "Informasi Layanan"}
+          {/* Itemized Invoice & Billing Breakdown */}
+          <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-5 shadow-xs">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border/60 pb-3">
+              <Tag className="w-4 h-4 text-primary" />
+              <span>{language === "en" ? "Billing Breakdown" : "Rincian Biaya Transaksi"}</span>
             </h3>
 
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3">
-                <span className="text-muted-foreground dark:text-zinc-400 flex items-center gap-1.5">
-                  <Layers className="w-4 h-4 text-primary" />
-                  {language === "en" ? "Class" : "Kelas"}:
-                </span>
-                <span className="font-bold text-foreground dark:text-zinc-200">
-                  {booking.class}
-                </span>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between text-muted-foreground">
+                <span>{language === "en" ? "Rate per Day" : "Tarif Harian"}</span>
+                <span className="font-semibold text-foreground">{formatRupiah(booking.price_per_day)}</span>
               </div>
 
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3">
-                <span className="text-muted-foreground dark:text-zinc-400 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Check-In:
-                </span>
-                <span className="font-bold text-foreground dark:text-zinc-200">
-                  {formatDate(booking.check_in_date)}
-                </span>
+              <div className="flex justify-between text-muted-foreground">
+                <span>{language === "en" ? "Total Days" : "Durasi Menginap"}</span>
+                <span className="font-semibold text-foreground">{booking.total_days} {language === "en" ? "Days" : "Hari"}</span>
               </div>
 
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3">
-                <span className="text-muted-foreground dark:text-zinc-400 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Check-Out:
-                </span>
-                <span className="font-bold text-foreground dark:text-zinc-200">
-                  {formatDate(booking.check_out_date)}
-                </span>
-              </div>
-
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3">
-                <span className="text-muted-foreground dark:text-zinc-400">{language === "en" ? "Duration" : "Durasi"}:</span>
-                <span className="font-bold text-foreground dark:text-zinc-200">
-                  {booking.total_days} {language === "en" ? "Days" : "Hari"}
-                </span>
-              </div>
-
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3">
-                <span className="text-muted-foreground dark:text-zinc-400">{language === "en" ? "Rate / Day" : "Tarif / Hari"}:</span>
-                <span className="font-bold text-foreground dark:text-zinc-200">
-                  {formatRupiah(booking.price_per_day)}
-                </span>
-              </div>
-
-              <div className="flex justify-between border-b border-border/50 dark:border-zinc-800/50 pb-3 font-extrabold text-foreground dark:text-zinc-150 text-base">
-                <span>{language === "en" ? "Estimated Cost" : "Estimasi Biaya"}:</span>
+              <div className="flex justify-between font-bold text-foreground pt-1 border-t border-border/40">
+                <span>{language === "en" ? "Estimated Subtotal" : "Subtotal Biaya"}</span>
                 <span>{formatRupiah(booking.estimated_total)}</span>
               </div>
 
+              {/* Discounts */}
               {booking.discount_amount > 0 && (
-                <div className="flex justify-between text-emerald-600 dark:text-emerald-450 font-bold text-sm bg-emerald-500/5 p-2 rounded-lg">
-                  <span>{language === "en" ? "Referral Discount" : "Diskon Referral"}:</span>
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 p-2 rounded-xl">
+                  <span>{language === "en" ? "Discount" : "Potongan Diskon"}:</span>
                   <span>-{formatRupiah(booking.discount_amount - ((booking.points_used || 0) * 100))}</span>
                 </div>
               )}
 
               {booking.points_used > 0 && (
-                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold text-sm bg-amber-500/5 p-2 rounded-lg">
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 p-2 rounded-xl">
                   <span>{language === "en" ? `Neko Points (${booking.points_used} Pts)` : `Poin Neko (${booking.points_used} Poin)`}:</span>
                   <span>-{formatRupiah(booking.points_used * 100)}</span>
                 </div>
               )}
 
               {booking.late_fee_total > 0 && (
-                <div className="flex justify-between text-rose-600 dark:text-rose-455 font-bold text-sm bg-rose-500/5 p-2 rounded-lg">
+                <div className="flex justify-between text-rose-600 dark:text-rose-400 font-bold bg-rose-500/10 p-2 rounded-xl">
                   <span>{language === "en" ? "Late Fee" : "Denda Terlambat"}:</span>
                   <span>+{formatRupiah(booking.late_fee_total)}</span>
                 </div>
               )}
 
               {booking.refund_amount > 0 && (
-                <div className="flex justify-between text-blue-600 dark:text-blue-450 font-bold text-sm bg-blue-500/5 p-2 rounded-lg">
-                  <span>{language === "en" ? "Refund (Early)" : "Refund (Cepat)"}:</span>
+                <div className="flex justify-between text-blue-600 dark:text-blue-400 font-bold bg-blue-500/10 p-2 rounded-xl">
+                  <span>{language === "en" ? "Early Pickup Refund" : "Refund Pengambilan Cepat"}:</span>
                   <span>-{formatRupiah(booking.refund_amount)}</span>
                 </div>
               )}
 
-              <div className="flex justify-between pt-2 font-black text-foreground dark:text-zinc-100 text-lg">
-                <span>{language === "en" ? "Final Total" : "Total Akhir"}:</span>
-                <span className="text-emerald-600 dark:text-emerald-400">
+              {/* Final Total Box */}
+              <div className="p-3.5 rounded-2xl bg-muted/50 dark:bg-zinc-950/60 border border-border/80 flex items-center justify-between font-black text-sm pt-3 mt-2">
+                <span className="text-foreground">{language === "en" ? "Total Due" : "Total Akhir"}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-base font-black">
                   {formatRupiah(
                     booking.estimated_total -
                       (booking.discount_amount || 0) +
-                      booking.late_fee_total -
-                      booking.refund_amount,
+                      (booking.late_fee_total || 0) -
+                      (booking.refund_amount || 0),
                   )}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* WhatsApp Admin Request */}
-          {booking.status === "Aktif" && (
-            <div className="bg-card dark:bg-zinc-900/60 border border-border dark:border-zinc-850 p-6 rounded-3xl space-y-4">
-              <h3 className="text-xs font-extrabold text-muted-foreground dark:text-zinc-450 uppercase tracking-wider">
-                {language === "en" ? "Schedule Change?" : "Perubahan Jadwal?"}
-              </h3>
-              <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed">
-                {language === "en"
-                  ? "To extend the boarding period or upgrade/downgrade cage class, please contact our support via WhatsApp."
-                  : "Untuk memperpanjang hari penitipan atau mengganti kelas kamar, silakan hubungi admin kami melalui WhatsApp."}
-              </p>
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={async () => {
-                  try {
-                    await fetch(`/api/bookings/${booking.id}/wa-request-change`, { method: "POST" });
-                  } catch (e) {
-                    console.error("Gagal mengirim notif WA:", e);
-                  }
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-xs hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
-              >
-                <PhoneCall className="w-4 h-4" />
-                {language === "en" ? "Contact Support (WhatsApp)" : "Hubungi Admin (WhatsApp)"}
-              </a>
-            </div>
-          )}
-
           {/* Cancellation Info (if canceled) */}
           {booking.status === "Dibatalkan" && (
-            <div className="bg-rose-500/5 border border-rose-500/10 p-5 rounded-3xl space-y-2">
-              <span className="text-xs font-bold text-rose-600 dark:text-rose-450 uppercase tracking-wider block">
-                {language === "en" ? "Cancellation Notes" : "Keterangan Batal"}
+            <div className="bg-rose-500/5 border border-rose-500/15 p-5 rounded-3xl space-y-2">
+              <span className="text-xs font-bold text-rose-600 uppercase tracking-wider block">
+                {language === "en" ? "Cancellation Reason" : "Keterangan Pembatalan"}
               </span>
-              <p className="text-xs text-muted-foreground dark:text-zinc-400 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {booking.cancel_reason
                   ? `${language === "en" ? "User Reason" : "Alasan Pemilik"}: "${booking.cancel_reason}"`
                   : booking.reject_reason
-                    ? `${language === "en" ? "Admin Reject Reason" : "Alasan Penolakan Admin"}: "${booking.reject_reason}"`
-                    : (language === "en" ? "Canceled." : "Dibatalkan.")}
+                    ? `${language === "en" ? "Admin Reason" : "Alasan Penolakan Admin"}: "${booking.reject_reason}"`
+                    : (language === "en" ? "Booking was canceled." : "Pesanan telah dibatalkan.")}
               </p>
             </div>
           )}
@@ -1235,6 +1509,8 @@ function BookingDetailContent({ id }) {
         token={offlineToken || booking?.offline_payment_token}
         qrDataUrl={offlineQrDataUrl}
         language={language}
+        onRefreshQr={handleRefreshQr}
+        isRefreshing={isRefreshingQr}
       />
     </div>
   );

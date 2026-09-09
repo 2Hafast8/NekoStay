@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 
 import {
@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   RefreshCcw,
   AlertTriangle,
-  TrendingDown,
   Download,
   Search,
   ChevronLeft,
@@ -24,6 +23,18 @@ import {
   LayoutGrid,
   List,
   Zap,
+  Building2,
+  HeartPulse,
+  Clock,
+  ArrowRight,
+  MessageCircle,
+  RotateCcw,
+  CheckCircle2,
+  Cat,
+  Calendar,
+  DollarSign,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
@@ -45,6 +56,147 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+// Helper for WhatsApp link
+function getWhatsAppUrl(phone, catName, ownerName) {
+  if (!phone) return null;
+  const clean = phone.replace(/[^0-9]/g, "");
+  const normalized = clean.startsWith("0")
+    ? "62" + clean.slice(1)
+    : clean.startsWith("62")
+    ? clean
+    : clean;
+  const text = encodeURIComponent(
+    `Halo Kak ${ownerName || "Pelanggan"}, terkait pesanan penitipan untuk kucing kesayangan Anda (${catName || "NekoStay"})...`
+  );
+  return `https://wa.me/${normalized}?text=${text}`;
+}
+
+// Room Class Badge Component
+function RoomClassBadge({ roomClass }) {
+  const normalized = (roomClass || "").toLowerCase();
+  let badgeStyles = "bg-muted text-foreground border-border";
+
+  if (normalized.includes("basic")) {
+    badgeStyles =
+      "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700";
+  } else if (normalized.includes("standard")) {
+    badgeStyles =
+      "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900";
+  } else if (normalized.includes("premium") || normalized.includes("vip")) {
+    badgeStyles =
+      "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900";
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${badgeStyles}`}
+    >
+      {roomClass}
+    </span>
+  );
+}
+
+// Payment Status Dropdown Component
+function PaymentStatusDropdown({ booking, onUpdated }) {
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const statusConfig = {
+    Paid: {
+      label: "Lunas",
+      className:
+        "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60",
+    },
+    Unpaid: {
+      label: "Belum Dibayar",
+      className:
+        "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/60",
+    },
+    Failed: {
+      label: "Gagal",
+      className:
+        "bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60",
+    },
+    Refunded: {
+      label: "Dikembalikan",
+      className:
+        "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/60",
+    },
+  };
+
+  const current = statusConfig[booking.payment_status] || statusConfig.Unpaid;
+
+  const handleUpdate = async (newStatus) => {
+    if (newStatus === booking.payment_status || isUpdating) return;
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/payment-status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentStatus: newStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Gagal mengubah status pembayaran");
+      }
+      toast.success("Status pembayaran berhasil diperbarui");
+      onUpdated();
+    } catch (err) {
+      toast.error(
+        err.message || "Terjadi kesalahan saat memperbarui status pembayaran"
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={isUpdating}
+        className="focus:outline-hidden cursor-pointer disabled:opacity-60"
+        title="Klik untuk ubah status pembayaran"
+      >
+        <span
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full border transition-all hover:opacity-90 shadow-2xs ${current.className}`}
+        >
+          <Wallet className="w-3 h-3" />
+          <span>{current.label}</span>
+          <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44 p-1.5">
+        <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+          Ubah Status Bayar
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {[
+          { value: "Paid", label: "Lunas" },
+          { value: "Unpaid", label: "Belum Dibayar" },
+          { value: "Failed", label: "Gagal" },
+          { value: "Refunded", label: "Dikembalikan" },
+        ].map((opt) => (
+          <DropdownMenuItem
+            key={opt.value}
+            onClick={() => handleUpdate(opt.value)}
+            className={`text-xs font-semibold cursor-pointer ${
+              booking.payment_status === opt.value
+                ? "text-primary dark:text-primary font-bold bg-primary/5"
+                : ""
+            }`}
+          >
+            {booking.payment_status === opt.value ? (
+              <Check className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
+            ) : (
+              <span className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+            )}
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function AdminBookingsPage() {
   const { language, t } = useLanguage();
   const containerRef = useRef(null);
@@ -58,6 +210,7 @@ export default function AdminBookingsPage() {
   // Search & Filter & Pagination States
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClass, setSelectedClass] = useState("Semua");
+  const [availableClasses, setAvailableClasses] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
@@ -68,10 +221,18 @@ export default function AdminBookingsPage() {
 
   // Monthly / Yearly filter states (defaults to current month and year)
   const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(String(currentDate.getMonth() + 1)); // "1"-"12" or "all"
-  const [selectedYear, setSelectedYear] = useState(String(currentDate.getFullYear())); // e.g. "2026" or "all"
+  const [selectedMonth, setSelectedMonth] = useState(
+    String(currentDate.getMonth() + 1)
+  ); // "1"-"12" or "all"
+  const [selectedYear, setSelectedYear] = useState(
+    String(currentDate.getFullYear())
+  ); // e.g. "2026" or "all"
 
-  useGsapReveal(containerRef, { selector: ".anim-item", y: 20, stagger: 0.05, duration: 0.45 }, [filteredBookings, currentPage, activeTab]);
+  useGsapReveal(
+    containerRef,
+    { selector: ".anim-item", y: 20, stagger: 0.04, duration: 0.45 },
+    [filteredBookings, currentPage, activeTab]
+  );
 
   useEffect(() => {
     if (selectedYear === "all") {
@@ -100,32 +261,42 @@ export default function AdminBookingsPage() {
 
   const supabase = createClient();
 
+  // Load finance settings & available room classes
   useEffect(() => {
-    async function loadFinanceSettings() {
-      const { data } = await supabase
-        .from("landing_settings")
-        .select("content")
-        .eq("id", "finance_settings")
-        .maybeSingle();
+    async function loadInitialMetadata() {
+      try {
+        const { data: finData } = await supabase
+          .from("landing_settings")
+          .select("content")
+          .eq("id", "finance_settings")
+          .maybeSingle();
 
-      if (data?.content?.refund_percentage != null) {
-        setRefundPercentage(Number(data.content.refund_percentage) || 90);
+        if (finData?.content?.refund_percentage != null) {
+          setRefundPercentage(Number(finData.content.refund_percentage) || 90);
+        }
+
+        const { data: classData } = await supabase
+          .from("classes")
+          .select("name")
+          .order("price_per_day", { ascending: true });
+
+        if (classData && classData.length > 0) {
+          setAvailableClasses(classData.map((c) => c.name));
+        }
+      } catch (err) {
+        console.error("Error loading initial metadata:", err);
       }
     }
-    loadFinanceSettings();
+    loadInitialMetadata();
   }, [supabase]);
 
   const fetchAllBookings = useCallback(async () => {
     setIsLoading(true);
     try {
-      let query = supabase
-        .from("bookings")
-        .select(
-          `
+      let query = supabase.from("bookings").select(`
           *,
           profiles:user_id (full_name, phone)
-        `
-        );
+        `);
 
       if (selectedMonth !== "all" && selectedYear !== "all") {
         const monthNum = parseInt(selectedMonth, 10);
@@ -150,7 +321,9 @@ export default function AdminBookingsPage() {
         query = query.gte("created_at", startOfYear).lt("created_at", endOfYear);
       }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
 
       if (error) throw error;
       setBookings(data || []);
@@ -165,7 +338,7 @@ export default function AdminBookingsPage() {
   useEffect(() => {
     fetchAllBookings();
 
-    // Supabase Realtime WebSocket Subscription (Direct browser to DB, 0 Vercel load)
+    // Supabase Realtime WebSocket Subscription
     let debounceTimer = null;
     const triggerDebouncedReload = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -174,7 +347,9 @@ export default function AdminBookingsPage() {
       }, 400);
     };
 
-    const channelId = `admin-bookings-realtime-${Math.random().toString(36).substring(7)}`;
+    const channelId = `admin-bookings-realtime-${Math.random()
+      .toString(36)
+      .substring(7)}`;
     const channel = supabase
       .channel(channelId)
       .on(
@@ -204,6 +379,7 @@ export default function AdminBookingsPage() {
     setIsMounted(true);
   }, []);
 
+  // Filter application
   useEffect(() => {
     let temp = [...bookings];
 
@@ -236,6 +412,38 @@ export default function AdminBookingsPage() {
     setSelectedIds([]); // Clear selection when filters change
   }, [activeTab, searchQuery, selectedClass]);
 
+  // Executive KPI stats calculation
+  const stats = useMemo(() => {
+    const total = bookings.length;
+    const pending = bookings.filter((b) => b.status === "Menunggu").length;
+    const queue = bookings.filter((b) => b.status === "Antrian").length;
+    const active = bookings.filter((b) => b.status === "Aktif").length;
+    const completed = bookings.filter((b) => b.status === "Selesai").length;
+    const cancelled = bookings.filter((b) => b.status === "Dibatalkan").length;
+    const revenue = bookings
+      .filter((b) => b.status === "Aktif" || b.status === "Selesai")
+      .reduce((sum, b) => sum + (b.estimated_total || 0), 0);
+
+    return { total, pending, queue, active, completed, cancelled, revenue };
+  }, [bookings]);
+
+  // Reset all filters to default
+  const isFiltersActive =
+    searchQuery !== "" ||
+    selectedClass !== "Semua" ||
+    selectedMonth !== String(currentDate.getMonth() + 1) ||
+    selectedYear !== String(currentDate.getFullYear()) ||
+    activeTab !== "Semua";
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedClass("Semua");
+    setSelectedMonth(String(currentDate.getMonth() + 1));
+    setSelectedYear(String(currentDate.getFullYear()));
+    setActiveTab("Semua");
+    toast.info("Filter telah direset ke bulan saat ini.");
+  };
+
   const handleExportPDF = async () => {
     if (!filteredBookings || filteredBookings.length === 0) {
       toast.error("Tidak ada data untuk diekspor.");
@@ -243,7 +451,6 @@ export default function AdminBookingsPage() {
     }
 
     try {
-      // Dynamic imports to prevent SSR/build crashes in Next.js
       const { jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
@@ -256,28 +463,44 @@ export default function AdminBookingsPage() {
       // Title
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
-      doc.setTextColor(234, 88, 12); // Brand orange (#ea580c)
+      doc.setTextColor(234, 88, 12); // Brand orange
       doc.text("NekoStay", 14, 15);
 
       // Sub-brand Title
       doc.setFont("helvetica", "normal");
       doc.setFontSize(14);
-      doc.setTextColor(71, 85, 105); // Slate gray (#475569)
+      doc.setTextColor(71, 85, 105);
       doc.text("Laporan Pesanan Penitipan Kucing", 14, 22);
 
       // Metadata lines on the right side
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139);
-      doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")}`, 283, 14, { align: "right" });
+      doc.text(
+        `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")}`,
+        283,
+        14,
+        { align: "right" }
+      );
       doc.text(`Status Filter: ${activeTab}`, 283, 19, { align: "right" });
 
       const monthNames = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
       ];
-      const filterPeriodText = selectedYear === "all"
-        ? "Semua Waktu"
-        : selectedMonth === "all"
+      const filterPeriodText =
+        selectedYear === "all"
+          ? "Semua Waktu"
+          : selectedMonth === "all"
           ? `Tahun ${selectedYear}`
           : `${monthNames[parseInt(selectedMonth, 10) - 1]} ${selectedYear}`;
       doc.text(`Periode: ${filterPeriodText}`, 283, 24, { align: "right" });
@@ -288,13 +511,13 @@ export default function AdminBookingsPage() {
       doc.line(14, 28, 283, 28);
 
       // Summary Container background
-      doc.setFillColor(248, 250, 252); // Slate 50
+      doc.setFillColor(248, 250, 252);
       doc.roundedRect(14, 33, 269, 14, 2, 2, "F");
 
       // Summary Content
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.setTextColor(30, 41, 59);
       doc.text("RINGKASAN LAPORAN:", 20, 42);
 
       doc.setFont("helvetica", "normal");
@@ -303,19 +526,37 @@ export default function AdminBookingsPage() {
       doc.text(`${filteredBookings.length}`, 102, 42);
 
       // Sum estimated_total
-      const totalEst = filteredBookings.reduce((sum, b) => sum + (b.estimated_total || 0), 0);
+      const totalEst = filteredBookings.reduce(
+        (sum, b) => sum + (b.estimated_total || 0),
+        0
+      );
       doc.setFont("helvetica", "normal");
       doc.text("Total Estimasi Pendapatan: ", 130, 42);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(234, 88, 12);
-      const formattedRevenue = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(totalEst);
+      const formattedRevenue = new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        maximumFractionDigits: 0,
+      }).format(totalEst);
       doc.text(formattedRevenue, 182, 42);
 
-      // Reset text color for normal text
+      // Reset text color
       doc.setTextColor(51, 65, 85);
 
       const tableHeaders = [
-        ["No", "Nama Kucing", "Pemilik", "Kelas Room", "Check-In", "Check-Out", "Durasi", "Total Biaya", "Status"]
+        [
+          "No",
+          "Nama Kucing",
+          "Pemilik",
+          "Kelas Room",
+          "Check-In",
+          "Check-Out",
+          "Durasi",
+          "Total Biaya",
+          "Status",
+          "Pembayaran",
+        ],
       ];
 
       const tableRows = filteredBookings.map((b, index) => [
@@ -326,8 +567,19 @@ export default function AdminBookingsPage() {
         formatDate(b.check_in_date),
         formatDate(b.check_out_date),
         `${b.total_days} Hari`,
-        new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(b.estimated_total || 0),
-        b.status
+        new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          maximumFractionDigits: 0,
+        }).format(b.estimated_total || 0),
+        b.status,
+        b.payment_status === "Paid"
+          ? "Lunas"
+          : b.payment_status === "Failed"
+          ? "Gagal"
+          : b.payment_status === "Refunded"
+          ? "Refund"
+          : "Belum Bayar",
       ]);
 
       autoTable(doc, {
@@ -336,7 +588,7 @@ export default function AdminBookingsPage() {
         startY: 53,
         theme: "striped",
         headStyles: {
-          fillColor: [234, 88, 12], // Brand orange (#ea580c)
+          fillColor: [234, 88, 12],
           textColor: 255,
           fontStyle: "bold",
           fontSize: 9,
@@ -344,53 +596,47 @@ export default function AdminBookingsPage() {
         },
         bodyStyles: {
           fontSize: 8,
-          textColor: [51, 65, 85], // Slate 700
+          textColor: [51, 65, 85],
         },
         columnStyles: {
-          0: { halign: "center", cellWidth: 10 },    // No
-          1: { fontStyle: "bold" },                  // Cat Name
-          4: { halign: "center" },                   // Check-in
-          5: { halign: "center" },                   // Check-out
-          6: { halign: "center" },                   // Duration
-          7: { halign: "right", fontStyle: "bold" },   // Cost
-          8: { halign: "center" },                   // Status
+          0: { halign: "center", cellWidth: 10 },
+          1: { fontStyle: "bold" },
+          4: { halign: "center" },
+          5: { halign: "center" },
+          6: { halign: "center" },
+          7: { halign: "right", fontStyle: "bold" },
+          8: { halign: "center" },
+          9: { halign: "center" },
         },
         styles: {
           font: "helvetica",
           cellPadding: 3,
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252], // Slate 50
+          fillColor: [248, 250, 252],
         },
       });
 
-      // Add dynamic page footer at the end of PDF generation
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184); // Slate 400
+        doc.setTextColor(148, 163, 184);
 
-        // Left Footer
-        doc.text(
-          "Dicetak otomatis melalui Panel Admin NekoStay",
-          14,
-          200
-        );
-
-        // Right Footer
-        doc.text(
-          `Halaman ${i} dari ${pageCount}`,
-          283,
-          200,
-          { align: "right" }
-        );
+        doc.text("Dicetak otomatis melalui Panel Admin NekoStay", 14, 200);
+        doc.text(`Halaman ${i} dari ${pageCount}`, 283, 200, {
+          align: "right",
+        });
       }
 
-      // Save the generated PDF
       const sanitizeName = (str) => str.replace(/[^a-z0-9]/gi, "_");
-      doc.save(`Laporan_Pesanan_NekoStay_${sanitizeName(activeTab)}_${selectedYear}_${selectedMonth}.pdf`);
+      doc.save(
+        `Laporan_Pesanan_NekoStay_${sanitizeName(
+          activeTab
+        )}_${selectedYear}_${selectedMonth}.pdf`
+      );
+      toast.success("Laporan PDF berhasil diunduh.");
     } catch (error) {
       console.error("Gagal mengekspor PDF:", error);
       toast.error("Terjadi kesalahan saat memproses ekspor PDF.");
@@ -403,7 +649,6 @@ export default function AdminBookingsPage() {
     setIsApproving(true);
 
     try {
-      // Set status to Aktif
       const { error } = await supabase
         .from("bookings")
         .update({ status: "Aktif" })
@@ -411,7 +656,6 @@ export default function AdminBookingsPage() {
 
       if (error) throw error;
 
-      // Notify User
       await supabase.from("notifications").insert({
         user_id: selectedBooking.user_id,
         title: "Pesanan Penitipan Disetujui",
@@ -420,10 +664,12 @@ export default function AdminBookingsPage() {
         booking_id: selectedBooking.id,
       });
 
+      toast.success(`Pesanan untuk ${selectedBooking.cat_name} telah disetujui!`);
       setIsApproveOpen(false);
       fetchAllBookings();
     } catch (err) {
       console.error("Error approving booking:", err);
+      toast.error("Gagal menyetujui pesanan.");
     } finally {
       setIsApproving(false);
     }
@@ -435,7 +681,6 @@ export default function AdminBookingsPage() {
     setIsRejecting(true);
 
     try {
-      // Set status to Dibatalkan and save reject_reason
       const { error } = await supabase
         .from("bookings")
         .update({
@@ -446,7 +691,6 @@ export default function AdminBookingsPage() {
 
       if (error) throw error;
 
-      // Notify User
       await supabase.from("notifications").insert({
         user_id: selectedBooking.user_id,
         title: "Pesanan Penitipan Ditolak",
@@ -455,11 +699,13 @@ export default function AdminBookingsPage() {
         booking_id: selectedBooking.id,
       });
 
+      toast.info(`Pesanan untuk ${selectedBooking.cat_name} telah ditolak.`);
       setIsRejectOpen(false);
       setRejectReason("");
       fetchAllBookings();
     } catch (err) {
       console.error("Error rejecting booking:", err);
+      toast.error("Gagal menolak pesanan.");
     } finally {
       setIsRejecting(false);
     }
@@ -470,13 +716,13 @@ export default function AdminBookingsPage() {
     setIsBulkLoading(true);
     try {
       const res = await fetch("/api/bookings/bulk", {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ ids: selectedIds, action: "approve" }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, action: "approve" }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
-      toast.success(result.message || "Berhasil menyetujui pesanan.");
+      toast.success(result.message || "Berhasil menyetujui pesanan terpilih.");
       setSelectedIds([]);
       fetchAllBookings();
     } catch (err) {
@@ -492,13 +738,13 @@ export default function AdminBookingsPage() {
     setIsBulkLoading(true);
     try {
       const res = await fetch("/api/bookings/bulk", {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({
-            ids: selectedIds,
-            action: "reject",
-            rejectReason: bulkRejectReason,
-         }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: selectedIds,
+          action: "reject",
+          rejectReason: bulkRejectReason,
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error);
@@ -552,7 +798,6 @@ export default function AdminBookingsPage() {
     setIsCheckingOut(true);
 
     try {
-      // Save Checkout info to DB
       const { error } = await supabase
         .from("bookings")
         .update({
@@ -567,7 +812,6 @@ export default function AdminBookingsPage() {
 
       if (error) throw error;
 
-      // Notify User
       await supabase.from("notifications").insert({
         user_id: selectedBooking.user_id,
         title: "Kucing Selesai Dititipkan",
@@ -576,10 +820,12 @@ export default function AdminBookingsPage() {
         booking_id: selectedBooking.id,
       });
 
+      toast.success(`Check-out untuk ${selectedBooking.cat_name} selesai!`);
       setIsCheckoutOpen(false);
       fetchAllBookings();
     } catch (err) {
       console.error("Error checking out booking:", err);
+      toast.error("Gagal memproses check-out.");
     } finally {
       setIsCheckingOut(false);
     }
@@ -611,14 +857,10 @@ export default function AdminBookingsPage() {
   // Handle selecting all pending bookings on current page
   const handleSelectAllPagePending = () => {
     if (isAllPagePendingSelected) {
-      // Deselect all pending on current page
       setSelectedIds((prev) =>
-        prev.filter(
-          (id) => !pagePendingBookings.some((b) => b.id === id)
-        )
+        prev.filter((id) => !pagePendingBookings.some((b) => b.id === id))
       );
     } else {
-      // Select all pending on current page
       const pendingIds = pagePendingBookings.map((b) => b.id);
       setSelectedIds((prev) => {
         const newIds = [...prev];
@@ -632,154 +874,325 @@ export default function AdminBookingsPage() {
     }
   };
 
-
-
   if (!isMounted) {
     return (
-      <div className="space-y-8 animate-pulse p-4 sm:p-6 bg-background dark:bg-zinc-950 min-h-screen">
-        <div className="h-8 bg-muted dark:bg-zinc-800/60 rounded-xl w-48 mb-4" />
-        <div className="h-6 bg-muted dark:bg-zinc-800/60 rounded-xl w-96 mb-8" />
-        <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
+      <div className="space-y-8 animate-pulse p-4 sm:p-6 bg-background min-h-screen">
+        <div className="h-8 bg-muted rounded-xl w-48 mb-4" />
+        <div className="h-6 bg-muted rounded-xl w-96 mb-8" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-28 bg-card border border-border rounded-3xl" />
+          ))}
+        </div>
+        <div className="h-64 bg-card border border-border rounded-3xl" />
       </div>
     );
   }
 
+  // Formatting period label
+  const monthNames = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+  const activePeriodLabel =
+    selectedYear === "all"
+      ? "Semua Waktu"
+      : selectedMonth === "all"
+      ? `Tahun ${selectedYear}`
+      : `${monthNames[parseInt(selectedMonth, 10) - 1]} ${selectedYear}`;
+
   return (
-    <div ref={containerRef} className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center gap-4 flex-wrap anim-item">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-extrabold uppercase tracking-wider">
-            <Sparkles className="w-3 h-3 text-rose-500" />
-            <span>{t("admin_bookings_badge")}</span>
+    <div ref={containerRef} className="space-y-7">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 anim-item">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-extrabold tracking-wide border border-rose-500/20 shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+            <span>MANAJEMEN RESERVASI</span>
+            <span className="w-1 h-1 rounded-full bg-rose-400" />
+            <span className="font-semibold text-[11px] opacity-90">
+              {activePeriodLabel}
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-            {t("admin_bookings_title")}
+            Semua Pesanan Penitipan
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t("admin_bookings_subtitle")}
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-2xl">
+            Kelola persetujuan reservasi, pantau kucing yang sedang aktif menginap,
+            hubungi pemilik langsung via WhatsApp, dan lakukan kalkulasi check-out.
           </p>
         </div>
 
-        <div className="flex gap-2">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={() => setIsAutoRejectConfirmOpen(true)}
             disabled={isAutoRejecting}
-            className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl transition-colors cursor-pointer text-rose-600 dark:text-rose-400 flex items-center gap-1.5 border border-rose-500/20 disabled:opacity-50"
+            className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/15 text-rose-600 dark:text-rose-400 rounded-xl transition-all cursor-pointer flex items-center gap-2 border border-rose-500/25 disabled:opacity-50 shadow-2xs group"
             title="Periksa & Tolak Otomatis Antrian Kamar Penuh (>3 Hari)"
           >
-            <Zap className="w-4 h-4 text-rose-500" />
-            <span className="hidden sm:inline text-xs font-bold">
-              {isAutoRejecting ? "Mengevaluasi..." : "Cek Antrian Penuh (>3 Hari)"}
+            <Zap className="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold whitespace-nowrap">
+              {isAutoRejecting ? "Mengevaluasi..." : "Cek Antrian (>3 Hari)"}
             </span>
           </button>
+
           <button
             onClick={handleExportPDF}
-            className="p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer text-muted-foreground hover:text-foreground flex items-center gap-2"
-            title={t("admin_bookings_export_pdf")}
+            className="px-3.5 py-2.5 bg-muted/60 hover:bg-muted text-foreground border border-border rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-2xs hover:shadow-xs"
+            title="Ekspor Laporan PDF"
           >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline text-xs font-bold">{t("admin_bookings_export_pdf")}</span>
+            <Download className="w-4 h-4 text-muted-foreground" />
+            <span className="hidden sm:inline text-xs font-bold">Ekspor PDF</span>
           </button>
+
           <button
             onClick={fetchAllBookings}
-            className="p-3 bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
-            title={t("admin_bookings_refresh")}
+            className="p-2.5 bg-muted/60 hover:bg-muted text-foreground border border-border rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+            title="Perbarui Data (Refresh)"
           >
-            <RefreshCcw className="w-4 h-4" />
+            <RefreshCcw
+              className={`w-4 h-4 text-muted-foreground ${
+                isLoading ? "animate-spin text-primary" : ""
+              }`}
+            />
           </button>
         </div>
       </div>
 
-      {/* Tabs Filter */}
-      <div className="flex border-b border-border/80 dark:border-zinc-800 overflow-x-auto no-scrollbar pb-px justify-between sm:justify-start gap-4 sm:gap-8 w-full anim-item">
-        <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
-          {["Semua", "Menunggu", "Antrian", "Aktif", "Selesai", "Dibatalkan"].map((tab) => {
-            const tabMapping = {
-              "Semua": t("admin_bookings_tab_all"),
-              "Menunggu": t("admin_bookings_tab_pending"),
-              "Antrian": "Dalam Antrian",
-              "Aktif": t("admin_bookings_tab_active"),
-              "Selesai": t("admin_bookings_tab_completed"),
-              "Dibatalkan": t("admin_bookings_tab_cancelled")
-            };
-            const count = tab === "Semua" ? bookings.length : bookings.filter(b => b.status === tab).length;
+      {/* Executive KPI Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 anim-item">
+        {/* Card 1: Total Bookings */}
+        <div
+          onClick={() => setActiveTab("Semua")}
+          className={`p-4 sm:p-5 rounded-3xl border transition-all cursor-pointer select-none bg-card hover:shadow-md ${
+            activeTab === "Semua"
+              ? "border-blue-500/60 ring-2 ring-blue-500/20 shadow-xs"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+              Total Pesanan
+            </span>
+            <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
+              <CalendarRange className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+              {stats.total}
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground truncate">
+              Periode: {activePeriodLabel}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 2: Pending Approvals */}
+        <div
+          onClick={() => setActiveTab("Menunggu")}
+          className={`p-4 sm:p-5 rounded-3xl border transition-all cursor-pointer select-none bg-card hover:shadow-md ${
+            activeTab === "Menunggu"
+              ? "border-amber-500/60 ring-2 ring-amber-500/20 shadow-xs"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+              Menunggu Review
+            </span>
+            <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400 tracking-tight">
+                {stats.pending}
+              </span>
+              {stats.queue > 0 && (
+                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
+                  +{stats.queue} Antrian
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {stats.pending > 0
+                ? "Perlu segera ditinjau"
+                : "Semua reservasi telah diproses"}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Active Cats */}
+        <div
+          onClick={() => setActiveTab("Aktif")}
+          className={`p-4 sm:p-5 rounded-3xl border transition-all cursor-pointer select-none bg-card hover:shadow-md ${
+            activeTab === "Aktif"
+              ? "border-emerald-500/60 ring-2 ring-emerald-500/20 shadow-xs"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+              Sedang Menginap
+            </span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+              {stats.active}
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground">
+              Kucing berada di kamar penitipan
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Revenue & Completed */}
+        <div
+          onClick={() => setActiveTab("Selesai")}
+          className={`p-4 sm:p-5 rounded-3xl border transition-all cursor-pointer select-none bg-card hover:shadow-md ${
+            activeTab === "Selesai"
+              ? "border-orange-500/60 ring-2 ring-orange-500/20 shadow-xs"
+              : "border-border hover:border-border/80"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+              Estimasi Omset
+            </span>
+            <div className="w-9 h-9 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-500/20">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="text-xl sm:text-2xl font-black text-foreground tracking-tight truncate">
+              {formatRupiah(stats.revenue)}
+            </div>
+            <p className="text-[11px] font-medium text-muted-foreground">
+              {stats.completed} pesanan telah selesai
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs & View Switcher Bar */}
+      <div className="flex items-center justify-between gap-4 border-b border-border/80 pb-px overflow-x-auto no-scrollbar anim-item">
+        {/* Status Tabs */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {[
+            { id: "Semua", label: "Semua", count: stats.total },
+            { id: "Menunggu", label: "Menunggu", count: stats.pending },
+            { id: "Antrian", label: "Antrian", count: stats.queue },
+            { id: "Aktif", label: "Aktif", count: stats.active },
+            { id: "Selesai", label: "Selesai", count: stats.completed },
+            { id: "Dibatalkan", label: "Dibatalkan", count: stats.cancelled },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`pb-3.5 text-xs sm:text-sm font-extrabold transition-all relative cursor-pointer whitespace-nowrap flex items-center gap-2 ${
-                  activeTab === tab
-                    ? "text-primary dark:text-primary"
-                    : "text-muted-foreground dark:text-zinc-400 hover:text-foreground dark:hover:text-zinc-200"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-3 px-1 text-xs sm:text-sm font-extrabold transition-all relative cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <span>{tabMapping[tab] || tab}</span>
-                <span className={`px-2 py-0.5 text-[10px] rounded-full font-black ${
-                  activeTab === tab
-                    ? "bg-primary/15 text-primary"
-                    : "bg-muted dark:bg-zinc-800 text-muted-foreground dark:text-zinc-400"
-                }`}>
-                  {count}
+                <span>{tab.label}</span>
+                <span
+                  className={`px-2 py-0.5 text-[10px] rounded-full font-black transition-colors ${
+                    isActive
+                      ? "bg-primary/15 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {tab.count}
                 </span>
-                {activeTab === tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full shadow-xs" />
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* View Switcher Toggle (Desktop) */}
-        <div className="hidden md:flex items-center gap-1 p-1 bg-muted dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-xl shrink-0 self-center mb-2">
+        {/* Table / Grid Switcher */}
+        <div className="flex items-center gap-1 p-1 bg-muted/60 border border-border rounded-2xl shrink-0 self-center mb-2">
           <button
             type="button"
             onClick={() => setViewMode("table")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               viewMode === "table"
-                ? "bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 shadow-xs"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
             title="Tampilan Tabel"
           >
             <List className="w-3.5 h-3.5" />
-            <span>Tabel</span>
+            <span className="hidden sm:inline">Tabel</span>
           </button>
           <button
             type="button"
             onClick={() => setViewMode("grid")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               viewMode === "grid"
-                ? "bg-background dark:bg-zinc-800 text-foreground dark:text-zinc-100 shadow-xs"
+                ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             }`}
             title="Tampilan Grid Kartu"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Grid Kartu</span>
+            <span className="hidden sm:inline">Grid</span>
           </button>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="flex flex-col gap-4 bg-card border border-border p-4 rounded-2xl anim-item">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
-          {/* Search bar */}
-          <div className="relative w-full md:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Search & Filter Toolbar */}
+      <div className="bg-card border border-border p-4 rounded-3xl shadow-xs space-y-3 anim-item">
+        <div className="flex flex-col lg:flex-row gap-3 justify-between items-stretch lg:items-center">
+          {/* Search Box */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder={t("admin_bookings_search_placeholder")}
+              placeholder="Cari nama kucing atau pemilik..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden focus:border-primary/50 text-foreground font-medium"
+              className="w-full pl-9 pr-9 py-2.5 bg-muted/40 hover:bg-muted/60 border border-border rounded-2xl text-xs focus:outline-hidden focus:border-primary/60 text-foreground font-medium transition-all"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                title="Hapus pencarian"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Selector group */}
-          <div className="flex flex-wrap items-center gap-3">
-            <SlidersHorizontal className="w-4 h-4 text-muted-foreground shrink-0 hidden sm:block" />
+          {/* Filters Group */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground font-bold mr-1">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filter:</span>
+            </div>
 
             {/* Year Dropdown */}
             {(() => {
@@ -791,25 +1204,43 @@ export default function AdminBookingsPage() {
                 { value: "2027", label: "2027" },
                 { value: "2028", label: "2028" },
               ];
-              const currentYearLabel = yearOptions.find(o => o.value === selectedYear)?.label ?? selectedYear;
+              const currentYearLabel =
+                yearOptions.find((o) => o.value === selectedYear)?.label ??
+                selectedYear;
               return (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[110px] justify-between">
-                    <span className="text-muted-foreground font-normal mr-0.5">Tahun:</span>
-                    <span>{currentYearLabel}</span>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all min-w-[110px] justify-between cursor-pointer">
+                    <span className="text-muted-foreground font-normal">
+                      Tahun:
+                    </span>
+                    <span className="font-bold">{currentYearLabel}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
-                    <DropdownMenuLabel>Filter Tahun</DropdownMenuLabel>
+                  <DropdownMenuContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={6}
+                    className="p-1"
+                  >
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                      Pilih Tahun
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {yearOptions.map((opt) => (
                       <DropdownMenuItem
                         key={opt.value}
                         onClick={() => setSelectedYear(opt.value)}
-                        className={selectedYear === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                        className={`text-xs font-semibold cursor-pointer ${
+                          selectedYear === opt.value
+                            ? "text-primary font-bold bg-primary/5"
+                            : ""
+                        }`}
                       >
-                        {selectedYear === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
-                        {selectedYear !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedYear === opt.value ? (
+                          <Check className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
+                        ) : (
+                          <span className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                        )}
                         {opt.label}
                       </DropdownMenuItem>
                     ))}
@@ -835,31 +1266,51 @@ export default function AdminBookingsPage() {
                 { value: "11", label: "November" },
                 { value: "12", label: "Desember" },
               ];
-              const currentMonthLabel = monthOptions.find(o => o.value === selectedMonth)?.label ?? selectedMonth;
+              const currentMonthLabel =
+                monthOptions.find((o) => o.value === selectedMonth)?.label ??
+                selectedMonth;
               const isDisabled = selectedYear === "all";
               return (
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     disabled={isDisabled}
-                    className={`flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[140px] justify-between ${
-                      isDisabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""
+                    className={`flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all min-w-[130px] justify-between cursor-pointer ${
+                      isDisabled
+                        ? "opacity-40 cursor-not-allowed pointer-events-none"
+                        : ""
                     }`}
                   >
-                    <span className="text-muted-foreground font-normal mr-0.5">Bulan:</span>
-                    <span>{currentMonthLabel}</span>
+                    <span className="text-muted-foreground font-normal">
+                      Bulan:
+                    </span>
+                    <span className="font-bold">{currentMonthLabel}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
-                    <DropdownMenuLabel>Filter Bulan</DropdownMenuLabel>
+                  <DropdownMenuContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={6}
+                    className="p-1"
+                  >
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                      Pilih Bulan
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {monthOptions.map((opt) => (
                       <DropdownMenuItem
                         key={opt.value}
                         onClick={() => setSelectedMonth(opt.value)}
-                        className={selectedMonth === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                        className={`text-xs font-semibold cursor-pointer ${
+                          selectedMonth === opt.value
+                            ? "text-primary font-bold bg-primary/5"
+                            : ""
+                        }`}
                       >
-                        {selectedMonth === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
-                        {selectedMonth !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
+                        {selectedMonth === opt.value ? (
+                          <Check className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
+                        ) : (
+                          <span className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                        )}
                         {opt.label}
                       </DropdownMenuItem>
                     ))}
@@ -868,418 +1319,685 @@ export default function AdminBookingsPage() {
               );
             })()}
 
-            {/* Class Dropdown */}
+            {/* Room Class Dropdown */}
             {(() => {
-              const classOptions = [
-                { value: "Semua", label: "Semua Kelas" },
-                { value: "Basic", label: "Basic" },
-                { value: "Standard", label: "Standard" },
-                { value: "Premium", label: "Premium" },
-              ];
-              const currentClassLabel = classOptions.find(o => o.value === selectedClass)?.label ?? selectedClass;
+              const allClasses =
+                availableClasses.length > 0
+                  ? ["Semua", ...availableClasses]
+                  : ["Semua", "Basic", "Standard", "Premium"];
               return (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all duration-150 min-w-[130px] justify-between">
-                    <span className="text-muted-foreground font-normal mr-0.5">Kelas:</span>
-                    <span>{currentClassLabel}</span>
+                  <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 bg-muted/40 hover:bg-muted border border-border rounded-xl text-xs font-semibold text-foreground transition-all min-w-[120px] justify-between cursor-pointer">
+                    <span className="text-muted-foreground font-normal">
+                      Kelas:
+                    </span>
+                    <span className="font-bold">{selectedClass}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-1 shrink-0" />
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="bottom" align="start" sideOffset={6}>
-                    <DropdownMenuLabel>Filter Kelas</DropdownMenuLabel>
+                  <DropdownMenuContent
+                    side="bottom"
+                    align="start"
+                    sideOffset={6}
+                    className="p-1"
+                  >
+                    <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                      Pilih Kelas Room
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {classOptions.map((opt) => (
+                    {allClasses.map((cls) => (
                       <DropdownMenuItem
-                        key={opt.value}
-                        onClick={() => setSelectedClass(opt.value)}
-                        className={selectedClass === opt.value ? "text-orange-600 dark:text-orange-400" : ""}
+                        key={cls}
+                        onClick={() => setSelectedClass(cls)}
+                        className={`text-xs font-semibold cursor-pointer ${
+                          selectedClass === cls
+                            ? "text-primary font-bold bg-primary/5"
+                            : ""
+                        }`}
                       >
-                        {selectedClass === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
-                        {selectedClass !== opt.value && <span className="w-3.5 h-3.5 shrink-0" />}
-                        {opt.label}
+                        {selectedClass === cls ? (
+                          <Check className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
+                        ) : (
+                          <span className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                        )}
+                        {cls}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
               );
             })()}
+
+            {/* Reset Filters Button */}
+            {isFiltersActive && (
+              <button
+                onClick={handleResetFilters}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted border border-border transition-all cursor-pointer"
+                title="Reset semua pencarian & filter"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Filter results info banner */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground font-medium pt-1 border-t border-border/50">
+          <span>
+            Menampilkan{" "}
+            <strong className="text-foreground font-bold">
+              {filteredBookings.length}
+            </strong>{" "}
+            pesanan dari total{" "}
+            <strong className="text-foreground font-bold">{bookings.length}</strong>
+          </span>
+          {pagePendingBookings.length > 0 && (
+            <button
+              onClick={handleSelectAllPagePending}
+              className="text-primary hover:underline font-bold cursor-pointer text-xs"
+            >
+              {isAllPagePendingSelected
+                ? "Batal Pilih Menunggu"
+                : `Pilih Semua Menunggu (${pagePendingBookings.length})`}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Bookings Table */}
+      {/* Main Content: Table or Grid */}
       {isLoading ? (
-        <GsapDataLoader type={viewMode === "grid" ? "cards" : "table"} message="Memuat daftar pemesanan..." rows={5} />
+        <GsapDataLoader
+          type={viewMode === "grid" ? "cards" : "table"}
+          message="Memuat daftar pemesanan..."
+          rows={5}
+        />
       ) : filteredBookings.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border border-dashed rounded-3xl p-8 max-w-xl mx-auto text-muted-foreground">
-          <CalendarRange className="w-8 h-8 mx-auto mb-2.5 text-muted-foreground/35" />
-          <p className="text-sm font-bold">{t("admin_bookings_empty")}</p>
+        <div className="text-center py-20 bg-card border border-border border-dashed rounded-3xl p-8 max-w-xl mx-auto space-y-3">
+          <div className="w-14 h-14 mx-auto rounded-3xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+            <CalendarRange className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-extrabold text-foreground">
+            Tidak Ada Pesanan Ditemukan
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Tidak ada reservasi yang sesuai dengan status &quot;{activeTab}&quot; atau
+            kata kunci pencarian saat ini.
+          </p>
+          {isFiltersActive && (
+            <button
+              onClick={handleResetFilters}
+              className="mt-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Filter & Pencarian</span>
+            </button>
+          )}
         </div>
       ) : (
         <>
           {viewMode === "grid" ? (
-            /* Grid View */
+            /* ================= GRID CARD VIEW ================= */
             <div className="space-y-4">
-              {pagePendingBookings.length > 0 && (
-                <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-4 rounded-2xl flex items-center justify-between shadow-xs">
-                  <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isAllPagePendingSelected}
-                      onChange={handleSelectAllPagePending}
-                      className="w-4.5 h-4.5 rounded-sm border-border accent-primary"
-                    />
-                    Pilih Semua Menunggu
-                  </label>
-                  {selectedIds.length > 0 && (
-                    <span className="text-xs bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold">
-                      {selectedIds.length} Terpilih
-                    </span>
-                  )}
-                </div>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                {paginatedBookings.map((b) => {
+                  const waUrl = getWhatsAppUrl(
+                    b.profiles?.phone,
+                    b.cat_name,
+                    b.profiles?.full_name
+                  );
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-                {paginatedBookings.map((b) => (
-                  <div key={b.id} className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-850 rounded-3xl p-5 space-y-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between anim-item">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          {b.status === "Menunggu" && (
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.includes(b.id)}
-                              onChange={() => handleSelectRow(b.id)}
-                              className="w-4.5 h-4.5 rounded-sm border-border accent-primary shrink-0 cursor-pointer"
-                            />
-                          )}
+                  return (
+                    <div
+                      key={b.id}
+                      className={`bg-card border rounded-3xl p-5 space-y-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between anim-item ${
+                        selectedIds.includes(b.id)
+                          ? "border-primary ring-1 ring-primary/40 bg-primary/2"
+                          : "border-border hover:border-border/80"
+                      }`}
+                    >
+                      <div className="space-y-3.5">
+                        {/* Header card: Cat info + Status */}
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            {b.status === "Menunggu" ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(b.id)}
+                                onChange={() => handleSelectRow(b.id)}
+                                className="w-4.5 h-4.5 rounded-md border-border accent-primary shrink-0 cursor-pointer"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 border border-orange-500/20">
+                                <Cat className="w-4 h-4" />
+                              </div>
+                            )}
+
+                            <div className="truncate">
+                              <h3 className="font-extrabold text-foreground text-sm truncate flex items-center gap-1.5">
+                                <span>{b.cat_name}</span>
+                              </h3>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {b.cat_gender} • {b.cat_age}
+                              </p>
+                            </div>
+                          </div>
+
+                          <BookingStatus status={b.status} />
+                        </div>
+
+                        {/* Owner Information & WhatsApp Shortcut */}
+                        <div className="p-2.5 bg-muted/30 border border-border/60 rounded-2xl flex items-center justify-between gap-2">
                           <div className="truncate">
-                            <h3 className="font-extrabold text-foreground dark:text-zinc-100 text-sm truncate">
-                              {b.cat_name}
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground dark:text-zinc-400 truncate">
-                              Pemilik: {b.profiles?.full_name || "Tamu Neko"}
-                            </p>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                              Pemilik:
+                            </span>
+                            <span className="text-xs font-bold text-foreground truncate block">
+                              {b.profiles?.full_name || "Tamu Neko"}
+                            </span>
+                          </div>
+                          {waUrl && (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl transition-all shrink-0 border border-emerald-500/20"
+                              title="Chat Pemilik via WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Room & Schedule breakdown */}
+                        <div className="space-y-2 border-t border-b border-border/60 py-3 text-xs text-muted-foreground">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Kelas:
+                            </span>
+                            <RoomClassBadge roomClass={b.class} />
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Jadwal:
+                            </span>
+                            <span className="font-semibold text-foreground text-[11px]">
+                              {formatDate(b.check_in_date)} -{" "}
+                              {formatDate(b.check_out_date)}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Durasi:
+                            </span>
+                            <span className="font-bold text-foreground bg-muted px-2 py-0.5 rounded-md text-[11px]">
+                              {b.total_days} Hari
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center pt-1">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Status Bayar:
+                            </span>
+                            <PaymentStatusDropdown
+                              booking={b}
+                              onUpdated={fetchAllBookings}
+                            />
+                          </div>
+
+                          <div className="flex justify-between items-baseline pt-2 border-t border-border/40">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                              Total Biaya:
+                            </span>
+                            <div className="text-right">
+                              <span className="font-black text-foreground text-sm">
+                                {formatRupiah(b.estimated_total)}
+                              </span>
+                              {b.discount_amount > 0 && (
+                                <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                  Hemat {formatRupiah(b.discount_amount)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        <BookingStatus status={b.status} />
                       </div>
 
-                      <div className="space-y-2 border-t border-b border-border/40 dark:border-zinc-800/80 py-3 text-xs text-muted-foreground dark:text-zinc-400">
-                        <div className="flex justify-between">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Kelas & Tarif:</span>
-                          <span className="font-bold text-foreground dark:text-zinc-200">{b.class} ({formatRupiah(b.price_per_day)})</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Durasi:</span>
-                          <span className="font-bold text-foreground dark:text-zinc-200">{b.total_days} Hari</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Status Bayar:</span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                            b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400' :
-                            b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400' :
-                            b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400' :
-                            'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'
-                          }`}>
-                            <Wallet className="w-3 h-3" />
-                            {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between pt-1 border-t border-border/30">
-                          <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Tagihan:</span>
-                          <span className="font-extrabold text-foreground dark:text-zinc-100 text-sm">{formatRupiah(b.estimated_total)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-                      <Link
-                        href={`/admin/bookings/${b.id}`}
-                        className="px-3.5 py-2 border border-border dark:border-zinc-800 hover:bg-muted text-xs font-bold rounded-xl transition-all text-center flex-1"
-                      >
-                        Detail
-                      </Link>
-
-                      {b.status === "Menunggu" && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(b);
-                              setIsApproveOpen(true);
-                            }}
-                            className="px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            Setujui
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(b);
-                              setIsRejectOpen(true);
-                            }}
-                            className="px-3.5 py-2 border border-rose-200 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            Tolak
-                          </button>
-                        </>
-                      )}
-
-                      {b.status === "Aktif" && (
-                        <button
-                          onClick={() => openCheckoutModal(b)}
-                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1"
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <Link
+                          href={`/admin/bookings/${b.id}`}
+                          className="px-3 py-2 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all text-center flex-1 text-foreground"
                         >
-                          <LogOut className="w-3.5 h-3.5" />
-                          Check-Out
-                        </button>
-                      )}
+                          Detail
+                        </Link>
+
+                        {b.status === "Menunggu" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setIsApproveOpen(true);
+                              }}
+                              className="px-3 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-1 flex-1 shadow-2xs"
+                              title="Setujui Penitipan"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Setujui</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setIsRejectOpen(true);
+                              }}
+                              className="p-2 border border-rose-200 dark:border-rose-900/60 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer"
+                              title="Tolak Penitipan"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {b.status === "Aktif" && (
+                          <button
+                            onClick={() => openCheckoutModal(b)}
+                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 flex-1 shadow-2xs"
+                            title="Proses Check-Out Kucing"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span>Check-Out</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
-            /* Table View */
+            /* ================= TABLE VIEW ================= */
             <>
-              <div className="hidden md:block bg-card border border-border rounded-3xl overflow-hidden shadow-sm">
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-card border border-border rounded-3xl overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm border-collapse">
                     <thead>
-                      <tr className="bg-muted/40 border-b border-border/80 text-muted-foreground font-bold">
+                      <tr className="bg-muted/40 border-b border-border text-muted-foreground text-xs font-bold">
                         <th className="p-4 sm:p-5 w-12 text-center">
                           <input
                             type="checkbox"
                             checked={isAllPagePendingSelected}
                             onChange={handleSelectAllPagePending}
                             disabled={pagePendingBookings.length === 0}
-                            className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
+                            className="w-4 h-4 rounded-md border-border cursor-pointer accent-primary disabled:opacity-40"
+                            title="Pilih semua pesanan menunggu pada halaman ini"
                           />
                         </th>
-                        <th className="p-4 sm:p-5">{t("admin_bookings_col_owner_cat")}</th>
-                        <th className="p-4 sm:p-5">{t("admin_bookings_col_class_rate")}</th>
-                        <th className="p-4 sm:p-5">{t("admin_bookings_col_schedule")}</th>
-                        <th className="p-4 sm:p-5">{t("admin_bookings_col_est_total")}</th>
-                        <th className="p-4 sm:p-5">{t("admin_bookings_col_status")}</th>
-                        <th className="p-4 sm:p-5">Status Bayar</th>
-                        <th className="p-4 sm:p-5 text-right">{t("admin_bookings_col_action")}</th>
+                        <th className="p-4 sm:p-5">Kucing & Pemilik</th>
+                        <th className="p-4 sm:p-5">Kelas Room</th>
+                        <th className="p-4 sm:p-5">Jadwal Menginap</th>
+                        <th className="p-4 sm:p-5">Total Biaya</th>
+                        <th className="p-4 sm:p-5">Status Reservasi</th>
+                        <th className="p-4 sm:p-5">Status Pembayaran</th>
+                        <th className="p-4 sm:p-5 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
-                      {paginatedBookings.map((b) => (
-                        <tr
-                          key={b.id}
-                          className={`hover:bg-muted/30 transition-colors anim-item ${
-                            selectedIds.includes(b.id) ? "bg-primary/5" : ""
-                          }`}
-                        >
-                          <td className="p-4 sm:p-5 text-center">
-                            {b.status === "Menunggu" ? (
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.includes(b.id)}
-                                onChange={() => handleSelectRow(b.id)}
-                                className="w-4 h-4 rounded-sm border-border cursor-pointer accent-primary"
-                              />
-                            ) : (
-                              <span className="text-muted-foreground/30 text-xs">•</span>
-                            )}
-                          </td>
+                      {paginatedBookings.map((b) => {
+                        const waUrl = getWhatsAppUrl(
+                          b.profiles?.phone,
+                          b.cat_name,
+                          b.profiles?.full_name
+                        );
 
-                          <td className="p-4 sm:p-5">
-                            <div className="font-bold text-foreground flex items-center gap-1.5">
-                              <span>{b.cat_name}</span>
-                              <span className="text-xs text-muted-foreground font-normal">
-                                ({b.cat_gender === "Jantan" ? t("book_cat_gender_m") : t("book_cat_gender_f")}, {b.cat_age})
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {b.profiles?.full_name || "Tamu Neko"} {b.profiles?.phone ? `• ${b.profiles.phone}` : ""}
-                            </div>
-                          </td>
-
-                          <td className="p-4 sm:p-5">
-                            <span className="font-bold text-foreground">{b.class}</span>
-                            <div className="text-xs text-muted-foreground">
-                              {formatRupiah(b.price_per_day)}/{t("room_per_day")}
-                            </div>
-                          </td>
-
-                          <td className="p-4 sm:p-5">
-                            <div className="font-semibold text-foreground text-xs">
-                              {formatDate(b.check_in_date)} - {formatDate(b.check_out_date)}
-                            </div>
-                            <div className="text-xs text-muted-foreground font-bold">
-                              {b.total_days} {language === "en" ? "Days" : "Hari"}
-                            </div>
-                          </td>
-
-                          <td className="p-4 sm:p-5">
-                            <div className="font-extrabold text-foreground">
-                              {formatRupiah(b.estimated_total)}
-                            </div>
-                            {b.discount_amount > 0 && (
-                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                Diskon: -{formatRupiah(b.discount_amount)}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="p-4 sm:p-5">
-                            <BookingStatus status={b.status} />
-                          </td>
-
-                          <td className="p-4 sm:p-5">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger className="focus:outline-hidden cursor-pointer">
-                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border transition-all hover:opacity-80 ${
-                                  b.payment_status === 'Paid' ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900' :
-                                  b.payment_status === 'Failed' ? 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900' :
-                                  b.payment_status === 'Refunded' ? 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900' :
-                                  'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900'
-                                }`}>
-                                  <Wallet className="w-3 h-3" />
-                                  {b.payment_status === 'Paid' ? 'Lunas' : b.payment_status === 'Failed' ? 'Gagal' : b.payment_status === 'Refunded' ? 'Dikembalikan' : 'Belum Dibayar'}
-                                  <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
+                        return (
+                          <tr
+                            key={b.id}
+                            className={`hover:bg-muted/30 transition-colors anim-item ${
+                              selectedIds.includes(b.id) ? "bg-primary/5" : ""
+                            }`}
+                          >
+                            {/* Checkbox column */}
+                            <td className="p-4 sm:p-5 text-center">
+                              {b.status === "Menunggu" ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.includes(b.id)}
+                                  onChange={() => handleSelectRow(b.id)}
+                                  className="w-4 h-4 rounded-md border-border cursor-pointer accent-primary"
+                                />
+                              ) : (
+                                <span className="text-muted-foreground/30 text-xs font-bold">
+                                  •
                                 </span>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-44 p-1">
-                                {[
-                                  { value: 'Unpaid', label: 'Belum Dibayar' },
-                                  { value: 'Paid', label: 'Lunas' },
-                                  { value: 'Failed', label: 'Gagal' },
-                                  { value: 'Refunded', label: 'Dikembalikan' },
-                                ].map((opt) => (
-                                  <DropdownMenuItem
-                                    key={opt.value}
-                                    onClick={async () => {
-                                      try {
-                                        const res = await fetch(`/api/bookings/${b.id}/payment-status`, {
-                                          method: 'PATCH',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ paymentStatus: opt.value }),
-                                        });
-                                        if (!res.ok) {
-                                          const data = await res.json();
-                                          toast.error(data.error || 'Gagal mengubah status pembayaran');
-                                          return;
-                                        }
-                                        toast.success('Status pembayaran berhasil diperbarui');
-                                        fetchAllBookings();
-                                      } catch (err) {
-                                        toast.error(err.message || 'Terjadi kesalahan');
-                                      }
-                                    }}
-                                    className={b.payment_status === opt.value ? 'text-orange-600 dark:text-orange-400 font-bold' : ''}
-                                  >
-                                    {b.payment_status === opt.value && <Check className="w-3.5 h-3.5 mr-1 shrink-0" />}
-                                    {opt.label}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-
-                          <td className="p-4 sm:p-5 text-right">
-                            <div className="flex items-center justify-end gap-2.5">
-                              <Link
-                                href={`/admin/bookings/${b.id}`}
-                                className="px-3 py-1.5 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all inline-block"
-                              >
-                                {t("admin_bookings_btn_detail")}
-                              </Link>
-
-                              {b.status === "Menunggu" && (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedBooking(b);
-                                      setIsApproveOpen(true);
-                                    }}
-                                    className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1"
-                                  >
-                                    <Check className="w-3.5 h-3.5" />
-                                    {t("admin_bookings_btn_approve")}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedBooking(b);
-                                      setIsRejectOpen(true);
-                                    }}
-                                    className="px-3 py-1.5 border border-rose-200 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                    {t("admin_bookings_btn_reject")}
-                                  </button>
-                                </>
                               )}
+                            </td>
 
-                              {b.status === "Aktif" && (
-                                <button
-                                  onClick={() => openCheckoutModal(b)}
-                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                            {/* Cat & Owner Info */}
+                            <td className="p-4 sm:p-5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 border border-orange-500/20">
+                                  <Cat className="w-4.5 h-4.5" />
+                                </div>
+                                <div>
+                                  <div className="font-extrabold text-foreground flex items-center gap-2">
+                                    <span>{b.cat_name}</span>
+                                    <span className="text-[11px] font-normal text-muted-foreground">
+                                      ({b.cat_gender}, {b.cat_age})
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                                    <span>
+                                      {b.profiles?.full_name || "Tamu Neko"}
+                                    </span>
+                                    {b.profiles?.phone && (
+                                      <>
+                                        <span className="opacity-40">•</span>
+                                        <span>{b.profiles.phone}</span>
+                                      </>
+                                    )}
+                                    {waUrl && (
+                                      <a
+                                        href={waUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 p-0.5"
+                                        title="Hubungi via WhatsApp"
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5 inline" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Room Class */}
+                            <td className="p-4 sm:p-5">
+                              <div className="space-y-1">
+                                <RoomClassBadge roomClass={b.class} />
+                                <div className="text-[11px] text-muted-foreground font-medium">
+                                  {formatRupiah(b.price_per_day)}/hari
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Schedule & Duration */}
+                            <td className="p-4 sm:p-5">
+                              <div className="space-y-1">
+                                <div className="font-semibold text-foreground text-xs flex items-center gap-1.5">
+                                  <span>{formatDate(b.check_in_date)}</span>
+                                  <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                  <span>{formatDate(b.check_out_date)}</span>
+                                </div>
+                                <div className="text-[11px] text-muted-foreground font-bold">
+                                  {b.total_days} Hari
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Total Cost */}
+                            <td className="p-4 sm:p-5">
+                              <div className="font-black text-foreground text-sm">
+                                {formatRupiah(b.estimated_total)}
+                              </div>
+                              {b.discount_amount > 0 && (
+                                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                  Diskon: -{formatRupiah(b.discount_amount)}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Booking Status */}
+                            <td className="p-4 sm:p-5">
+                              <BookingStatus status={b.status} />
+                            </td>
+
+                            {/* Payment Status Dropdown */}
+                            <td className="p-4 sm:p-5">
+                              <PaymentStatusDropdown
+                                booking={b}
+                                onUpdated={fetchAllBookings}
+                              />
+                            </td>
+
+                            {/* Action Buttons */}
+                            <td className="p-4 sm:p-5 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Link
+                                  href={`/admin/bookings/${b.id}`}
+                                  className="px-3 py-1.5 border border-border hover:bg-muted text-xs font-bold rounded-xl transition-all text-foreground"
                                 >
-                                  <LogOut className="w-3.5 h-3.5" />
-                                  {t("admin_bookings_btn_checkout")}
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                  Detail
+                                </Link>
+
+                                {b.status === "Menunggu" && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBooking(b);
+                                        setIsApproveOpen(true);
+                                      }}
+                                      className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Setujui</span>
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBooking(b);
+                                        setIsRejectOpen(true);
+                                      }}
+                                      className="px-3 py-1.5 border border-rose-200 dark:border-rose-900/60 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      <span>Tolak</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {b.status === "Aktif" && (
+                                  <button
+                                    onClick={() => openCheckoutModal(b)}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  >
+                                    <LogOut className="w-3.5 h-3.5" />
+                                    <span>Check-Out</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* Mobile Table View Fallback */}
+              {/* Mobile Card View Fallback */}
               <div className="space-y-4 md:hidden">
-                {paginatedBookings.map((b) => (
-                  <div key={`m-${b.id}`} className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-xs anim-item">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-extrabold text-foreground text-sm">{b.cat_name}</h3>
-                        <p className="text-[11px] text-muted-foreground">Pemilik: {b.profiles?.full_name || "Tamu Neko"}</p>
+                {paginatedBookings.map((b) => {
+                  const waUrl = getWhatsAppUrl(
+                    b.profiles?.phone,
+                    b.cat_name,
+                    b.profiles?.full_name
+                  );
+
+                  return (
+                    <div
+                      key={`m-${b.id}`}
+                      className="bg-card border border-border rounded-3xl p-5 space-y-4 shadow-2xs anim-item"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0 border border-orange-500/20">
+                            <Cat className="w-4.5 h-4.5" />
+                          </div>
+                          <div>
+                            <h3 className="font-extrabold text-foreground text-sm">
+                              {b.cat_name}
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground">
+                              {b.cat_gender} • {b.cat_age}
+                            </p>
+                          </div>
+                        </div>
+                        <BookingStatus status={b.status} />
                       </div>
-                      <BookingStatus status={b.status} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-b py-3">
-                      <div>
-                        <span className="text-[10px] block font-bold uppercase">Kelas</span>
-                        <span className="font-bold text-foreground">{b.class}</span>
+
+                      {/* Owner & WhatsApp */}
+                      <div className="p-2.5 bg-muted/30 border border-border/60 rounded-2xl flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                            Pemilik:
+                          </span>
+                          <span className="text-xs font-bold text-foreground">
+                            {b.profiles?.full_name || "Tamu Neko"}
+                          </span>
+                        </div>
+                        {waUrl && (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20"
+                            title="Chat Pemilik via WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
                       </div>
-                      <div>
-                        <span className="text-[10px] block font-bold uppercase">Total Tagihan</span>
-                        <span className="font-bold text-foreground">{formatRupiah(b.estimated_total)}</span>
+
+                      {/* Details */}
+                      <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground border-t border-b border-border/60 py-3">
+                        <div>
+                          <span className="text-[10px] block font-bold uppercase text-muted-foreground">
+                            Kelas Room
+                          </span>
+                          <RoomClassBadge roomClass={b.class} />
+                        </div>
+                        <div>
+                          <span className="text-[10px] block font-bold uppercase text-muted-foreground">
+                            Durasi
+                          </span>
+                          <span className="font-bold text-foreground">
+                            {b.total_days} Hari
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] block font-bold uppercase text-muted-foreground">
+                            Jadwal
+                          </span>
+                          <span className="font-medium text-foreground text-[11px]">
+                            {formatDate(b.check_in_date)} -{" "}
+                            {formatDate(b.check_out_date)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] block font-bold uppercase text-muted-foreground">
+                            Total Biaya
+                          </span>
+                          <span className="font-black text-foreground text-sm">
+                            {formatRupiah(b.estimated_total)}
+                          </span>
+                        </div>
+                        <div className="col-span-2 pt-1 flex justify-between items-center border-t border-border/40">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                            Status Bayar:
+                          </span>
+                          <PaymentStatusDropdown
+                            booking={b}
+                            onUpdated={fetchAllBookings}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/bookings/${b.id}`}
+                          className="px-4 py-2 border border-border hover:bg-muted text-xs font-bold rounded-xl text-center flex-1 text-foreground"
+                        >
+                          Detail
+                        </Link>
+
+                        {b.status === "Menunggu" && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setIsApproveOpen(true);
+                              }}
+                              className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/90 flex-1 flex items-center justify-center gap-1"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Setujui</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setIsRejectOpen(true);
+                              }}
+                              className="p-2 border border-rose-200 dark:border-rose-900/60 text-rose-600 bg-rose-500/5 rounded-xl"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {b.status === "Aktif" && (
+                          <button
+                            onClick={() => openCheckoutModal(b)}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex-1 flex items-center justify-center gap-1"
+                          >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span>Check-Out</span>
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2">
-                      <Link href={`/admin/bookings/${b.id}`} className="px-4 py-2 border rounded-xl text-xs font-bold">Detail</Link>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
         </>
       )}
 
+      {/* Pagination Bar */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between gap-4 flex-wrap bg-card border border-border px-5 py-4 rounded-2xl anim-item">
           <p className="text-xs text-muted-foreground font-semibold">
-            Menampilkan <span className="text-foreground">{Math.min(filteredBookings.length, (currentPage - 1) * itemsPerPage + 1)}</span> - <span className="text-foreground">{Math.min(filteredBookings.length, currentPage * itemsPerPage)}</span> dari <span className="text-foreground">{filteredBookings.length}</span> pesanan
+            Menampilkan{" "}
+            <span className="text-foreground font-bold">
+              {Math.min(
+                filteredBookings.length,
+                (currentPage - 1) * itemsPerPage + 1
+              )}
+            </span>{" "}
+            -{" "}
+            <span className="text-foreground font-bold">
+              {Math.min(filteredBookings.length, currentPage * itemsPerPage)}
+            </span>{" "}
+            dari{" "}
+            <span className="text-foreground font-bold">
+              {filteredBookings.length}
+            </span>{" "}
+            pesanan
           </p>
-          
+
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="p-2 border border-border rounded-xl hover:bg-muted/80 disabled:opacity-40 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Halaman Sebelumnya"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
@@ -1293,11 +2011,14 @@ export default function AdminBookingsPage() {
                 {page}
               </button>
             ))}
-            
+
             <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
               className="p-2 border border-border rounded-xl hover:bg-muted/80 disabled:opacity-40 transition-colors cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Halaman Berikutnya"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -1305,11 +2026,13 @@ export default function AdminBookingsPage() {
         </div>
       )}
 
+      {/* ================= MODALS & DIALOGS ================= */}
+
       {/* APPROVE DIALOG */}
       <ConfirmDialog
         isOpen={isApproveOpen}
         title="Setujui Penitipan Kucing?"
-        description={`Apakah Anda yakin ingin menyetujui pemesanan kucing ${selectedBooking?.cat_name}? Status akan berubah menjadi aktif dan check-in terdaftar.`}
+        description={`Apakah Anda yakin ingin menyetujui pemesanan untuk kucing "${selectedBooking?.cat_name}"? Status akan berubah menjadi Aktif dan notifikasi konfirmasi akan dikirim ke pemilik.`}
         confirmText="Ya, Setujui"
         cancelText="Kembali"
         isLoading={isApproving}
@@ -1321,7 +2044,7 @@ export default function AdminBookingsPage() {
       <ConfirmDialog
         isOpen={isRejectOpen}
         title="Tolak Pemesanan Penitipan?"
-        description={`Berikan alasan penolakan pemesanan untuk kucing ${selectedBooking?.cat_name}. Alasan ini akan dikirim via email dan notifikasi ke pemilik.`}
+        description={`Berikan alasan penolakan pemesanan untuk kucing "${selectedBooking?.cat_name}". Alasan ini akan dikirim via notifikasi sistem dan email kepada pemilik.`}
         confirmText="Tolak Booking"
         cancelText="Kembali"
         variant="danger"
@@ -1329,12 +2052,14 @@ export default function AdminBookingsPage() {
         onConfirm={handleReject}
         onCancel={() => setIsRejectOpen(false)}
       >
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
               Alasan Penolakan
             </label>
-            <span className="text-[10px] text-muted-foreground font-semibold">Template Cepat:</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              Template Cepat:
+            </span>
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -1342,23 +2067,47 @@ export default function AdminBookingsPage() {
               type="button"
               onClick={() =>
                 setRejectReason(
-                  `Mohon maaf, pemesanan tidak dapat diterima karena seluruh kamar/ruang kelas ${selectedBooking?.class || "ini"} telah penuh dan tidak tersedia ruang kosong dalam batas maksimal waktu 3 hari.`
+                  `Mohon maaf, pemesanan tidak dapat diterima karena seluruh kamar/ruang kelas ${
+                    selectedBooking?.class || "ini"
+                  } telah penuh dan tidak tersedia ruang kosong dalam batas maksimal waktu 3 hari.`
                 )
               }
               className="px-2.5 py-1 text-[11px] rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold transition-colors cursor-pointer border border-rose-500/20"
             >
-              🏢 Kamar Penuh (&gt; 3 Hari)
+              <span className="inline-flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Kamar Penuh (&gt; 3 Hari)</span>
+              </span>
             </button>
             <button
               type="button"
               onClick={() =>
                 setRejectReason(
-                  `Mohon maaf, pemesanan penitipan untuk kucing ${selectedBooking?.cat_name || "Anda"} belum dapat kami setujui karena persyaratan riwayat vaksinasi dan kesehatan belum terpenuhi.`
+                  `Mohon maaf, pemesanan penitipan untuk kucing ${
+                    selectedBooking?.cat_name || "Anda"
+                  } belum dapat kami setujui karena persyaratan riwayat vaksinasi dan kesehatan belum terpenuhi.`
                 )
               }
               className="px-2.5 py-1 text-[11px] rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground font-semibold transition-colors cursor-pointer border border-border"
             >
-              🩺 Riwayat Kesehatan
+              <span className="inline-flex items-center gap-1.5">
+                <HeartPulse className="w-3.5 h-3.5" />
+                <span>Riwayat Kesehatan</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setRejectReason(
+                  `Mohon maaf, seluruh slot penitipan pada rentang tanggal yang Anda pilih telah terisi penuh. Silakan pilih rentang tanggal alternatif.`
+                )
+              }
+              className="px-2.5 py-1 text-[11px] rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground font-semibold transition-colors cursor-pointer border border-border"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Jadwal Penuh</span>
+              </span>
             </button>
           </div>
 
@@ -1366,9 +2115,9 @@ export default function AdminBookingsPage() {
             required
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Tulis alasan penolakan..."
+            placeholder="Tulis alasan penolakan di sini..."
             rows={3}
-            className="w-full px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden focus:border-primary/50 text-foreground font-medium"
+            className="w-full px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden focus:border-primary/50 text-foreground font-medium transition-all"
           />
         </div>
       </ConfirmDialog>
@@ -1381,15 +2130,15 @@ export default function AdminBookingsPage() {
             onClick={() => setIsCheckoutOpen(false)}
           />
 
-          <div className="relative w-full max-w-lg bg-card border border-border p-6 sm:p-8 rounded-3xl shadow-xl space-y-6 animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold text-foreground border-b border-border/60 pb-3 flex items-center gap-2">
+          <div className="relative w-full max-w-lg bg-card border border-border p-6 sm:p-8 rounded-3xl shadow-2xl space-y-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold text-foreground border-b border-border pb-3 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-500" />
               <span>
                 Kalkulasi Tagihan Check-Out ({selectedBooking.cat_name})
               </span>
             </h3>
 
-            <div className="space-y-4 text-xs sm:text-sm">
+            <div className="space-y-3.5 text-xs sm:text-sm">
               <div className="flex justify-between border-b border-border/40 pb-2">
                 <span className="text-muted-foreground">Kelas Penitipan:</span>
                 <strong className="text-foreground">
@@ -1399,7 +2148,7 @@ export default function AdminBookingsPage() {
               </div>
 
               <div className="flex justify-between border-b border-border/40 pb-2">
-                <span className="text-muted-foreground">Jadwal Keluar:</span>
+                <span className="text-muted-foreground">Jadwal Keluar Rencana:</span>
                 <strong className="text-foreground">
                   {formatDate(selectedBooking.check_out_date)}
                 </strong>
@@ -1424,7 +2173,7 @@ export default function AdminBookingsPage() {
               </div>
 
               {checkoutCalc.lateDaysCount > 0 && (
-                <div className="flex justify-between border-b border-border/40 pb-2 text-rose-600 font-bold bg-rose-500/5 p-2 rounded-lg">
+                <div className="flex justify-between border-b border-border/40 pb-2 text-rose-600 dark:text-rose-400 font-bold bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
                   <span>
                     Denda Terlambat ({checkoutCalc.lateDaysCount} hari):
                   </span>
@@ -1433,9 +2182,9 @@ export default function AdminBookingsPage() {
               )}
 
               {checkoutCalc.refundDays > 0 && (
-                <div className="flex justify-between border-b border-border/40 pb-2 text-blue-600 font-bold bg-blue-500/5 p-2 rounded-lg">
+                <div className="flex justify-between border-b border-border/40 pb-2 text-blue-600 dark:text-blue-400 font-bold bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20">
                   <span>
-                    Refund Ambil Awal ({checkoutCalc.refundDays} hari):
+                    Refund Ambil Lebih Awal ({checkoutCalc.refundDays} hari):
                   </span>
                   <span>-{formatRupiah(checkoutCalc.refund)}</span>
                 </div>
@@ -1443,18 +2192,18 @@ export default function AdminBookingsPage() {
 
               <div className="flex justify-between border-b border-border/40 pb-2 text-base font-black text-foreground pt-2">
                 <span>Total Akhir Tagihan:</span>
-                <span className="text-emerald-600 text-lg">
+                <span className="text-emerald-600 dark:text-emerald-400 text-lg">
                   {formatRupiah(checkoutCalc.finalCost)}
                 </span>
               </div>
 
-              <div className="p-3 bg-secondary text-secondary-foreground text-xs rounded-xl leading-relaxed font-semibold flex items-start gap-1.5">
+              <div className="p-3 bg-muted/60 text-foreground text-xs rounded-2xl leading-relaxed font-semibold flex items-start gap-2 border border-border/80">
                 <Info className="w-4 h-4 shrink-0 text-primary mt-0.5" />
                 <span>Info: {checkoutCalc.notes}</span>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button
                 type="button"
                 disabled={isCheckingOut}
@@ -1469,42 +2218,50 @@ export default function AdminBookingsPage() {
                 isLoading={isCheckingOut}
                 idleText="Selesaikan Check-Out"
                 loadingText="Sedang Memproses..."
-                successText="Berhasil!"
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50"
+                successText="Berhasil Selesai!"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50 shadow-2xs"
               />
             </div>
           </div>
         </div>
       )}
 
-      {/* Bulk Actions Floating Bar */}
+      {/* Floating Bulk Actions Bar */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-2xl p-4 sm:p-5 rounded-2xl flex items-center gap-4 w-[90%] max-w-xl animate-in slide-in-from-bottom-8 duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-card/95 backdrop-blur-md border border-border shadow-2xl p-4 sm:p-5 rounded-3xl flex items-center gap-4 w-[92%] max-w-xl animate-in slide-in-from-bottom-8 duration-300">
           <div className="flex-1">
-            <p className="text-xs font-bold text-foreground">
-              {selectedIds.length} Pesanan Terpilih
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-foreground">
+                {selectedIds.length} Pesanan Terpilih
+              </span>
+              <button
+                onClick={() => setSelectedIds([])}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline cursor-pointer"
+              >
+                Batalkan
+              </button>
+            </div>
             <p className="text-[10px] text-muted-foreground font-semibold">
-              Terapkan aksi secara massal untuk pesanan berstatus Menunggu.
+              Terapkan aksi serentak untuk pesanan yang menunggu konfirmasi.
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleBulkApprove}
               disabled={isBulkLoading}
-              className="px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
             >
               <Check className="w-3.5 h-3.5" />
-              Setujui
+              <span>Setujui</span>
             </button>
             <button
               onClick={() => setIsBulkRejectOpen(true)}
               disabled={isBulkLoading}
-              className="px-3.5 py-2 border border-rose-200 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 border border-rose-200 dark:border-rose-900/60 hover:border-rose-300 text-rose-600 bg-rose-500/5 hover:bg-rose-500/10 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
             >
               <X className="w-3.5 h-3.5" />
-              Tolak
+              <span>Tolak</span>
             </button>
           </div>
         </div>
@@ -1514,7 +2271,7 @@ export default function AdminBookingsPage() {
       <ConfirmDialog
         isOpen={isBulkRejectOpen}
         title={`Tolak ${selectedIds.length} Pemesanan Terpilih?`}
-        description={`Berikan alasan penolakan untuk semua pemesanan yang dipilih. Alasan ini akan dikirim via email dan notifikasi ke pemilik masing-masing.`}
+        description="Berikan alasan penolakan untuk semua pemesanan yang dipilih. Alasan ini akan dikirim via notifikasi sistem dan email ke pemilik masing-masing."
         confirmText="Tolak Semua"
         cancelText="Kembali"
         variant="danger"
@@ -1530,9 +2287,9 @@ export default function AdminBookingsPage() {
             required
             value={bulkRejectReason}
             onChange={(e) => setBulkRejectReason(e.target.value)}
-            placeholder="Tulis alasan penolakan..."
+            placeholder="Tulis alasan penolakan untuk semua pesanan..."
             rows={3}
-            className="w-full px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden focus:border-primary/50 text-foreground font-medium"
+            className="w-full px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-xs focus:outline-hidden focus:border-primary/50 text-foreground font-medium transition-all"
           />
         </div>
       </ConfirmDialog>

@@ -16,6 +16,7 @@ import {
   Ticket,
   Clock,
   X,
+  Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
@@ -633,8 +634,9 @@ function BookingFormContent() {
 
           {pastCats.length > 0 && (
             <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl space-y-2 animate-in slide-in-from-top-1 duration-200">
-              <label className="text-[10px] font-extrabold text-primary uppercase tracking-wider block">
-                ⚡ {language === "en" ? "Quick Select from Previous Bookings" : "Isi Cepat dari Riwayat Booking"}
+              <label className="text-[10px] font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>{language === "en" ? "Quick Select from Previous Bookings" : "Isi Cepat dari Riwayat Booking"}</span>
               </label>
               <select
                 onChange={(e) => {
@@ -1373,8 +1375,9 @@ function BookingFormContent() {
               </p>
 
               {availabilityData?.maintenanceCages > 0 && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
-                  ℹ️ Catatan Admin: Terdapat {availabilityData.maintenanceCages} kandang kelas ini yang sedang dalam perbaikan/pemeliharaan rutin.
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-400 text-[11px] font-semibold flex items-center gap-2">
+                  <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Catatan Admin: Terdapat {availabilityData.maintenanceCages} kandang kelas ini yang sedang dalam perbaikan/pemeliharaan rutin.</span>
                 </div>
               )}
 

@@ -46,7 +46,7 @@ export default async function Image() {
             marginBottom: "24px",
           }}
         >
-          <span>🐾 Penitipan Kucing Premium</span>
+          <span>Penitipan Kucing Premium</span>
         </div>
 
         {/* Brand Name */}
@@ -96,7 +96,7 @@ export default async function Image() {
               fontWeight: "600",
             }}
           >
-            📸 Laporan Berkala
+            Laporan Berkala
           </div>
           <div
             style={{
@@ -109,7 +109,7 @@ export default async function Image() {
               fontWeight: "600",
             }}
           >
-            🩺 Dokter Hewan Siaga
+            Dokter Hewan Siaga
           </div>
           <div
             style={{
@@ -122,7 +122,7 @@ export default async function Image() {
               fontWeight: "600",
             }}
           >
-            ⚡ Pembayaran Otomatis
+            Pembayaran Otomatis
           </div>
         </div>
       </div>

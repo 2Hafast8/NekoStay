@@ -2,7 +2,7 @@
 
 import { CLASS_DETAILS } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils/format'
-import { Check } from 'lucide-react'
+import { Check, Home, Star, Crown } from 'lucide-react'
 
 export function ClassSelector({ value, onChange }) {
   const classes = Object.values(CLASS_DETAILS)
@@ -28,7 +28,11 @@ export function ClassSelector({ value, onChange }) {
               </div>
             )}
 
-            <div className="text-2xl mb-2">{cls.icon}</div>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-3">
+              {cls.name === 'Basic' && <Home className="w-5 h-5" />}
+              {cls.name === 'Standard' && <Star className="w-5 h-5" />}
+              {cls.name === 'Premium' && <Crown className="w-5 h-5" />}
+            </div>
             <h4 className={`font-bold text-lg mb-1 ${isSelected ? 'text-brand-600 dark:text-brand-400' : 'text-slate-900 dark:text-white'}`}>
               {cls.name}
             </h4>
@@ -40,7 +44,7 @@ export function ClassSelector({ value, onChange }) {
             <ul className="space-y-1.5">
               {cls.facilities.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                  <span className="text-green-500 text-xs">✓</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   {f}
                 </li>
               ))}

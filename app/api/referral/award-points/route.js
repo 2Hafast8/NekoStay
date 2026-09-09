@@ -90,7 +90,7 @@ export async function POST(request) {
     try {
       await adminDb.from("notifications").insert({
         user_id: ownerId,
-        title: "Poin Neko Diterima! 🎉",
+        title: "Poin Neko Diterima!",
         message: `Selamat! Anda mendapatkan ${points} Poin Neko karena kode referral Anda digunakan dalam pemesanan baru.`,
         type: "success",
         booking_id: bookingId,

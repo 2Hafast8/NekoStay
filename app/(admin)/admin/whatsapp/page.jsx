@@ -27,6 +27,7 @@ import {
   LogOut,
   Terminal,
   Activity,
+  Edit3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
@@ -716,7 +717,7 @@ export default function AdminWhatsAppLogsPage() {
                                   m.metadata?.status === "failed" ? "text-rose-500" : "text-amber-500 animate-pulse"
                                 )}>
                                   {m.metadata?.status === "delivered" ? "✓ Terkirim" :
-                                   m.metadata?.status === "failed" ? "Gagal ⚠️" : "Mengirim..."}
+                                   m.metadata?.status === "failed" ? "Gagal" : "Mengirim..."}
                                 </span>
                               )}
                             </div>
@@ -758,7 +759,8 @@ export default function AdminWhatsAppLogsPage() {
                                       href={`/admin/bookings/${encodeURIComponent(bookingId)}`}
                                       className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-primary/20"
                                     >
-                                      <span>📝 Kelola / Edit Booking</span>
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Kelola / Edit Booking</span>
                                       <ArrowRight className="w-3.5 h-3.5" />
                                     </Link>
                                   </div>
@@ -837,8 +839,9 @@ export default function AdminWhatsAppLogsPage() {
                 </form>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10px] text-muted-foreground px-0.5">
-                  <span>
-                    💬 Pesan dikirim resmi dari nomor WhatsApp Admin ke HP pelanggan secara real-time.
+                  <span className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>Pesan dikirim resmi dari nomor WhatsApp Admin ke HP pelanggan secara real-time.</span>
                   </span>
                   <a
                     href={`https://wa.me/${selectedContact.phoneNumber}`}
@@ -988,7 +991,10 @@ export default function AdminWhatsAppLogsPage() {
                   </div>
 
                   <div className="bg-muted/40 dark:bg-zinc-950/60 p-4 rounded-2xl border border-border text-left space-y-2 text-xs">
-                    <p className="font-extrabold text-foreground">💡 Tips Menjalankan & Menghentikan Bot:</p>
+                    <p className="font-extrabold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>Tips Menjalankan & Menghentikan Bot:</span>
+                    </p>
                     <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground leading-relaxed">
                       <li><strong>Menjalankan di Terminal</strong>: Buka terminal dan jalankan <code>npm run wa:bot</code>.</li>
                       <li><strong>Menjalankan di Background</strong>: Klik ganda file <code>Start-WhatsApp-Bot.vbs</code> di folder project Anda.</li>

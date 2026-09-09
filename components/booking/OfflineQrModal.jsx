@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  RefreshCcw,
 } from "lucide-react";
 import { formatRupiah } from "@/lib/utils/format";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ export function OfflineQrModal({
   token,
   qrDataUrl,
   language = "id",
+  onRefreshQr,
+  isRefreshing = false,
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -44,6 +47,8 @@ export function OfflineQrModal({
 
   if (!isOpen) return null;
 
+  const isPaid = booking?.payment_status === "Paid";
+
   // Hitung total akhir
   const finalTotal =
     (booking?.estimated_total || 0) -
@@ -56,7 +61,9 @@ export function OfflineQrModal({
     navigator.clipboard.writeText(token);
     setCopied(true);
     toast.success(
-      language === "en" ? "Token copied to clipboard!" : "Kode token berhasil disalin!"
+      language === "en"
+        ? "Token copied to clipboard!"
+        : "Kode token berhasil disalin!"
     );
     setTimeout(() => setCopied(false), 2000);
   };
@@ -75,7 +82,9 @@ export function OfflineQrModal({
     link.click();
     document.body.removeChild(link);
     toast.success(
-      language === "en" ? "QR Code image downloaded!" : "Gambar QR Code berhasil diunduh!"
+      language === "en"
+        ? "QR Code image downloaded!"
+        : "Gambar QR Code berhasil diunduh!"
     );
   };
 
@@ -95,10 +104,16 @@ export function OfflineQrModal({
             </div>
             <div>
               <h3 className="font-black text-base sm:text-lg text-foreground dark:text-zinc-100 leading-snug">
-                {language === "en" ? "Desk Payment QR Code" : "QR Code Pembayaran di Kasir"}
+                {language === "en"
+                  ? "Desk Payment QR Code"
+                  : "QR Code Pembayaran di Kasir"}
               </h3>
               <p className="text-[11px] sm:text-xs text-muted-foreground dark:text-zinc-400">
-                {language === "en"
+                {isPaid
+                  ? language === "en"
+                    ? "Payment completed — QR Code is no longer active"
+                    : "Pembayaran telah selesai — QR Code dinonaktifkan"
+                  : language === "en"
                   ? "Show this QR code at hotel desk upon check-in"
                   : "Tunjukkan QR ini ke kasir saat check-in"}
               </p>
@@ -116,109 +131,206 @@ export function OfflineQrModal({
 
         {/* Scrollable Content Body */}
         <div className="overflow-y-auto flex-1 p-5 sm:p-6 space-y-4 sm:space-y-5">
-          {/* Email sent notice banner */}
-          <div className="p-3 sm:p-3.5 bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/20 dark:border-emerald-900/30 rounded-2xl flex items-start gap-2.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-            <p className="text-xs sm:text-[13px] text-emerald-700 dark:text-emerald-350 leading-relaxed font-medium">
-              {language === "en"
-                ? "Booking receipt PDF has been sent to your email! You can also show or download this QR code directly."
-                : "Bukti pemesanan PDF telah dikirim ke email Anda! Anda juga dapat menunjukkan atau mengunduh kode QR ini secara langsung."}
-            </p>
-          </div>
+          {isPaid ? (
+            /* ================= PAID STATE (HIDE QR CODE) ================= */
+            <div className="py-8 px-4 text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-3xl flex items-center justify-center border border-emerald-500/25">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="font-black text-lg text-foreground">
+                  {language === "en"
+                    ? "Payment Already Completed"
+                    : "Pembayaran Sudah Lunas"}
+                </h4>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                  {language === "en"
+                    ? "This booking has been successfully paid and verified. The payment QR code is disabled as no further payment is required."
+                    : "Pesanan ini telah berhasil diverifikasi dan berstatus lunas. Fitur QR Code pembayaran kasir disembunyikan karena pembayaran sudah selesai."}
+                </p>
+              </div>
 
-          {/* QR Code Container */}
-          <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
-            <div className="relative p-3 sm:p-4 bg-white rounded-2xl shadow-md border border-zinc-200 flex items-center justify-center w-full max-w-[min(220px,26vh,50vw)] sm:max-w-[min(250px,30vh)] aspect-square mx-auto">
-              {/* Viewfinder corner brackets */}
-              <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-primary rounded-tl-xs" />
-              <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-primary rounded-tr-xs" />
-              <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-primary rounded-bl-xs" />
-              <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-primary rounded-br-xs" />
-
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt="QR Code Pembayaran Offline"
-                  className="w-full h-full object-contain select-none"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-zinc-400 space-y-1">
-                  <AlertCircle className="w-6 h-6 text-amber-500" />
-                  <span className="text-[11px] font-semibold">Memuat QR...</span>
+              <div className="p-4 bg-muted/40 rounded-2xl border border-border/80 text-xs text-left max-w-sm mx-auto space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    Lunas (Paid)
+                  </span>
                 </div>
-              )}
-            </div>
-
-            {/* Amount to pay */}
-            <div className="text-center space-y-1">
-              <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground tracking-wider block">
-                {language === "en" ? "Total Due at Desk" : "Total Tagihan di Kasir"}
-              </span>
-              <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                {formatRupiah(finalTotal)}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Tagihan:</span>
+                  <span className="font-black text-foreground">
+                    {formatRupiah(finalTotal)}
+                  </span>
+                </div>
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground dark:text-zinc-400">
-                {booking?.cat_name} • {booking?.class} ({booking?.total_days || 1} {language === "en" ? "Days" : "Hari"})
-              </p>
             </div>
+          ) : (
+            /* ================= UNPAID STATE (SHOW QR CODE & REFRESH) ================= */
+            <>
+              {/* Notice banner */}
+              <div className="p-3 sm:p-3.5 bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/20 dark:border-emerald-900/30 rounded-2xl flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <p className="text-xs sm:text-[13px] text-emerald-700 dark:text-emerald-350 leading-relaxed font-medium">
+                  {language === "en"
+                    ? "Tunjukkan QR ini ke kasir NekoStay saat mengantar kucing Anda."
+                    : "Tunjukkan QR ini ke kasir NekoStay saat mengantar kucing Anda untuk verifikasi pembayaran langsung."}
+                </p>
+              </div>
 
-            {/* Token verification code */}
-            {token && (
-              <div className="w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-muted/50 dark:bg-zinc-950/50 border border-border/80 dark:border-zinc-800 rounded-xl text-xs sm:text-sm">
-                <span className="font-mono text-[10px] sm:text-xs text-muted-foreground font-bold shrink-0">
-                  TOKEN:
-                </span>
-                <span className="font-mono font-bold text-foreground dark:text-zinc-200 truncate select-all">
-                  {token}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyToken}
-                  title={language === "en" ? "Copy Token" : "Salin Token"}
-                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-emerald-500" />
+              {/* QR Code Container */}
+              <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
+                <div className="relative p-3 sm:p-4 bg-white rounded-2xl shadow-md border border-zinc-200 flex items-center justify-center w-full max-w-[min(220px,26vh,50vw)] sm:max-w-[min(250px,30vh)] aspect-square mx-auto">
+                  {/* Viewfinder corner brackets */}
+                  <div className="absolute top-2 left-2 w-3.5 h-3.5 border-t-2 border-l-2 border-primary rounded-tl-xs" />
+                  <div className="absolute top-2 right-2 w-3.5 h-3.5 border-t-2 border-r-2 border-primary rounded-tr-xs" />
+                  <div className="absolute bottom-2 left-2 w-3.5 h-3.5 border-b-2 border-l-2 border-primary rounded-bl-xs" />
+                  <div className="absolute bottom-2 right-2 w-3.5 h-3.5 border-b-2 border-r-2 border-primary rounded-br-xs" />
+
+                  {isRefreshing ? (
+                    <div className="flex flex-col items-center justify-center text-zinc-400 space-y-2">
+                      <RefreshCcw className="w-7 h-7 text-primary animate-spin" />
+                      <span className="text-[11px] font-semibold text-zinc-600">
+                        Memperbarui QR...
+                      </span>
+                    </div>
+                  ) : qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt="QR Code Pembayaran Offline"
+                      className="w-full h-full object-contain select-none"
+                    />
                   ) : (
-                    <Copy className="w-4 h-4" />
+                    <div className="flex flex-col items-center justify-center text-zinc-400 space-y-1">
+                      <AlertCircle className="w-6 h-6 text-amber-500" />
+                      <span className="text-[11px] font-semibold">Memuat QR...</span>
+                    </div>
                   )}
-                </button>
-              </div>
-            )}
+                </div>
 
-            {/* Expiry note */}
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
-              <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <span>
-                {language === "en" ? "Valid for 24 hours" : "Berlaku 24 jam dari waktu pembuatan"}
-              </span>
-            </div>
-          </div>
+                {/* Amount to pay */}
+                <div className="text-center space-y-1">
+                  <span className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground tracking-wider block">
+                    {language === "en" ? "Total Due at Desk" : "Total Tagihan di Kasir"}
+                  </span>
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                    {formatRupiah(finalTotal)}
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground dark:text-zinc-400">
+                    {booking?.cat_name} • {booking?.class} (
+                    {booking?.total_days || 1}{" "}
+                    {language === "en" ? "Days" : "Hari"})
+                  </p>
+                </div>
+
+                {/* Token verification code */}
+                {token && (
+                  <div className="w-full flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-muted/50 dark:bg-zinc-950/50 border border-border/80 dark:border-zinc-800 rounded-xl text-xs sm:text-sm">
+                    <span className="font-mono text-[10px] sm:text-xs text-muted-foreground font-bold shrink-0">
+                      TOKEN:
+                    </span>
+                    <span className="font-mono font-bold text-foreground dark:text-zinc-200 truncate select-all">
+                      {token}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyToken}
+                      title={language === "en" ? "Copy Token" : "Salin Token"}
+                      className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Refresh QR Code Button & Expiry note */}
+                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 border-t border-border/60">
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>
+                      {language === "en"
+                        ? "Valid 24h per generation"
+                        : "Berlaku 24 jam per pembuatan"}
+                    </span>
+                  </div>
+
+                  {onRefreshQr && (
+                    <button
+                      type="button"
+                      onClick={onRefreshQr}
+                      disabled={isRefreshing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border/80 bg-muted/40 hover:bg-muted text-foreground text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                      title="Perbarui token dan gambar QR Code"
+                    >
+                      <RefreshCcw
+                        className={`w-3.5 h-3.5 text-primary ${
+                          isRefreshing ? "animate-spin" : ""
+                        }`}
+                      />
+                      <span>
+                        {isRefreshing
+                          ? language === "en"
+                            ? "Refreshing..."
+                            : "Memperbarui..."
+                          : language === "en"
+                          ? "Refresh QR Code"
+                          : "Perbarui QR Code"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Sticky Action Footer */}
         <div className="shrink-0 p-4 sm:p-5 border-t border-border/60 dark:border-zinc-800 bg-card/95 dark:bg-zinc-900/95 backdrop-blur-xs space-y-2 rounded-b-3xl">
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={handleDownloadQrImage}
-              disabled={!qrDataUrl}
-              className="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm hover:bg-primary/95 transition-all shadow-sm cursor-pointer disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>{language === "en" ? "Save QR Image" : "Unduh Gambar QR"}</span>
-            </button>
+          {!isPaid ? (
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={handleDownloadQrImage}
+                disabled={!qrDataUrl || isRefreshing}
+                className="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm hover:bg-primary/95 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>
+                  {language === "en" ? "Save QR Image" : "Unduh Gambar QR"}
+                </span>
+              </button>
 
+              <a
+                href={`/api/bookings/${booking?.id}/receipt`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-foreground dark:text-zinc-200 font-bold text-xs sm:text-sm hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
+                <span>
+                  {language === "en" ? "Download PDF" : "Unduh Struk PDF"}
+                </span>
+              </a>
+            </div>
+          ) : (
             <a
               href={`/api/bookings/${booking?.id}/receipt`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-xl border border-border dark:border-zinc-800 bg-muted/30 dark:bg-zinc-950/30 text-foreground dark:text-zinc-200 font-bold text-xs sm:text-sm hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 sm:py-3 px-3 rounded-xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm hover:bg-primary/95 transition-all shadow-sm cursor-pointer"
             >
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
-              <span>{language === "en" ? "Download PDF" : "Unduh Struk PDF"}</span>
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
+              <span>
+                {language === "en"
+                  ? "Download Stamped Receipt"
+                  : "Unduh Struk Pembayaran Lunas"}
+              </span>
             </a>
-          </div>
+          )}
 
           <button
             type="button"

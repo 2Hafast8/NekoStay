@@ -34,7 +34,19 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const validatedData = editBookingSchema.parse(body);
 
-    const pricePerDay = CLASS_PRICES[validatedData.className];
+    let pricePerDay = CLASS_PRICES[validatedData.className] || 50000;
+    try {
+      const { data: dbClass } = await supabase
+        .from("classes")
+        .select("price_per_day")
+        .eq("name", validatedData.className)
+        .maybeSingle();
+      if (dbClass?.price_per_day) {
+        pricePerDay = Number(dbClass.price_per_day);
+      }
+    } catch (e) {
+      console.warn("[Edit API] Could not fetch dynamic class price, using fallback:", e.message);
+    }
 
     // 3. Ambil data lama pesanan
     const { data: oldBooking, error: fetchError } = await supabase
@@ -50,6 +62,13 @@ export async function PUT(request, { params }) {
       return apiNotFound("Data booking tidak ditemukan");
     }
 
+    // Hitung ulang durasi & estimasi biaya
+    const checkIn = new Date(validatedData.checkInDate);
+    const checkOut = new Date(validatedData.checkOutDate);
+    const diffTime = Math.abs(checkOut - checkIn);
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const newEstimatedTotal = diffDays * pricePerDay;
+
     // 4. Update pesanan di DB
     const { data: updatedBooking, error: updateError } = await supabase
       .from("bookings")
@@ -58,6 +77,8 @@ export async function PUT(request, { params }) {
         price_per_day: pricePerDay,
         check_in_date: validatedData.checkInDate,
         check_out_date: validatedData.checkOutDate,
+        total_days: diffDays,
+        estimated_total: newEstimatedTotal,
       })
       .eq("id", id)
       .select()

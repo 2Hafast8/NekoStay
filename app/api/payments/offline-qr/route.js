@@ -33,13 +33,13 @@ export async function POST(request) {
 
     // 2. Parse & Validasi payload
     const body = await request.json();
-    const { bookingId, sendEmail } = offlineQrSchema.parse(body);
+    const { bookingId, sendEmail, refresh } = offlineQrSchema.parse(body);
 
     // 3. Verifikasi hak akses (Customer pemilik pesanan atau Admin)
-    const { hasAccess, booking: existingBooking, isAdmin } =
+    const { isAllowed, hasAccess, booking: existingBooking } =
       await verifyBookingAccess(supabase, bookingId);
 
-    if (!hasAccess || !existingBooking) {
+    if (!(isAllowed || hasAccess) || !existingBooking) {
       return apiForbidden("Anda tidak memiliki akses ke pesanan ini.");
     }
 
@@ -63,7 +63,7 @@ export async function POST(request) {
 
     let tokenCreatedAt = new Date().toISOString();
 
-    if (!token || isUsed || isExpired) {
+    if (refresh || !token || isUsed || isExpired) {
       // Buat token UUID baru
       token = crypto.randomUUID();
       const { error: updateErr } = await adminDb
