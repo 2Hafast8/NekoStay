@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { Cat, Mail, ArrowRight, Sparkles, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { SupabaseCaptcha } from "@/components/shared/SupabaseCaptcha";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -26,9 +29,15 @@ export default function ForgotPasswordPage() {
 
     try {
       const appUrl = window.location.origin;
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const resetOptions = {
         redirectTo: `${appUrl}/api/auth/callback?next=/update-password`,
-      });
+      };
+
+      if (captchaToken) {
+        resetOptions.captchaToken = captchaToken;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, resetOptions);
 
       if (error) throw error;
 
@@ -36,7 +45,11 @@ export default function ForgotPasswordPage() {
         "Email instruksi reset password telah dikirim! Cek inbox atau folder spam Anda.",
       );
       setEmail("");
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
     } catch (err) {
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
       setErrorMsg(
         err.message || "Terjadi kesalahan. Pastikan email Anda terdaftar.",
       );
@@ -127,6 +140,12 @@ export default function ForgotPasswordPage() {
               />
             </div>
           </div>
+
+          <SupabaseCaptcha
+            ref={captchaRef}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+          />
 
           <button
             type="submit"

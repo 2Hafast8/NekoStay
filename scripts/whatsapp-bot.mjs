@@ -10,7 +10,7 @@ import baileys, {
   Browsers,
   DisconnectReason,
   fetchLatestBaileysVersion,
-} from "lily-baileys";
+} from "@whiskeysockets/baileys";
 import {
   processIncomingWhatsAppMessage,
   recordConversationActivity,
@@ -103,7 +103,7 @@ async function updateCloudBotState(patch) {
 
 async function startWhatsAppBot() {
   console.log("\n=======================================================");
-  console.log("🐱 NEKOSTAY WHATSAPP AUTO-REPLY BOT (lily-baileys)");
+  console.log("🐱 NEKOSTAY WHATSAPP AUTO-REPLY BOT (Baileys)");
   console.log(`📱 Nomor Admin Target: +${ADMIN_PHONE}`);
   console.log("☁️  Sinkronisasi Cloud Realtime ke Vercel: AKTIF");
   console.log("=======================================================\n");

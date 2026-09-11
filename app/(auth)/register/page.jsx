@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { GsapAuthCurveOverlay } from "@/components/shared/GsapAuthCurveOverlay";
+import { SupabaseCaptcha } from "@/components/shared/SupabaseCaptcha";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import { gsap } from "gsap";
 
@@ -25,6 +26,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const overlayRef = useRef(null);
   const cardRef = useRef(null);
+  const captchaRef = useRef(null);
 
   const handleEntranceComplete = useCallback(() => {
     if (cardRef.current) {
@@ -51,6 +53,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -84,17 +87,23 @@ export default function RegisterPage() {
 
       const appUrl = typeof window !== "undefined" ? window.location.origin : "https://nekostay.vercel.app";
 
+      const signUpOptions = {
+        emailRedirectTo: `${appUrl}/api/auth/callback?next=/dashboard`,
+        data: {
+          full_name: fullName,
+          phone: phone,
+          referred_by_code: finalReferral || null,
+        },
+      };
+
+      if (captchaToken) {
+        signUpOptions.captchaToken = captchaToken;
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${appUrl}/api/auth/callback?next=/dashboard`,
-          data: {
-            full_name: fullName,
-            phone: phone,
-            referred_by_code: finalReferral || null,
-          },
-        },
+        options: signUpOptions,
       });
 
       if (error) throw error;
@@ -108,7 +117,11 @@ export default function RegisterPage() {
       setPhone("");
       setPassword("");
       setReferralCode("");
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
     } catch (err) {
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
       setErrorMsg(
         err.message || "Terjadi kesalahan saat mendaftar. Coba lagi.",
       );
@@ -268,6 +281,11 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          <SupabaseCaptcha
+            ref={captchaRef}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+          />
 
           <GsapTextButton
             type="submit"

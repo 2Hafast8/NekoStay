@@ -7,6 +7,7 @@ import { Cat, KeyRound, Mail, Sparkles, ArrowRight, AlertCircle, X } from "lucid
 import { createClient } from "@/lib/supabase/client";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { GsapAuthCurveOverlay } from "@/components/shared/GsapAuthCurveOverlay";
+import { SupabaseCaptcha } from "@/components/shared/SupabaseCaptcha";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import { gsap } from "gsap";
 
@@ -14,8 +15,10 @@ export default function LoginPage() {
   const router = useRouter();
   const overlayRef = useRef(null);
   const cardRef = useRef(null);
+  const captchaRef = useRef(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -54,6 +57,7 @@ export default function LoginPage() {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: captchaToken ? { captchaToken } : undefined,
       });
 
       if (error) {
@@ -89,6 +93,8 @@ export default function LoginPage() {
         }
       }
     } catch (err) {
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
       setErrorMsg(err.message || "Terjadi kesalahan sistem. Coba lagi.");
       setIsLoading(false);
     }
@@ -185,6 +191,12 @@ export default function LoginPage() {
               />
             </div>
           </div>
+
+          <SupabaseCaptcha
+            ref={captchaRef}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+          />
 
           <GsapTextButton
             type="submit"
