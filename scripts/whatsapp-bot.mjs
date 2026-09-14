@@ -6,7 +6,7 @@ import qrcode from "qrcode";
 import { createClient } from "@supabase/supabase-js";
 import baileys, {
   makeWASocket as namedMakeWASocket,
-  useMultiFileAuthState,
+  useMultiFileAuthState as initMultiFileAuthState,
   Browsers,
   DisconnectReason,
   fetchLatestBaileysVersion,
@@ -118,7 +118,7 @@ async function startWhatsAppBot() {
     fs.mkdirSync(AUTH_FOLDER, { recursive: true });
   }
 
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
+  const { state, saveCreds } = await initMultiFileAuthState(AUTH_FOLDER);
   const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({
     version: [2, 3000, 1015901307],
     isLatest: false,

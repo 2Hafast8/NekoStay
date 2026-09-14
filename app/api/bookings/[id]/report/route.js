@@ -22,7 +22,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Verifikasi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -31,11 +30,9 @@ export async function POST(request, { params }) {
       return apiForbidden("Hanya Administrator yang berhak membuat laporan harian kucing.");
     }
 
-    // 2. Parse & Validasi input
     const body = await request.json();
     const validatedData = catReportSchema.parse(body);
 
-    // 3. Ambil data pesanan
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select(`
@@ -51,7 +48,6 @@ export async function POST(request, { params }) {
 
     const todayStr = new Date().toISOString().split("T")[0];
 
-    // 4. Simpan catatan laporan
     const { data: report, error: reportError } = await supabase
       .from("cat_reports")
       .insert({
@@ -70,7 +66,6 @@ export async function POST(request, { params }) {
       return apiError("Gagal menyimpan laporan harian", 500);
     }
 
-    // 5. Notifikasi in-app untuk pengguna
     try {
       await supabase.from("notifications").insert({
         user_id: booking.user_id,
@@ -83,7 +78,6 @@ export async function POST(request, { params }) {
       console.warn("[Report API Notice] User notification failed:", notifErr.message);
     }
 
-    // 6. Kirim email transaksi laporan kucing via Resend
     const userEmail = booking.profiles?.email;
     if (userEmail) {
       try {

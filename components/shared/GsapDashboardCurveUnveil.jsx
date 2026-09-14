@@ -1,32 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 
 /**
- * GsapDashboardCurveUnveil — Plays Blake Bowen organic curve wave unveil strictly 1 time right after login on User & Admin dashboards.
+ * GsapDashboardCurveUnveil: Plays Blake Bowen organic curve wave unveil strictly 1 time right after login on User & Admin dashboards.
  * Does not re-trigger on page refresh.
  */
 export function GsapDashboardCurveUnveil() {
   const pathOverlay1Ref = useRef(null);
   const pathOverlay2Ref = useRef(null);
   const svgOverlayRef = useRef(null);
-  const [shouldAnimate, setShouldAnimate] = useState(false);
 
   useEffect(() => {
-    // Check if user just logged in
-    if (typeof window !== "undefined") {
-      const justLoggedIn = sessionStorage.getItem("just_logged_in");
-      if (justLoggedIn === "true") {
-        // Clear flag immediately so it won't repeat on refresh
-        sessionStorage.removeItem("just_logged_in");
-        setShouldAnimate(true);
-      }
-    }
-  }, []);
+    if (typeof window === "undefined") return;
+    const justLoggedIn = sessionStorage.getItem("just_logged_in");
+    if (justLoggedIn !== "true") return;
 
-  useEffect(() => {
-    if (!shouldAnimate) return;
+    // Clear flag immediately so it won't repeat on refresh
+    sessionStorage.removeItem("just_logged_in");
 
     const p1 = pathOverlay1Ref.current;
     const p2 = pathOverlay2Ref.current;
@@ -107,15 +99,13 @@ export function GsapDashboardCurveUnveil() {
         );
       }
     }
-  }, [shouldAnimate]);
-
-  if (!shouldAnimate) return null;
+  }, []);
 
   return (
     <svg
       ref={svgOverlayRef}
       className="fixed inset-0 w-full h-full pointer-events-none z-50 shape-overlays"
-      style={{ visibility: "visible" }}
+      style={{ visibility: "hidden" }}
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
     >

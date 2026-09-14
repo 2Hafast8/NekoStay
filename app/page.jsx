@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Cat, Check, Heart, Shield, Users, Star, Sparkles, Activity, Mail, Phone, MapPin, Clock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { formatRupiah } from "@/lib/utils/format";
@@ -19,12 +20,14 @@ if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
+const emptySubscribe = () => () => {};
+
 export default function LandingPage() {
   const { language } = useLanguage();
   const [allReviews, setAllReviews] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   // Dynamic CMS States
   const [heroSettings, setHeroSettings] = useState(null);
@@ -33,6 +36,7 @@ export default function LandingPage() {
   const [contactInfo, setContactInfo] = useState(null);
   const [faqItems, setFaqItems] = useState([]);
   const [bentoImages, setBentoImages] = useState(DEFAULT_BENTO_IMAGES);
+  const [stats, setStats] = useState({ catsCount: 40, satisfactionRate: 4.8 });
 
   const currentLanguage = mounted ? language : "id";
   const t = (key) => dictionary[currentLanguage]?.[key] || key;
@@ -253,32 +257,42 @@ export default function LandingPage() {
         delay: 1,
       });
 
-      // Number counters
-      const counterItems = [
-        { ref: statCatsRef, end: 1200, suffix: "+", decimals: 0, duration: 2 },
-        { ref: statRatingRef, end: 98.9, suffix: "%", decimals: 1, duration: 1.8 },
-      ];
-      counterItems.forEach(({ ref, end, suffix, decimals, duration }) => {
-        if (!ref.current) return;
-        const obj = { val: 0 };
-        gsap.to(obj, {
-          val: end,
-          duration,
-          ease: "power2.out",
-          delay: 0.8,
-          onUpdate() {
-            if (ref.current)
-              ref.current.textContent = obj.val.toFixed(decimals) + suffix;
-          },
-        });
-      });
     });
 
     return () => ctx.revert();
   }, []);
 
+  // Dynamic honest statistics counter animation
   useEffect(() => {
-    setMounted(true);
+    if (!mounted) return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) {
+      if (statCatsRef.current) statCatsRef.current.textContent = `${stats.catsCount}+`;
+      if (statRatingRef.current) statRatingRef.current.textContent = `${stats.satisfactionRate} ★`;
+      return;
+    }
+
+    const counterItems = [
+      { ref: statCatsRef, end: stats.catsCount, suffix: "+", decimals: 0, duration: 1.8 },
+      { ref: statRatingRef, end: stats.satisfactionRate, suffix: " ★", decimals: 1, duration: 1.6 },
+    ];
+
+    counterItems.forEach(({ ref, end, suffix, decimals, duration }) => {
+      if (!ref.current) return;
+      const obj = { val: 0 };
+      gsap.to(obj, {
+        val: end,
+        duration,
+        ease: "power2.out",
+        onUpdate() {
+          if (ref.current)
+            ref.current.textContent = obj.val.toFixed(decimals) + suffix;
+        },
+      });
+    });
+  }, [stats, mounted]);
+
+  useEffect(() => {
     const client = createClient();
 
     async function fetchReviews() {
@@ -311,10 +325,19 @@ export default function LandingPage() {
 
     async function fetchLandingCMS() {
       try {
-        const { data: settings } = await client
-          .from("landing_settings")
-          .select("*");
+        const [settingsRes, clsRes, countRes, ratingRes] = await Promise.all([
+          client.from("landing_settings").select("*"),
+          client
+            .from("classes")
+            .select("*")
+            .order("price_per_day", { ascending: true }),
+          client
+            .from("bookings")
+            .select("*", { count: "exact", head: true }),
+          client.from("reviews").select("rating"),
+        ]);
 
+        const settings = settingsRes.data;
         if (settings) {
           settings.forEach((row) => {
             if (row.id === "hero" && row.content) setHeroSettings(row.content);
@@ -326,12 +349,19 @@ export default function LandingPage() {
           });
         }
 
-        const { data: clsData } = await client
-          .from("classes")
-          .select("*")
-          .order("price_per_day", { ascending: true });
-
+        const clsData = clsRes.data;
         if (clsData && clsData.length > 0) setDbClasses(clsData);
+
+        const bookingCount = countRes.count;
+        const ratingData = ratingRes.data;
+
+        const totalReviews = ratingData?.length || 0;
+        const avgRating = totalReviews > 0
+          ? Number((ratingData.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / totalReviews).toFixed(1))
+          : 4.8;
+        const countValue = bookingCount && bookingCount > 0 ? bookingCount : 40;
+
+        setStats({ catsCount: countValue, satisfactionRate: avgRating });
       } catch (err) {
         console.error("Error loading dynamic CMS data:", err);
       }
@@ -409,16 +439,12 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-16 sm:pb-24 lg:pt-32 lg:pb-32 bg-linear-to-b from-secondary/40 via-background to-background dark:from-zinc-900/20 dark:via-zinc-950 dark:to-zinc-950">
-        {/* Soft background glow bubbles */}
-        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full bg-primary/10 dark:bg-primary/5 blur-3xl -z-10" />
-        <div className="absolute top-1/3 right-1/4 translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-amber-500/10 dark:bg-amber-500/5 blur-3xl -z-10" />
-
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10 relative">
           <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-center">
             {/* Left Content */}
             <div className="col-span-7 space-y-6 text-center lg:text-left">
               <div ref={heroBadgeRef} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold shadow-xs dark:bg-primary/20">
-                <SparkleIcon className="w-3.5 h-3.5 animate-spin-slow" />
+                <Cat className="w-3.5 h-3.5" />
                 <span>{(heroSettings?.[currentLanguage === 'en' ? 'badge_en' : 'badge_id']) || t("hero_badge")}</span>
               </div>
               <h1 ref={heroTitleRef} className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground leading-[1.1] dark:text-zinc-50">
@@ -458,7 +484,7 @@ export default function LandingPage() {
               <div ref={heroStatsRef} className="pt-8 grid grid-cols-3 gap-6 max-w-md mx-auto lg:mx-0 border-t border-border/80 dark:border-zinc-800/80">
                 <div>
                   <p ref={statCatsRef} className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
-                    1,200+
+                    {stats.catsCount}+
                   </p>
                   <p className="text-xs font-medium text-muted-foreground dark:text-zinc-400 mt-1">
                     {t("hero_stat_cats")}
@@ -466,7 +492,7 @@ export default function LandingPage() {
                 </div>
                 <div>
                   <p ref={statRatingRef} className="text-3xl font-extrabold text-foreground dark:text-zinc-100">
-                    98.9%
+                    {stats.satisfactionRate} ★
                   </p>
                   <p className="text-xs font-medium text-muted-foreground dark:text-zinc-400 mt-1">
                     {t("hero_stat_rating")}
@@ -486,12 +512,15 @@ export default function LandingPage() {
             {/* Right Image Mockup / Visual */}
             <div ref={heroImageRef} className="col-span-5 mt-12 lg:mt-0 relative flex justify-center">
               <div className="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl overflow-hidden shadow-2xl border-4 border-card dark:border-zinc-800 bg-gradient-to-tr from-primary/25 to-secondary dark:to-zinc-800 rotate-2 group hover:rotate-0 transition-transform duration-500">
-                <img
+                <Image
                   src={
                     heroSettings?.hero_image ||
                     "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=600&auto=format&fit=crop"
                   }
                   alt="Cute Cat"
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 288px, 384px"
                   className="object-cover w-full h-full"
                 />
 
@@ -542,7 +571,7 @@ export default function LandingPage() {
       </div>
 
       {/* Why Choose Us */}
-      <section id="why-us" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60">
+      <section id="why-us" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/40 border-t border-b border-border/60 dark:border-zinc-900/60 scroll-mt-20">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -602,7 +631,8 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing / Services Section */}
-      <section id="services" className="py-16 sm:py-24">
+      <section id="services" className="py-16 sm:py-24 scroll-mt-20 relative">
+        <div id="rooms" className="absolute -top-20" />
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -648,9 +678,11 @@ export default function LandingPage() {
                   <div>
                     {cls.image_url && (
                       <div className="relative w-full h-36 sm:h-40 rounded-2xl overflow-hidden mb-4 border border-border/80 shadow-xs">
-                        <img
+                        <Image
                           src={cls.image_url}
                           alt={cls.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -707,7 +739,7 @@ export default function LandingPage() {
       </section>
 
       {/* Reviews Section */}
-      <section id="reviews" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/20 border-t border-border/60 dark:border-zinc-900/60">
+      <section id="reviews" className="py-16 sm:py-24 bg-card dark:bg-zinc-900/20 border-t border-border/60 dark:border-zinc-900/60 scroll-mt-20">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-10">
           <div className="text-center space-y-3 mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -740,7 +772,8 @@ export default function LandingPage() {
 
       {/* FAQ Section */}
       {faqItems.length > 0 && (
-        <section id="faqs" className="py-16 sm:py-24 border-t border-border/60 dark:border-zinc-900/60">
+        <section id="faqs" className="py-16 sm:py-24 border-t border-border/60 dark:border-zinc-900/60 scroll-mt-20 relative">
+          <div id="faq" className="absolute -top-20" />
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center space-y-3 mb-16">
               <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-zinc-50 sm:text-4xl">
@@ -893,28 +926,6 @@ export default function LandingPage() {
       </footer>
       </div>
     </div>
-  );
-}
-
-function SparkleIcon(props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M12 3v18" />
-      <path d="M3 12h18" />
-      <path d="m18 6-12 12" />
-      <path d="m6 6 12 12" />
-    </svg>
   );
 }
 

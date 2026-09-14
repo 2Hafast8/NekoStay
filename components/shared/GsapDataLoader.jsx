@@ -5,7 +5,7 @@ import { gsap } from "gsap";
 import { Cat, Sparkles } from "lucide-react";
 
 /**
- * GsapDataLoader — Component to display GSAP-animated loading state for data fetching.
+ * GsapDataLoader: Component to display GSAP-animated loading state for data fetching.
  *
  * @param {Object} props
  * @param {string} [props.type="table"] - Loading layout style: "table" | "cards" | "dashboard" | "detail" | "simple"
@@ -21,7 +21,6 @@ export function GsapDataLoader({ type = "table", message = "Memuat data...", row
     if (!el) return;
 
     const ctx = gsap.context(() => {
-      // 1. Rotate & pulse loading brand icon infinitely
       if (iconRef.current) {
         gsap.to(iconRef.current, {
           rotation: 360,
@@ -39,7 +38,6 @@ export function GsapDataLoader({ type = "table", message = "Memuat data...", row
         });
       }
 
-      // 2. Continuous GSAP shimmer pulse on skeleton items
       const skeletons = el.querySelectorAll(".gsap-skeleton");
       if (skeletons.length > 0) {
         gsap.fromTo(

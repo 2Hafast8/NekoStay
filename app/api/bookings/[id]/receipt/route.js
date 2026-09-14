@@ -17,7 +17,6 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params;
 
-    // 1. Validasi format UUID pemesanan
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!id || !uuidRegex.test(id)) {
@@ -29,7 +28,6 @@ export async function GET(request, { params }) {
       );
     }
 
-    // 2. Ambil data pesanan via admin client untuk keandalan data (bebas RLS)
     const adminDb = createAdminClient();
     const { data: booking, error: fetchError } = await adminDb
       .from("bookings")
@@ -46,7 +44,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    // 3. Opsional: Audit sesi jika pengguna sedang login di browser
+    // Audit sesi jika pengguna sedang login di browser
     try {
       const supabase = await createClient();
       const {
@@ -72,11 +70,9 @@ export async function GET(request, { params }) {
       console.warn("[Receipt Auth Audit Warning]:", authAuditErr.message);
     }
 
-    // 4. Generate PDF buffer
     const userName = booking.profiles?.full_name || "Pelanggan NekoStay";
     const pdfBuffer = await generatePDFBuffer(booking, userName);
 
-    // 5. Konfigurasi nama file dan disposition
     const safeCatName = (booking.cat_name || "NekoStay").replace(
       /[^a-zA-Z0-9_-]/g,
       "_"

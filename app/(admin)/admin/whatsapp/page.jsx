@@ -60,7 +60,6 @@ export default function AdminWhatsAppLogsPage() {
   const statusPollingRef = useRef(null);
   const supabase = createClient();
 
-  // 1. Check WA Connection Status
   const checkStatus = async () => {
     try {
       const res = await fetch("/api/whatsapp/status");
@@ -79,7 +78,6 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 2. Start Web Connection / Refresh State
   const handleStartConnect = async () => {
     try {
       setIsConnecting(true);
@@ -103,7 +101,6 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 3. Disconnect WA
   const handleDisconnect = async () => {
     try {
       setIsDisconnecting(true);
@@ -122,7 +119,6 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 4. Fetch Contact List (7-day aggregated)
   const fetchContacts = async (preserveSelected = true) => {
     try {
       setIsLoadingContacts(true);
@@ -148,7 +144,6 @@ export default function AdminWhatsAppLogsPage() {
     }
   };
 
-  // 5. Fetch Messages for Selected Phone
   const fetchMessagesForPhone = async (phone) => {
     if (!phone) return;
     try {
@@ -224,7 +219,7 @@ export default function AdminWhatsAppLogsPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 6. Supabase Realtime Subscription for Live WhatsApp Logs
+  // Realtime subscription for WhatsApp logs
   useEffect(() => {
     const channel = supabase
       .channel("admin-whatsapp-realtime")
@@ -293,7 +288,6 @@ export default function AdminWhatsAppLogsPage() {
     };
   }, [selectedPhone, supabase]);
 
-  // 7. Handle Direct Admin Reply Send
   const handleSendAdminReply = async (e) => {
     e.preventDefault();
     if (!replyText.trim() || !selectedPhone) return;
@@ -635,7 +629,7 @@ export default function AdminWhatsAppLogsPage() {
                   <div className="flex items-center gap-2 font-semibold">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
                     <span>
-                      <strong>Bot WhatsApp Sedang Offline</strong> — Auto-reply & sinkronisasi live HP tidak aktif. Jalankan bot di PC admin via <code>Start-WhatsApp-Bot.vbs</code> atau <code>npm run wa:bot</code>.
+                      <strong>Bot WhatsApp Sedang Offline:</strong> Auto-reply & sinkronisasi live HP tidak aktif. Jalankan bot di PC admin via <code>Start-WhatsApp-Bot.vbs</code> atau <code>npm run wa:bot</code>.
                     </span>
                   </div>
                   <button
@@ -812,7 +806,7 @@ export default function AdminWhatsAppLogsPage() {
                       placeholder={
                         waStatus === "connected"
                           ? `Ketik balasan admin untuk dikirim langsung ke WhatsApp ${formatPhoneNumber(selectedContact?.phoneNumber)}...`
-                          : `Bot WhatsApp offline — Sambungkan bot untuk membalas langsung ke nomor pelanggan...`
+                          : `Bot WhatsApp offline. Sambungkan bot untuk membalas langsung ke nomor pelanggan...`
                       }
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}

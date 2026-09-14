@@ -19,7 +19,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Cek sesi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -28,7 +27,6 @@ export async function POST(request, { params }) {
       return apiForbidden("Hanya Administrator yang dapat mengirim ulang bukti pemesanan.");
     }
 
-    // 2. Ambil data pesanan
     const { data: booking, error: fetchError } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")
@@ -43,7 +41,7 @@ export async function POST(request, { params }) {
       return apiBadRequest("Hanya booking dengan status Aktif yang dapat dikirimi ulang bukti pembayaran.");
     }
 
-    // 3. Generate token baru jika belum ada atau sudah digunakan
+    // Refresh atau buat token baru jika belum ada atau sudah digunakan
     let token = booking.offline_payment_token;
     const needsNewToken = !token || booking.offline_token_used;
 
@@ -68,7 +66,6 @@ export async function POST(request, { params }) {
         .eq("id", id);
     }
 
-    // 4. Kirim email dengan lampiran PDF
     const userEmail = booking.profiles?.email;
     if (!userEmail) {
       return apiBadRequest("Email pengguna tidak ditemukan di data profil.");

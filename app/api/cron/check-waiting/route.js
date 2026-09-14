@@ -10,7 +10,6 @@ import { apiSuccess, apiError, apiUnauthorized } from "@/lib/utils/response";
  */
 export async function GET(request) {
   try {
-    // 1. Verifikasi cron authorization secret dari headers
     const authHeader = request.headers.get("authorization");
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
@@ -20,7 +19,6 @@ export async function GET(request) {
 
     const supabaseAdmin = createAdminClient();
 
-    // 2. Ambil seluruh kelas kamar untuk referensi kapasitas
     const { data: classesData, error: classesErr } = await supabaseAdmin
       .from("classes")
       .select("name, total_cages, maintenance_cages");
@@ -38,7 +36,6 @@ export async function GET(request) {
       });
     });
 
-    // 3. Ambil seluruh pesanan berstatus 'Menunggu' atau 'Antrian'
     const { data: waitingBookings, error: waitingErr } = await supabaseAdmin
       .from("bookings")
       .select(`
@@ -54,7 +51,7 @@ export async function GET(request) {
 
     const rejectedList = [];
 
-    // 4. Evaluasi setiap pesanan waiting terhadap kapasitas kamar
+    // Evaluasi kapasitas kamar dan batas waktu toleransi tunggu antrian
     for (const booking of waitingBookings || []) {
       const classInfo = classMap.get(booking.class) || {
         totalCages: 10,

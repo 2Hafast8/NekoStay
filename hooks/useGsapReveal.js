@@ -7,7 +7,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * useGsapReveal — Animates elements into view when they enter the viewport.
+ * useGsapReveal: Animates elements into view when they enter the viewport.
  * Supports stagger, custom easing, and respects prefers-reduced-motion.
  *
  * @param {React.RefObject} containerRef - Ref to the container wrapping the animated elements
@@ -74,11 +74,11 @@ export function useGsapReveal(containerRef, options = {}, deps = []) {
     }, el);
 
     return () => ctx.revert();
-  }, [containerRef.current, selector, y, opacity, scale, duration, stagger, delay, ease, start, once, ...deps]);
+  }, [containerRef, selector, y, opacity, scale, duration, stagger, delay, ease, start, once]);
 }
 
 /**
- * useGsapCounter — Animates a number counting up when element enters viewport.
+ * useGsapCounter: Animates a number counting up when element enters viewport.
  *
  * @param {React.RefObject} ref  - Ref to the element whose textContent will be updated
  * @param {number} target        - The final number to count to

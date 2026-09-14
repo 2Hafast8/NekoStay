@@ -10,7 +10,6 @@ import { apiSuccess, apiError, apiUnauthorized } from "@/lib/utils/response";
  */
 export async function GET(request) {
   try {
-    // 1. Verifikasi cron authorization secret dari headers
     const authHeader = request.headers.get("authorization");
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
@@ -18,13 +17,11 @@ export async function GET(request) {
       return apiUnauthorized("Unauthorized cron access.");
     }
 
-    // 2. Inisialisasi Supabase Admin Client
     const supabaseAdmin = createAdminClient();
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
 
-    // 3. Ambil seluruh pesanan aktif yang tanggal check-out nya sudah lewat
     const { data: lateBookings, error: fetchError } = await supabaseAdmin
       .from("bookings")
       .select(`

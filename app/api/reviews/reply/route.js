@@ -25,7 +25,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verifikasi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -34,13 +33,11 @@ export async function POST(request) {
       return apiForbidden("Hanya Administrator yang berhak membalas ulasan.");
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const validated = replySchema.parse(body);
 
     const adminDb = createAdminClient();
 
-    // 3. Ambil data ulasan + booking + profil
     const { data: review, error: reviewErr } = await adminDb
       .from("reviews")
       .select(`
@@ -71,7 +68,6 @@ export async function POST(request) {
       ? `${review.reply_text}\n---\n${validated.replyText}`
       : validated.replyText;
 
-    // 4. Update reply_text di database
     const { data: updateData, error: updateErr } = await adminDb
       .from("reviews")
       .update({
@@ -85,7 +81,6 @@ export async function POST(request) {
       return apiError("Gagal menyimpan balasan ke database.", 500);
     }
 
-    // 5. Kirim email balasan ke pemilik kucing
     const ownerEmail = review.bookings?.profiles?.email;
     const ownerName = review.bookings?.profiles?.full_name || "Pemilik Kucing";
     const catName = review.bookings?.cat_name || "Kucing";

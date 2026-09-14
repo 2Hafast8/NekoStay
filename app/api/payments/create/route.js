@@ -20,7 +20,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi user
     const {
       data: { user },
       error: authErr,
@@ -30,11 +29,9 @@ export async function POST(request) {
       return apiUnauthorized();
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const { bookingId } = paymentCreateSchema.parse(body);
 
-    // 3. Ambil detail booking dan profil
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email, phone)")
@@ -46,12 +43,10 @@ export async function POST(request) {
       return apiNotFound("Pesanan tidak ditemukan atau bukan milik akun Anda.");
     }
 
-    // 4. Cek status lunas
     if (booking.payment_status === "Paid") {
       return apiBadRequest("Pesanan ini sudah lunas.");
     }
 
-    // 5. Inisialisasi Midtrans Snap Client
     const serverKey = process.env.MIDTRANS_SERVER_KEY || "";
     const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
 
@@ -61,7 +56,6 @@ export async function POST(request) {
       clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
     });
 
-    // 6. Hitung nominal pembayaran akhir
     const finalAmount =
       (booking.estimated_total || 0) -
       (booking.discount_amount || 0) +
@@ -75,7 +69,6 @@ export async function POST(request) {
     const orderId = `${booking.id}-${Date.now()}`;
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-    // 7. Siapkan parameter Midtrans Snap
     const parameter = {
       transaction_details: {
         order_id: orderId,
@@ -101,14 +94,12 @@ export async function POST(request) {
       },
     };
 
-    // 8. Buat transaksi Snap di Midtrans
     const transaction = await snap.createTransaction(parameter);
 
     if (!transaction || !transaction.token) {
       throw new Error("Gagal mendapatkan token transaksi dari Midtrans");
     }
 
-    // 9. Simpan token ke database Supabase via Admin Client
     const adminDb = createAdminClient();
     const { error: updateError } = await adminDb
       .from("bookings")
@@ -136,6 +127,6 @@ export async function POST(request) {
     }
 
     console.error("[Midtrans Create Payment Exception]:", error);
-    return apiError(error.message || "Gagal memproses pembayaran online", 500);
+    return apiError("Gagal memproses pembayaran online", 500);
   }
 }

@@ -9,7 +9,6 @@ export async function GET(request) {
     const phone = searchParams.get("phone");
     const days = parseInt(searchParams.get("days") || "7", 10);
 
-    // 1. Cek sesi user & role Admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -31,12 +30,11 @@ export async function GET(request) {
       );
     }
 
-    // 2. Filter 7 hari terakhir (Strict 7-day cutoff)
+    // Filter batas riwayat log (default 7 hari)
     const cutoffDate = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000
     ).toISOString();
 
-    // 3. Jika meminta detail percakapan dari 1 nomor pelanggan tertentu
     if (phone) {
       const cleanPhone = phone.replace(/[^0-9]/g, "");
       const { data: messages, error } = await supabase
@@ -57,7 +55,6 @@ export async function GET(request) {
       });
     }
 
-    // 4. Jika meminta ringkasan kontak / seluruh log
     const { data: allLogs, error } = await supabase
       .from("whatsapp_logs")
       .select("*")
@@ -122,9 +119,9 @@ export async function GET(request) {
       recentLogs: (allLogs || []).slice(0, 50),
     });
   } catch (error) {
-    console.error("Fetch WhatsApp logs error:", error);
+    console.error("[Fetch WhatsApp Logs Error]:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal memuat log WhatsApp" },
+      { error: "Gagal memuat riwayat log WhatsApp" },
       { status: 500 }
     );
   }

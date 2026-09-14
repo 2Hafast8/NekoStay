@@ -17,7 +17,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Verifikasi hak akses (Pemilik pesanan atau Admin)
     const { isAllowed, user, booking } = await verifyBookingAccess(supabase, id);
 
     if (!user) {
@@ -41,7 +40,6 @@ export async function POST(request, { params }) {
     const ownerName = profile?.full_name || "Pelanggan";
     const catName = booking.cat_name || "Kucing";
 
-    // 2. Buat notifikasi admin via RPC
     try {
       await supabase.rpc("create_admin_notification", {
         booking_id_param: id,

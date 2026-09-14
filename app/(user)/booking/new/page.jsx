@@ -17,6 +17,7 @@ import {
   Clock,
   X,
   Zap,
+  ChevronLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
@@ -47,14 +48,7 @@ function BookingFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const { language: storeLanguage } = useLanguage();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const language = mounted ? storeLanguage : "id";
+  const { language } = useLanguage();
   const t = (key) => dictionary[language]?.[key] || key;
 
   // Form State
@@ -74,7 +68,17 @@ function BookingFormContent() {
   const [catNotes, setCatNotes] = useState("");
   const [catPhotoUrl, setCatPhotoUrl] = useState("");
 
-  const [bookingClass, setBookingClass] = useState("Standard");
+  const [bookingClass, setBookingClass] = useState(() => {
+    const classParam = searchParams?.get("class");
+    if (
+      classParam === "Basic" ||
+      classParam === "Standard" ||
+      classParam === "Premium"
+    ) {
+      return classParam;
+    }
+    return "Standard";
+  });
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
 
@@ -175,18 +179,6 @@ function BookingFormContent() {
     checkIn.setDate(checkIn.getDate() + 1);
     return checkIn.toISOString().split("T")[0];
   }, [checkInDate]);
-
-  // Auto-fill class from query parameter if available
-  useEffect(() => {
-    const classParam = searchParams.get("class");
-    if (
-      classParam === "Basic" ||
-      classParam === "Standard" ||
-      classParam === "Premium"
-    ) {
-      setBookingClass(classParam);
-    }
-  }, [searchParams]);
 
   // Handle referral verification
   const handleVerifyReferral = async () => {
@@ -352,7 +344,6 @@ function BookingFormContent() {
 
     setIsCheckingAvailability(true);
     try {
-      // 1. Fetch class details for total_cages & maintenance_cages
       const { data: classRow } = await supabase
         .from("classes")
         .select("total_cages, maintenance_cages")
@@ -363,7 +354,6 @@ function BookingFormContent() {
       const maintenanceCages = classRow?.maintenance_cages ?? 0;
       const effectiveCapacity = Math.max(1, totalCages - maintenanceCages);
 
-      // 2. Fetch overlapping active bookings
       const { data: overlappingBookings } = await supabase
         .from("bookings")
         .select("id, check_in_date, check_out_date, status")
@@ -648,7 +638,7 @@ function BookingFormContent() {
                     setCatAge(cat.cat_age || "");
                     setCatHealth(cat.cat_health_status || "Sehat");
                     setCatFood(cat.cat_favorite_food || "");
-                    if (cat.cat_photo_url) setCatPhotoUrl(cat.cat_photo_url);
+                    setCatPhotoUrl(cat.cat_photo_url || "");
                   }
                 }}
                 defaultValue=""
@@ -805,19 +795,21 @@ function BookingFormContent() {
           </div>
 
           <ImageUpload
+            value={catPhotoUrl}
+            onChange={(url) => setCatPhotoUrl(url)}
             onUpload={(url) => setCatPhotoUrl(url)}
-            defaultValue={catPhotoUrl}
             label={t("book_cat_photo")}
           />
 
           <div className="flex justify-end pt-4">
             <button
+              type="button"
               onClick={() => {
                 if (validateStep1()) setStep(2);
               }}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {t("book_btn_next")}
+              <span>{t("book_btn_next")}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -1150,17 +1142,20 @@ function BookingFormContent() {
             </div>
           )}
 
-          <div className="flex justify-between pt-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
             <button
+              type="button"
               onClick={() => setStep(1)}
-              className="px-6 py-3 rounded-xl border border-border dark:border-zinc-800 text-xs font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer text-foreground dark:text-zinc-300"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-border dark:border-zinc-800 text-xs font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer text-foreground dark:text-zinc-300 flex items-center justify-center gap-1.5"
             >
-              {t("book_btn_prev")}
+              <ChevronLeft className="w-4 h-4" />
+              <span>{t("book_btn_prev")}</span>
             </button>
             <button
+              type="button"
               onClick={handleProceedFromStep2}
               disabled={isCheckingAvailability}
-              className="px-6 py-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/95 transition-all shadow-md shadow-primary/10 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               {isCheckingAvailability ? (
                 <span>Cek Ketersediaan...</span>
@@ -1216,6 +1211,8 @@ function BookingFormContent() {
                   <img
                     src={catPhotoUrl}
                     alt="Kucing"
+                    loading="lazy"
+                    decoding="async"
                     className="object-cover w-full h-full"
                   />
                 </div>
@@ -1328,20 +1325,23 @@ function BookingFormContent() {
             </div>
           </div>
 
-          <div className="flex justify-between pt-4 border-t border-border/60 dark:border-zinc-850/60">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border/60 dark:border-zinc-850/60">
             <button
+              type="button"
               onClick={() => setStep(2)}
-              className="px-6 py-3 rounded-xl border border-border dark:border-zinc-800 text-xs font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer text-foreground dark:text-zinc-300"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-border dark:border-zinc-800 text-xs font-bold hover:bg-muted dark:hover:bg-zinc-800 transition-all cursor-pointer text-foreground dark:text-zinc-300 flex items-center justify-center gap-1.5"
             >
-              {t("book_btn_prev")}
+              <ChevronLeft className="w-4 h-4" />
+              <span>{t("book_btn_prev")}</span>
             </button>
             <GsapTextButton
+              type="button"
               onClick={handleSubmit}
               isLoading={isLoading}
               idleText={isWaitlistBooking ? "Kirim Pesanan Antrian" : t("book_btn_submit")}
               loadingText={language === "en" ? "Saving..." : "Sedang Menyimpan..."}
               icon={<Check className="w-4 h-4" />}
-              className={`px-8 py-3.5 rounded-xl font-extrabold text-xs transition-all shadow-md cursor-pointer ${
+              className={`w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl font-extrabold text-xs transition-all shadow-md cursor-pointer flex items-center justify-center text-center ${
                 isWaitlistBooking
                   ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20"
                   : "bg-primary text-primary-foreground hover:bg-primary/95 shadow-primary/20"
@@ -1420,7 +1420,7 @@ function BookingFormContent() {
                     Sesuai kebijakan NekoStay, batas maksimal jarak waktu tunggu antrian pemesanan adalah <strong>3 hari</strong>. Karena perkiraan kamar kosong terdekat adalah <strong>~{availabilityData?.daysUntilAvailable} hari lagi</strong> (&gt; 3 hari), pesanan tidak dapat masuk antrian dan otomatis ditolak.
                   </p>
                   <div className="p-2.5 bg-background/80 dark:bg-zinc-950/60 rounded-xl border border-rose-500/20 text-[11px] italic">
-                    "{availabilityData?.rejectReason}"
+                    &quot;{availabilityData?.rejectReason}&quot;
                   </div>
                 </div>
               )}

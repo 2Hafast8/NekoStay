@@ -9,7 +9,7 @@ if (typeof window !== "undefined") {
 }
 
 /**
- * GsapTextButton — Button component with GSAP Text Replacement animation during loading/submission states.
+ * GsapTextButton: Button component with GSAP Text Replacement animation during loading/submission states.
  *
  * @param {Object} props
  * @param {boolean} props.isLoading - Whether the button is in loading/submitting state

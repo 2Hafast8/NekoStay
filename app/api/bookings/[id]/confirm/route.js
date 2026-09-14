@@ -18,7 +18,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Verifikasi peran Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -27,7 +26,6 @@ export async function POST(request, { params }) {
       return apiForbidden("Hanya Administrator yang berhak mengonfirmasi pesanan.");
     }
 
-    // 2. Ambil data pesanan
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("id, status, cat_name, user_id")
@@ -38,12 +36,11 @@ export async function POST(request, { params }) {
       return apiNotFound("Data booking tidak ditemukan");
     }
 
-    // 3. Cek status
     if (booking.status !== "Menunggu" && booking.status !== "Antrian") {
       return apiBadRequest("Hanya booking dengan status Menunggu atau Antrian yang dapat dikonfirmasi");
     }
 
-    // 4. Update status ke Aktif (DB trigger otomatis generate offline_payment_token)
+    // Database trigger secara otomatis men-generate offline_payment_token saat status menjadi Aktif
     const { error: updateError } = await supabase
       .from("bookings")
       .update({ status: "Aktif" })
@@ -54,14 +51,12 @@ export async function POST(request, { params }) {
       return apiError("Gagal memperbarui status booking", 500);
     }
 
-    // 5. Re-fetch booking lengkap setelah trigger berjalan (untuk mendapatkan token QR)
     const { data: updatedBooking } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")
       .eq("id", id)
       .single();
 
-    // 6. Buat notifikasi in-app untuk pengguna
     try {
       await supabase.from("notifications").insert({
         user_id: booking.user_id,
@@ -75,7 +70,6 @@ export async function POST(request, { params }) {
       console.warn("[Confirm API Notice] User notification failed:", notifErr.message);
     }
 
-    // 7. Kirim email transaksi status update beserta PDF + QR
     const userEmail = updatedBooking?.profiles?.email;
     if (userEmail && updatedBooking) {
       try {

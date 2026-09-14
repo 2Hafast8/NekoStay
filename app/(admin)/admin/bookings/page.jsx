@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
+
+const emptySubscribe = () => () => {};
 
 import {
   CalendarRange,
@@ -69,6 +71,16 @@ function getWhatsAppUrl(phone, catName, ownerName) {
     `Halo Kak ${ownerName || "Pelanggan"}, terkait pesanan penitipan untuk kucing kesayangan Anda (${catName || "NekoStay"})...`
   );
   return `https://wa.me/${normalized}?text=${text}`;
+}
+
+// Helper kalkulasi total bersih pesanan (memperhitungkan diskon, denda, dan refund)
+function getBookingNetAmount(b) {
+  if (!b) return 0;
+  const estimated = Number(b.estimated_total) || 0;
+  const discount = Number(b.discount_amount) || 0;
+  const lateFee = Number(b.late_fee_total) || 0;
+  const refund = Number(b.refund_amount) || 0;
+  return Math.max(0, estimated - discount + lateFee - refund);
 }
 
 // Room Class Badge Component
@@ -200,11 +212,10 @@ function PaymentStatusDropdown({ booking, onUpdated }) {
 export default function AdminBookingsPage() {
   const { language, t } = useLanguage();
   const containerRef = useRef(null);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const [bookings, setBookings] = useState([]);
-  const [filteredBookings, setFilteredBookings] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
-  const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Search & Filter & Pagination States
@@ -228,17 +239,36 @@ export default function AdminBookingsPage() {
     String(currentDate.getFullYear())
   ); // e.g. "2026" or "all"
 
+  // Filter application - pure derived state (clean-code: no cascading render)
+  const filteredBookings = useMemo(() => {
+    let temp = bookings;
+
+    if (activeTab !== "Semua") {
+      temp = temp.filter((b) => b.status === activeTab);
+    }
+
+    if (selectedClass !== "Semua") {
+      temp = temp.filter((b) => b.class === selectedClass);
+    }
+
+    if (searchQuery.trim() !== "") {
+      const q = searchQuery.toLowerCase();
+      temp = temp.filter(
+        (b) =>
+          b.cat_name?.toLowerCase().includes(q) ||
+          (b.profiles?.full_name &&
+            b.profiles.full_name.toLowerCase().includes(q))
+      );
+    }
+
+    return temp;
+  }, [activeTab, selectedClass, searchQuery, bookings]);
+
   useGsapReveal(
     containerRef,
     { selector: ".anim-item", y: 20, stagger: 0.04, duration: 0.45 },
     [filteredBookings, currentPage, activeTab]
   );
-
-  useEffect(() => {
-    if (selectedYear === "all") {
-      setSelectedMonth("all");
-    }
-  }, [selectedYear]);
 
   // Dialog States
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -327,7 +357,6 @@ export default function AdminBookingsPage() {
 
       if (error) throw error;
       setBookings(data || []);
-      setFilteredBookings(data || []);
     } catch (err) {
       console.error("Error fetching bookings:", err);
     } finally {
@@ -375,43 +404,6 @@ export default function AdminBookingsPage() {
     };
   }, [fetchAllBookings, supabase]);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Filter application
-  useEffect(() => {
-    let temp = [...bookings];
-
-    // 1. Filter by Status (activeTab)
-    if (activeTab !== "Semua") {
-      temp = temp.filter((b) => b.status === activeTab);
-    }
-
-    // 2. Filter by Room Class
-    if (selectedClass !== "Semua") {
-      temp = temp.filter((b) => b.class === selectedClass);
-    }
-
-    // 3. Filter by Search Query
-    if (searchQuery.trim() !== "") {
-      const q = searchQuery.toLowerCase();
-      temp = temp.filter(
-        (b) =>
-          b.cat_name.toLowerCase().includes(q) ||
-          (b.profiles?.full_name &&
-            b.profiles.full_name.toLowerCase().includes(q))
-      );
-    }
-
-    setFilteredBookings(temp);
-  }, [activeTab, selectedClass, searchQuery, bookings]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-    setSelectedIds([]); // Clear selection when filters change
-  }, [activeTab, searchQuery, selectedClass]);
-
   // Executive KPI stats calculation
   const stats = useMemo(() => {
     const total = bookings.length;
@@ -420,11 +412,46 @@ export default function AdminBookingsPage() {
     const active = bookings.filter((b) => b.status === "Aktif").length;
     const completed = bookings.filter((b) => b.status === "Selesai").length;
     const cancelled = bookings.filter((b) => b.status === "Dibatalkan").length;
-    const revenue = bookings
-      .filter((b) => b.status === "Aktif" || b.status === "Selesai")
-      .reduce((sum, b) => sum + (b.estimated_total || 0), 0);
 
-    return { total, pending, queue, active, completed, cancelled, revenue };
+    // Filter pesanan valid yang berkontribusi pada omset (Aktif, Selesai, atau sudah Lunas, exclude Dibatalkan & Gagal)
+    const validRevenueBookings = bookings.filter(
+      (b) =>
+        b.status !== "Dibatalkan" &&
+        b.payment_status !== "Failed" &&
+        (b.status === "Selesai" || b.status === "Aktif" || b.payment_status === "Paid")
+    );
+
+    // Total estimasi omset bersih akurat (memperhitungkan diskon promo, denda keterlambatan, dan refund check-out awal)
+    const revenue = validRevenueBookings.reduce(
+      (sum, b) => sum + getBookingNetAmount(b),
+      0
+    );
+
+    // Omset yang sudah pasti Lunas (Kas Masuk riil yang telah terbayar)
+    const paidBookings = bookings.filter(
+      (b) => b.payment_status === "Paid" && b.status !== "Dibatalkan"
+    );
+    const paidRevenue = paidBookings.reduce(
+      (sum, b) => sum + getBookingNetAmount(b),
+      0
+    );
+
+    // Omset aktif / reservasi yang belum dibayar
+    const unpaidRevenue = Math.max(0, revenue - paidRevenue);
+
+    return {
+      total,
+      pending,
+      queue,
+      active,
+      completed,
+      cancelled,
+      revenue,
+      paidRevenue,
+      unpaidRevenue,
+      validCount: validRevenueBookings.length,
+      paidCount: paidBookings.length,
+    };
   }, [bookings]);
 
   // Reset all filters to default
@@ -525,9 +552,15 @@ export default function AdminBookingsPage() {
       doc.setFont("helvetica", "bold");
       doc.text(`${filteredBookings.length}`, 102, 42);
 
-      // Sum estimated_total
-      const totalEst = filteredBookings.reduce(
-        (sum, b) => sum + (b.estimated_total || 0),
+      // Sum accurate net revenue for valid filtered bookings
+      const validFiltered = filteredBookings.filter(
+        (b) =>
+          b.status !== "Dibatalkan" &&
+          b.payment_status !== "Failed" &&
+          (b.status === "Selesai" || b.status === "Aktif" || b.payment_status === "Paid")
+      );
+      const totalEst = validFiltered.reduce(
+        (sum, b) => sum + getBookingNetAmount(b),
         0
       );
       doc.setFont("helvetica", "normal");
@@ -571,7 +604,7 @@ export default function AdminBookingsPage() {
           style: "currency",
           currency: "IDR",
           maximumFractionDigits: 0,
-        }).format(b.estimated_total || 0),
+        }).format(getBookingNetAmount(b)),
         b.status,
         b.payment_status === "Paid"
           ? "Lunas"
@@ -1084,9 +1117,14 @@ export default function AdminBookingsPage() {
             <div className="text-xl sm:text-2xl font-black text-foreground tracking-tight truncate">
               {formatRupiah(stats.revenue)}
             </div>
-            <p className="text-[11px] font-medium text-muted-foreground">
-              {stats.completed} pesanan telah selesai
-            </p>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground flex-wrap">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                {formatRupiah(stats.paidRevenue)} Lunas
+              </span>
+              <span>•</span>
+              <span>{stats.completed} Selesai</span>
+              {stats.active > 0 && <span>, {stats.active} Aktif</span>}
+            </div>
           </div>
         </div>
       </div>
@@ -1552,11 +1590,21 @@ export default function AdminBookingsPage() {
                             </span>
                             <div className="text-right">
                               <span className="font-black text-foreground text-sm">
-                                {formatRupiah(b.estimated_total)}
+                                {formatRupiah(getBookingNetAmount(b))}
                               </span>
                               {b.discount_amount > 0 && (
                                 <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
                                   Hemat {formatRupiah(b.discount_amount)}
+                                </span>
+                              )}
+                              {b.late_fee_total > 0 && (
+                                <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                                  +Denda {formatRupiah(b.late_fee_total)}
+                                </span>
+                              )}
+                              {b.refund_amount > 0 && (
+                                <span className="block text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                                  -Refund {formatRupiah(b.refund_amount)}
                                 </span>
                               )}
                             </div>
@@ -1740,11 +1788,21 @@ export default function AdminBookingsPage() {
                             {/* Total Cost */}
                             <td className="p-4 sm:p-5">
                               <div className="font-black text-foreground text-sm">
-                                {formatRupiah(b.estimated_total)}
+                                {formatRupiah(getBookingNetAmount(b))}
                               </div>
                               {b.discount_amount > 0 && (
                                 <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
                                   Diskon: -{formatRupiah(b.discount_amount)}
+                                </div>
+                              )}
+                              {b.late_fee_total > 0 && (
+                                <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                                  Denda: +{formatRupiah(b.late_fee_total)}
+                                </div>
+                              )}
+                              {b.refund_amount > 0 && (
+                                <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                                  Refund: -{formatRupiah(b.refund_amount)}
                                 </div>
                               )}
                             </td>
@@ -1900,8 +1958,23 @@ export default function AdminBookingsPage() {
                             Total Biaya
                           </span>
                           <span className="font-black text-foreground text-sm">
-                            {formatRupiah(b.estimated_total)}
+                            {formatRupiah(getBookingNetAmount(b))}
                           </span>
+                          {b.discount_amount > 0 && (
+                            <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                              Diskon -{formatRupiah(b.discount_amount)}
+                            </span>
+                          )}
+                          {b.late_fee_total > 0 && (
+                            <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                              +Denda {formatRupiah(b.late_fee_total)}
+                            </span>
+                          )}
+                          {b.refund_amount > 0 && (
+                            <span className="block text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                              -Refund {formatRupiah(b.refund_amount)}
+                            </span>
+                          )}
                         </div>
                         <div className="col-span-2 pt-1 flex justify-between items-center border-t border-border/40">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground">

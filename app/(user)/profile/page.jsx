@@ -11,14 +11,7 @@ import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { language: storeLanguage } = useLanguage();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const language = mounted ? storeLanguage : "id";
+  const { language } = useLanguage();
   const t = (key) => dictionary[language]?.[key] || key;
 
   const [fullName, setFullName] = useState("");
@@ -420,7 +413,6 @@ function ChangePasswordCard({ language }) {
 
       if (error) throw error;
 
-      // 1. Instantly update UI success state and clear inputs
       setSuccessMsg(
         language === "en"
           ? "Password updated successfully! A security email and in-app notification have been sent."
@@ -430,10 +422,8 @@ function ChangePasswordCard({ language }) {
       setConfirmPassword("");
       setIsSubmitting(false);
 
-      // Smooth scroll to alert card
       cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-      // 2. Trigger notification API non-blockingly in background
       fetch("/api/auth/notify-password-changed", {
         method: "POST",
         headers: {

@@ -45,3 +45,10 @@ next-env.d.ts
 /scratch
 auth_info_baileys/
 auth_test_*/
+
+# python & coverage caches
+__pycache__/
+*.py[cod]
+*$py.class
+.coverage
+.coverage.*

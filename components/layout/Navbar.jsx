@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -32,6 +32,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+const emptySubscribe = () => () => {};
+
 export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,17 +41,12 @@ export function Navbar() {
   const [role, setRole] = useState("user");
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const navRef = useRef(null);
-
-  // Handle mounting to prevent hydration issues
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Navbar entrance animation
   useEffect(() => {
@@ -130,12 +127,16 @@ export function Navbar() {
 
   if (isAuthPage) return null;
 
+  const isAdmin = pathname.startsWith("/admin");
+
   return (
     <header
       ref={navRef}
       className={`sticky top-0 z-40 w-full transition-all duration-300 ${
         scrolled
           ? "bg-background/80 dark:bg-zinc-950/80 backdrop-blur-md border-b border-border/80 dark:border-zinc-800/80 shadow-xs"
+          : isAdmin
+          ? "bg-background dark:bg-zinc-950 border-b border-border/80 dark:border-zinc-800/80"
           : "bg-transparent border-b border-transparent"
       }`}
     >

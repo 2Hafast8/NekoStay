@@ -6,7 +6,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verifikasi Sesi Pengguna & Hak Akses Admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -28,7 +27,6 @@ export async function POST(request) {
       );
     }
 
-    // 2. Parse & Validasi Payload
     const body = await request.json().catch(() => ({}));
     const { phoneNumber, messageText, customerName } = body;
 
@@ -51,7 +49,7 @@ export async function POST(request) {
       cleanPhone = "62" + cleanPhone.slice(1);
     }
 
-    // 3. Periksa Status Koneksi Bot WhatsApp (Heartbeat Check)
+    // Heartbeat check bot WhatsApp
     const { data: botState } = await supabase
       .from("whatsapp_bot_state")
       .select("*")
@@ -80,7 +78,6 @@ export async function POST(request) {
       );
     }
 
-    // 4. Masukkan pesan ke tabel whatsapp_logs dengan role 'admin' & status 'pending'
     const senderName = profile?.full_name || "Admin NekoStay";
     const remoteJid = body.remoteJid || resolveRemoteJid(cleanPhone);
 
@@ -109,7 +106,7 @@ export async function POST(request) {
 
     if (insertError) {
       console.error("[WhatsApp Send Route] DB Insert Error:", insertError);
-      throw new Error(insertError.message || "Gagal menyimpan pesan ke database");
+      throw new Error("Gagal menyimpan pesan ke database");
     }
 
     return NextResponse.json({
@@ -120,7 +117,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("[WhatsApp Send Route] Unexpected Error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal mengirim pesan WhatsApp." },
+      { error: "Gagal mengirim pesan WhatsApp." },
       { status: 500 }
     );
   }

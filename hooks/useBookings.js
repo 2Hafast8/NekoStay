@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from './useUser'
 
@@ -20,14 +20,13 @@ export function useBookings(options = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     if (!user) {
       setLoading(false)
       return
     }
 
     try {
-      setLoading(true)
       setError(null)
 
       let query = supabase
@@ -54,12 +53,55 @@ export function useBookings(options = {}) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, status, supabase])
 
   useEffect(() => {
-    fetchBookings()
+    let isCancelled = false
 
-    if (!subscribe || !user) return
+    async function loadData() {
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        let query = supabase
+          .from('bookings')
+          .select(`
+            *,
+            profiles:user_id (id, full_name, phone),
+            cat_reports (id, health_status, photo_url, notes, report_date)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (status) {
+          query = query.eq('status', status)
+        }
+
+        const { data, error: err } = await query
+        if (isCancelled) return
+        if (err) throw err
+        setBookings(data || [])
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err.message)
+          console.error('Error fetching bookings:', err)
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadData()
+
+    if (!subscribe || !user) {
+      return () => {
+        isCancelled = true
+      }
+    }
 
     // Subscribe ke realtime changes dengan unique channel ID
     const channelUniqueId = Math.random().toString(36).substring(7);
@@ -88,9 +130,10 @@ export function useBookings(options = {}) {
       .subscribe()
 
     return () => {
+      isCancelled = true;
       supabase.removeChannel(channel);
     }
-  }, [user, subscribe])
+  }, [user, status, subscribe, fetchBookings, supabase])
 
   return {
     bookings,

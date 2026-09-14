@@ -5,7 +5,7 @@ import { gsap } from "gsap";
 import { Star, Quote } from "lucide-react";
 
 /**
- * GsapReviewSlider — GSAP automated horizontal scrolling carousel for user reviews.
+ * GsapReviewSlider: GSAP automated horizontal scrolling carousel for user reviews.
  * Rotates subset of max 6 reviews every 30 minutes with pause-on-hover.
  */
 export function GsapReviewSlider({ reviews = [], currentLanguage = "id" }) {
@@ -80,7 +80,7 @@ export function GsapReviewSlider({ reviews = [], currentLanguage = "id" }) {
 
             {/* Review Content */}
             <p className="text-xs sm:text-sm italic text-muted-foreground dark:text-zinc-300 leading-relaxed line-clamp-3 min-h-[56px]">
-              "{rev.review_text}"
+              &quot;{rev.review_text}&quot;
             </p>
 
             {/* Author Footer */}

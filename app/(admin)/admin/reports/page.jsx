@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   HeartPulse,
@@ -33,6 +33,8 @@ import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 import { toast } from "sonner";
 
+const emptySubscribe = () => () => {};
+
 export default function AdminReportsPage() {
   const { t, language } = useLanguage();
   const supabase = createClient();
@@ -42,7 +44,7 @@ export default function AdminReportsPage() {
   const [activeBookings, setActiveBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,10 +72,6 @@ export default function AdminReportsPage() {
     duration: 0.5,
   });
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   // Format phone to WhatsApp link
   const getWhatsAppUrl = (phone, catName, ownerName) => {
     if (!phone) return null;
@@ -90,16 +88,32 @@ export default function AdminReportsPage() {
   };
 
   // Load all reports & active bookings
-  async function loadData(showToast = false) {
+  const loadData = useCallback(async (showToast = false) => {
     if (showToast) setIsRefreshing(true);
     try {
-      // 1. Fetch reports with joined booking and customer profiles
-      const { data: reportsData, error: reportsErr } = await supabase
-        .from("cat_reports")
-        .select(
+      const [reportsRes, activeRes] = await Promise.all([
+        supabase
+          .from("cat_reports")
+          .select(
+            `
+            *,
+            bookings (
+              id,
+              status,
+              cat_name,
+              class,
+              check_in_date,
+              check_out_date,
+              profiles:user_id (full_name, phone, email)
+            )
           `
-          *,
-          bookings (
+          )
+          .order("report_date", { ascending: false })
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("bookings")
+          .select(
+            `
             id,
             status,
             cat_name,
@@ -107,33 +121,19 @@ export default function AdminReportsPage() {
             check_in_date,
             check_out_date,
             profiles:user_id (full_name, phone, email)
+          `
           )
-        `
-        )
-        .order("report_date", { ascending: false })
-        .order("created_at", { ascending: false });
+          .eq("status", "Aktif")
+          .order("check_in_date", { ascending: false }),
+      ]);
+
+      const { data: reportsData, error: reportsErr } = reportsRes;
+      const { data: activeData, error: activeErr } = activeRes;
 
       if (reportsErr) throw reportsErr;
-      setReports(reportsData || []);
-
-      // 2. Fetch currently active bookings
-      const { data: activeData, error: activeErr } = await supabase
-        .from("bookings")
-        .select(
-          `
-          id,
-          status,
-          cat_name,
-          class,
-          check_in_date,
-          check_out_date,
-          profiles:user_id (full_name, phone, email)
-        `
-        )
-        .eq("status", "Aktif")
-        .order("check_in_date", { ascending: false });
-
       if (activeErr) throw activeErr;
+
+      setReports(reportsData || []);
       setActiveBookings(activeData || []);
 
       if (showToast) {
@@ -150,7 +150,7 @@ export default function AdminReportsPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }
+  }, [supabase, language]);
 
   useEffect(() => {
     loadData();
@@ -191,7 +191,7 @@ export default function AdminReportsPage() {
       supabase.removeChannel(channel);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [supabase]);
+  }, [loadData, supabase]);
 
   // Today's date string YYYY-MM-DD
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -1117,6 +1117,8 @@ export default function AdminReportsPage() {
               {/* Photo Upload */}
               <div className="space-y-1.5">
                 <ImageUpload
+                  value={modalPhotoUrl}
+                  onChange={(url) => setModalPhotoUrl(url)}
                   onUpload={(url) => setModalPhotoUrl(url)}
                   defaultValue={modalPhotoUrl}
                   label={

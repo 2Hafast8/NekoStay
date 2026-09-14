@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function GET(request) {
   try {
+    const clientIp = getClientIp(request);
+    const { allowed } = checkRateLimit(`referral-verify:${clientIp}`, 30, 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json(
+        { valid: false, message: "Terlalu banyak permintaan verifikasi. Silakan coba lagi sebentar lagi." },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code")?.trim().toUpperCase();
 
     if (!code) {
       return NextResponse.json({ valid: false, error: "Kode referral wajib diisi" }, { status: 400 });
+    }
+
+    if (code.length > 50) {
+      return NextResponse.json({ valid: false, message: "Kode referral tidak valid" }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -18,7 +32,7 @@ export async function GET(request) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      // 1. Check if user has ALREADY used a referral code in any previous booking
+      // Pastikan pengguna belum pernah memakai kode referral pada pesanan sebelumnya
       const { data: existingUsage, error: checkErr } = await adminDb
         .from("bookings")
         .select("id, referral_code_used")
@@ -34,7 +48,7 @@ export async function GET(request) {
       }
     }
 
-    // 2. Query profile by referral code using adminDb to avoid RLS lookup issues
+    // Query profil via admin client untuk keandalan lookup referral
     const { data: profiles, error } = await adminDb
       .from("profiles")
       .select("id, full_name, referral_code")

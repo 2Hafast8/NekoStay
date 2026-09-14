@@ -5,7 +5,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -27,7 +26,6 @@ export async function POST(request) {
       );
     }
 
-    // 2. Reset cloud state
     await supabase.from("whatsapp_bot_state").upsert({
       id: "active_session",
       status: "disconnected",
@@ -43,7 +41,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("WhatsApp disconnect route error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal memutuskan koneksi WhatsApp" },
+      { error: "Gagal memutuskan koneksi WhatsApp" },
       { status: 500 }
     );
   }

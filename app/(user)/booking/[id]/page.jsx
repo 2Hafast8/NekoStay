@@ -72,14 +72,7 @@ export default function BookingDetailPage({ params }) {
 
 function BookingDetailContent({ id }) {
   const router = useRouter();
-  const { language: storeLanguage } = useLanguage();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const language = mounted ? storeLanguage : "id";
+  const { language } = useLanguage();
   const t = (key) => dictionary[language]?.[key] || key;
   const [booking, setBooking] = useState(null);
   const [reports, setReports] = useState([]);
@@ -105,16 +98,8 @@ function BookingDetailContent({ id }) {
 
   // Offline QR & Pop-up Modal states
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [offlineToken, setOfflineToken] = useState(null);
   const [offlineQrDataUrl, setOfflineQrDataUrl] = useState(null);
   const [isRefreshingQr, setIsRefreshingQr] = useState(false);
-
-  // Auto-close QR modal if booking is paid
-  useEffect(() => {
-    if (booking?.payment_status === "Paid" && isQrModalOpen) {
-      setIsQrModalOpen(false);
-    }
-  }, [booking?.payment_status, isQrModalOpen]);
 
   // Review states
   const [rating, setRating] = useState(5);
@@ -307,7 +292,7 @@ function BookingDetailContent({ id }) {
       hasAutoVerified.current = true;
       checkPaymentStatus(booking.payment_link_url);
     }
-  }, [booking?.payment_status, booking?.payment_link_url, searchParams, id, checkPaymentStatus]);
+  }, [booking, searchParams, id, checkPaymentStatus]);
 
   const handlePayment = async () => {
     setIsPaymentLoading(true);
@@ -426,7 +411,6 @@ function BookingDetailContent({ id }) {
       !booking.offline_token_used &&
       booking?.payment_status !== "Paid"
     ) {
-      setOfflineToken(booking.offline_payment_token);
       if (!offlineQrDataUrl) {
         const appUrl =
           typeof window !== "undefined" ? window.location.origin : "";
@@ -444,9 +428,6 @@ function BookingDetailContent({ id }) {
           })
           .catch(() => {});
       }
-    } else if (booking?.payment_status === "Paid") {
-      setOfflineQrDataUrl(null);
-      setOfflineToken(null);
     }
   }, [
     booking?.offline_payment_token,
@@ -868,7 +849,7 @@ function BookingDetailContent({ id }) {
 
                     {userReviewData?.review_text ? (
                       <p className="text-xs text-foreground font-medium leading-relaxed bg-card dark:bg-zinc-900/80 p-3.5 rounded-xl border border-border/50">
-                        "{userReviewData.review_text}"
+                        &quot;{userReviewData.review_text}&quot;
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">
@@ -1066,7 +1047,7 @@ function BookingDetailContent({ id }) {
                   {language === "en" ? "Special Notes from You" : "Catatan Tambahan Pemilik"}
                 </span>
                 <p className="text-xs text-foreground/90 font-medium leading-relaxed italic">
-                  "{booking.cat_notes}"
+                  &quot;{booking.cat_notes}&quot;
                 </p>
               </div>
             )}
@@ -1260,7 +1241,7 @@ function BookingDetailContent({ id }) {
                   </p>
                 </div>
 
-              /* Status: Menunggu — belum bisa bayar */
+              /* Status: Menunggu: belum bisa bayar */
               ) : booking.status === "Menunggu" ? (
                 <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3">
                   <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -1276,7 +1257,7 @@ function BookingDetailContent({ id }) {
                   </div>
                 </div>
 
-              /* Status: Unpaid & Confirmed/Active — opsi pembayaran */
+              /* Status: Unpaid & Confirmed/Active: opsi pembayaran */
               ) : (
                 <div className="space-y-4">
                   {/* Verifying Payment Overlay */}
@@ -1503,10 +1484,10 @@ function BookingDetailContent({ id }) {
 
       {/* Pop-up Modal QR Code Pembayaran Offline */}
       <OfflineQrModal
-        isOpen={isQrModalOpen}
+        isOpen={isQrModalOpen && booking?.payment_status !== "Paid"}
         onClose={() => setIsQrModalOpen(false)}
         booking={booking}
-        token={offlineToken || booking?.offline_payment_token}
+        token={booking?.offline_payment_token}
         qrDataUrl={offlineQrDataUrl}
         language={language}
         onRefreshQr={handleRefreshQr}

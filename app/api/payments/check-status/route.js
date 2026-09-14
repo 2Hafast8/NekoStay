@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
-    // 1. Parse request body
     const body = await request.json();
     const { bookingId, orderId } = body;
     if (!bookingId) {
@@ -16,13 +15,11 @@ export async function POST(request) {
     const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
     const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
-    // 2. Inisialisasi Supabase Admin Client (bypass RLS)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // 3. Ambil data booking
     const { data: booking, error: fetchError } = await supabaseAdmin
       .from('bookings')
       .select('id, user_id, cat_name, payment_status')
@@ -33,14 +30,11 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Pesanan tidak ditemukan' }, { status: 404 });
     }
 
-    // Jika sudah lunas, tidak perlu cek lagi
     if (booking.payment_status === 'Paid') {
       return NextResponse.json({ success: true, paymentStatus: 'Paid', alreadyPaid: true });
     }
 
-    // 4. Cek status transaksi langsung ke Midtrans REST API (tanpa library)
-    //    GET https://api.{sandbox.}midtrans.com/v2/{order_id}/status
-    //    Authorization: Basic base64(serverKey:)
+    // Direct Midtrans REST API verification: GET /v2/{order_id}/status
     const baseUrl = isProduction
       ? 'https://api.midtrans.com'
       : 'https://api.sandbox.midtrans.com';
@@ -54,13 +48,13 @@ export async function POST(request) {
         headers: {
           'Accept': 'application/json',
           'Authorization': `Basic ${authString}`
-        }
+        },
+        signal: AbortSignal.timeout(10000),
       });
 
       transactionData = await midtransRes.json();
 
-      // Midtrans sering mengembalikan HTTP 200 tapi status_code "404" di body JSON
-      // saat transaksi belum ada (user belum bayar)
+      // Midtrans returns HTTP 200 with status_code "404" if the transaction was not yet initiated
       if (transactionData.status_code === '404' || transactionData.status_message === "Transaction doesn't exist.") {
         return NextResponse.json({
           success: true,
@@ -72,7 +66,7 @@ export async function POST(request) {
       if (!midtransRes.ok) {
         console.error('Midtrans status API error:', transactionData);
         return NextResponse.json(
-          { error: 'Gagal mengecek status transaksi ke Midtrans', details: transactionData },
+          { error: 'Gagal mengecek status transaksi ke Midtrans' },
           { status: 502 }
         );
       }
@@ -84,24 +78,22 @@ export async function POST(request) {
       );
     }
 
-    // 5. Tentukan status pembayaran berdasarkan response Midtrans
     const { transaction_status, fraud_status } = transactionData;
     let paymentStatus = 'Unpaid';
 
     if (transaction_status === 'capture') {
-      // Capture hanya untuk kartu kredit — cek fraud_status
+      // Capture hanya untuk kartu kredit: evaluasi fraud_status
       paymentStatus = fraud_status === 'accept' ? 'Paid' : 'Failed';
     } else if (transaction_status === 'settlement') {
       paymentStatus = 'Paid';
     } else if (transaction_status === 'deny' || transaction_status === 'cancel' || transaction_status === 'expire') {
       paymentStatus = 'Failed';
     } else if (transaction_status === 'pending') {
-      paymentStatus = 'Unpaid'; // Masih menunggu pembayaran
+      paymentStatus = 'Unpaid';
     } else if (transaction_status === 'refund' || transaction_status === 'partial_refund') {
       paymentStatus = 'Refunded';
     }
 
-    // 6. Update status di database jika berubah
     if (paymentStatus !== booking.payment_status) {
       const { error: updateError } = await supabaseAdmin
         .from('bookings')
@@ -112,7 +104,6 @@ export async function POST(request) {
         console.error('Failed to update payment_status:', updateError);
       }
 
-      // 7. Kirim notifikasi in-app jika status berubah ke Paid, Failed, atau Refunded
       if (paymentStatus === 'Paid' || paymentStatus === 'Failed' || paymentStatus === 'Refunded') {
         let title = '';
         let message = '';

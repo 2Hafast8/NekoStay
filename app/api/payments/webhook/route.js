@@ -21,8 +21,7 @@ export async function POST(request) {
       return apiBadRequest("Field webhook wajib tidak lengkap");
     }
 
-    // 1. Verifikasi Signature Key Midtrans untuk keamanan
-    // signature_key = SHA512(order_id + status_code + gross_amount + server_key)
+    // Midtrans SHA512 HMAC signature: SHA512(order_id + status_code + gross_amount + server_key)
     const serverKey = process.env.MIDTRANS_SERVER_KEY || "";
     const signatureSource = `${order_id}${status_code}${gross_amount}${serverKey}`;
     const computedSignature = createHash("sha512").update(signatureSource).digest("hex");
@@ -32,13 +31,9 @@ export async function POST(request) {
       return apiBadRequest("Signature key tidak valid");
     }
 
-    // 2. Ekstrak Booking ID dari order_id (36 karakter UUID)
     const bookingId = order_id.substring(0, 36);
-
-    // 3. Supabase Admin Client
     const supabaseAdmin = createAdminClient();
 
-    // 4. Periksa apakah booking valid
     const { data: booking, error: fetchError } = await supabaseAdmin
       .from("bookings")
       .select("*, profiles(full_name)")
@@ -50,7 +45,6 @@ export async function POST(request) {
       return apiNotFound("Booking tidak ditemukan");
     }
 
-    // 5. Tentukan status pembayaran baru
     let paymentStatus = "Unpaid";
     if (transaction_status === "capture" || transaction_status === "settlement") {
       paymentStatus = "Paid";
@@ -66,7 +60,6 @@ export async function POST(request) {
       paymentStatus = "Refunded";
     }
 
-    // 6. Update status pembayaran di database
     const { error: updateError } = await supabaseAdmin
       .from("bookings")
       .update({ payment_status: paymentStatus })
@@ -76,7 +69,6 @@ export async function POST(request) {
       throw updateError;
     }
 
-    // 7. Masukkan notifikasi in-app untuk pengguna
     let title = "";
     let message = "";
     let type = "info";

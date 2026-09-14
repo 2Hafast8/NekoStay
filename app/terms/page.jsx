@@ -9,16 +9,10 @@ import { gsap } from "gsap";
 
 export default function TermsPage() {
   const { language } = useLanguage();
-  const [mounted, setMounted] = useState(false);
   const headerRef = useRef(null);
   const contentRef = useRef(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const lang = mounted ? language : "id";
-  const isEn = lang === "en";
+  const isEn = language === "en";
 
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -36,7 +30,7 @@ export default function TermsPage() {
     });
 
     return () => ctx.revert();
-  }, [mounted]);
+  }, []);
 
   const sections = isEn
     ? [

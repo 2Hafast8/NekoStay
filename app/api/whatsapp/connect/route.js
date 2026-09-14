@@ -5,7 +5,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -30,7 +29,6 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const phoneNumber = body.phoneNumber || process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || "6282371986344";
 
-    // 2. Fetch current bot state from Supabase
     const { data: botState } = await supabase
       .from("whatsapp_bot_state")
       .select("*")

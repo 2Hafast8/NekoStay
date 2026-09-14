@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
+
+const emptySubscribe = () => () => {};
 import {
   ScanLine,
   Sparkles,
@@ -41,7 +43,7 @@ import {
 export default function AdminScannerPage() {
   const { t } = useLanguage();
   const containerRef = useRef(null);
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   // Active Mode: 'camera' | 'manual'
   const [activeMode, setActiveMode] = useState("camera");
@@ -70,13 +72,6 @@ export default function AdminScannerPage() {
     [activeMode, scannerState, sessionScans.length]
   );
 
-  useEffect(() => {
-    setIsMounted(true);
-    return () => {
-      stopScanner();
-    };
-  }, []);
-
   const stopScanner = useCallback(async () => {
     if (html5QrScannerRef.current) {
       try {
@@ -84,17 +79,23 @@ export default function AdminScannerPage() {
         if (state === 2 || state === 3) {
           await html5QrScannerRef.current.stop();
         }
-      } catch (e) {
+      } catch {
         // Scanner might already be stopped
       }
       try {
         await html5QrScannerRef.current.clear();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
       html5QrScannerRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, [stopScanner]);
 
   const listCameras = useCallback(async () => {
     try {

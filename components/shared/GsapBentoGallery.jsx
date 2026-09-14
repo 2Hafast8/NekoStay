@@ -20,7 +20,7 @@ export const DEFAULT_BENTO_IMAGES = [
 ];
 
 /**
- * GsapBentoGallery — Reversed Scrubbed Bento Gallery with anime.js Opening Logo Reveal:
+ * GsapBentoGallery: Reversed Scrubbed Bento Gallery with anime.js Opening Logo Reveal:
  * - Starts in full-screen zoomed state featuring an anime.js animated medium-large NekoStay logo & title overlay.
  * - As the user scrolls down, the logo overlay fades out and the images zoom OUT into the 8-item compact Bento grid layout.
  * - Desktop only (hidden via CSS display:none !important on mobile <768px). DOM tree remains stable to prevent removeChild errors.
@@ -87,19 +87,15 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
       galleryElement.classList.add("gallery--final");
 
       flipCtx = gsap.context(() => {
-        // 1. Capture full-screen zoomed state
         const initialZoomedState = Flip.getState(galleryItems);
-
-        // 2. Remove gallery--final so target DOM layout is compact Bento grid
         galleryElement.classList.remove("gallery--final");
 
-        // 3. Create Flip animation FROM zoomed state TO compact Bento grid
+        // Flip transition from zoomed state to compact Bento layout
         const flip = Flip.from(initialZoomedState, {
           simple: true,
           ease: "expoScale(5, 1)",
         });
 
-        // 4. Create scrubbed ScrollTrigger timeline
         const tl = gsap.timeline({
           scrollTrigger: {
             trigger: galleryElement,
@@ -193,7 +189,7 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
           <span>Neko</span>
           <span className="text-primary">Stay</span>
         </h1>
-        <p className="bento-logo-sub text-xs sm:text-sm font-bold text-white/90 bg-black/50 backdrop-blur-md px-5 py-2 rounded-full mt-3 border border-white/20 tracking-widest uppercase opacity-0 shadow-lg">
+        <p className="bento-logo-sub text-sm sm:text-base font-semibold text-white/90 mt-2.5 opacity-0 drop-shadow-md">
           Premium Cat Boarding & Care
         </p>
       </div>
@@ -211,6 +207,8 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
             <img
               src={imgUrl}
               alt={`NekoStay Bento ${idx + 1}`}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover brightness-[0.85]"
             />
           </div>

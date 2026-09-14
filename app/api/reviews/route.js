@@ -51,7 +51,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi user
     const {
       data: { user },
       error: authError,
@@ -61,11 +60,9 @@ export async function POST(request) {
       return apiUnauthorized();
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const validated = reviewSchema.parse(body);
 
-    // 3. Verifikasi pesanan milik user dan berstatus Selesai
     const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
       .select("id, status, cat_name")
@@ -77,11 +74,11 @@ export async function POST(request) {
       return apiNotFound("Pesanan tidak ditemukan atau bukan milik Anda.");
     }
 
+    // Ulasan hanya diizinkan untuk pesanan yang telah selesai
     if (booking.status !== "Selesai") {
       return apiBadRequest("Hanya pesanan yang sudah selesai ('Selesai') yang dapat diulas.");
     }
 
-    // 4. Simpan ulasan ke DB
     const { data: review, error: insertErr } = await supabase
       .from("reviews")
       .insert({
@@ -100,7 +97,6 @@ export async function POST(request) {
       throw insertErr;
     }
 
-    // 5. Notifikasi ke Admin via RPC
     try {
       const { data: profile } = await supabase
         .from("profiles")

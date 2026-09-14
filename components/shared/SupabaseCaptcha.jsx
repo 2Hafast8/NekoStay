@@ -10,7 +10,7 @@ import {
 import Script from "next/script";
 
 /**
- * SupabaseCaptcha — Komponen proteksi bot Captcha resmi untuk Supabase Auth.
+ * SupabaseCaptcha: Komponen proteksi bot Captcha resmi untuk Supabase Auth.
  * Secara default menggunakan Cloudflare Turnstile (rekomendasi resmi Supabase).
  *
  * Mendukung:

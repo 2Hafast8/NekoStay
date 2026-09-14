@@ -21,7 +21,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi otentikasi user
     const {
       data: { user },
       error: authError,
@@ -31,11 +30,9 @@ export async function POST(request) {
       return apiUnauthorized("Silakan masuk terlebih dahulu.");
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const { bookingId, sendEmail, refresh } = offlineQrSchema.parse(body);
 
-    // 3. Verifikasi hak akses (Customer pemilik pesanan atau Admin)
     const { isAllowed, hasAccess, booking: existingBooking } =
       await verifyBookingAccess(supabase, bookingId);
 
@@ -53,7 +50,7 @@ export async function POST(request) {
 
     const adminDb = createAdminClient();
 
-    // 4. Periksa apakah token saat ini masih aktif dan belum terpakai (< 24 jam)
+    // Validasi apakah token saat ini masih aktif dan belum terpakai (< 24 jam)
     let token = existingBooking.offline_payment_token;
     const isUsed = existingBooking.offline_token_used;
     const createdAt = existingBooking.offline_token_created_at
@@ -87,14 +84,12 @@ export async function POST(request) {
         .eq("id", bookingId);
     }
 
-    // 5. Buat URL pemindaian untuk scanner kasir / kamera smartphone
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       request.headers.get("origin") ||
       "http://localhost:3000";
     const qrUrl = `${appUrl}/scan-verify?token=${token}`;
 
-    // 6. Generate QR Code Data URL (PNG Base64) beresolusi tajam
     const qrDataUrl = await qrcode.toDataURL(qrUrl, {
       margin: 2,
       width: 320,
@@ -104,7 +99,6 @@ export async function POST(request) {
       },
     });
 
-    // 7. Kirim tanda terima email di background jika diminta (non-blocking)
     if (sendEmail) {
       const userEmail = existingBooking.profiles?.email;
       if (userEmail) {
@@ -143,7 +137,7 @@ export async function POST(request) {
     if (error.name === "ZodError") {
       return apiBadRequest("Data permintaan tidak valid", error.errors);
     }
-    return apiError(error.message || "Gagal memproses kode QR pembayaran offline", 500);
+    return apiError("Gagal memproses kode QR pembayaran offline", 500);
   }
 }
 

@@ -17,14 +17,12 @@ export async function POST(request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Verifikasi otentikasi (admin atau internal)
     if (!user) {
       return apiUnauthorized();
     }
 
     const supabaseAdmin = createAdminClient();
 
-    // 1. Ambil seluruh kelas kamar untuk referensi kapasitas
     const { data: classesData, error: classesErr } = await supabaseAdmin
       .from("classes")
       .select("name, total_cages, maintenance_cages");
@@ -42,7 +40,6 @@ export async function POST(request) {
       });
     });
 
-    // 2. Ambil seluruh pesanan yang berstatus 'Menunggu' atau 'Antrian'
     const { data: waitingBookings, error: waitingErr } = await supabaseAdmin
       .from("bookings")
       .select(`
@@ -58,7 +55,7 @@ export async function POST(request) {
 
     const rejectedList = [];
 
-    // 3. Evaluasi setiap pesanan waiting terhadap kapasitas kamar
+    // Evaluasi setiap pesanan waiting terhadap kapasitas kamar
     for (const booking of waitingBookings || []) {
       const classInfo = classMap.get(booking.class) || {
         totalCages: 10,

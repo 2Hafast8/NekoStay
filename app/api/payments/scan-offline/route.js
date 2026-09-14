@@ -21,7 +21,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verifikasi Admin / Kasir terotentikasi
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized("Autentikasi diperlukan untuk memindai bukti pembayaran.");
@@ -30,14 +29,11 @@ export async function POST(request) {
       return apiForbidden("Hanya Administrator atau Kasir yang berhak memvalidasi pembayaran offline.");
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const { token } = scanOfflineSchema.parse(body);
 
-    // 3. Inisialisasi Admin DB Client
     const adminDb = createAdminClient();
 
-    // 4. Cari data booking berdasarkan token offline
     const { data: booking, error: fetchError } = await adminDb
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")
@@ -48,14 +44,14 @@ export async function POST(request) {
       return apiNotFound("Kode QR tidak dikenali atau salah.");
     }
 
-    // 5. Cek one-time use
+    // Token satu kali pakai (one-time use)
     if (booking.offline_token_used) {
       return apiBadRequest(
         "Kode QR sudah pernah digunakan sebelumnya. Pembayaran untuk pesanan ini telah selesai."
       );
     }
 
-    // 6. Cek batas waktu berlaku 24 jam
+    // Masa berlaku token maksimal 24 jam sejak pembuatan
     const createdTime = new Date(booking.offline_token_created_at).getTime();
     const currentTime = Date.now();
     const diffHours = (currentTime - createdTime) / (1000 * 60 * 60);
@@ -66,7 +62,6 @@ export async function POST(request) {
       );
     }
 
-    // 7. Update status pembayaran ke Paid dan tandai token telah terpakai
     const { error: updateError } = await adminDb
       .from("bookings")
       .update({
@@ -80,7 +75,6 @@ export async function POST(request) {
       return apiError("Gagal memperbarui status pembayaran di database", 500);
     }
 
-    // 8. Kirim notifikasi in-app ke pengguna
     try {
       await adminDb.from("notifications").insert({
         user_id: booking.user_id,

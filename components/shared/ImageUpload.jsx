@@ -11,10 +11,15 @@ export function ImageUpload({
   onUploadComplete,
   label = "Upload Foto Kucing",
   defaultValue = null,
-  value = null,
+  value,
 }) {
-  const initialPreview = value || defaultValue || null;
-  const [preview, setPreview] = useState(initialPreview);
+  const [internalPreview, setInternalPreview] = useState(null);
+  const preview =
+    value !== undefined && value !== null
+      ? value
+      : internalPreview !== null
+      ? internalPreview
+      : defaultValue || null;
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -22,14 +27,6 @@ export function ImageUpload({
   useAutoDismiss(errorMsg, setErrorMsg);
 
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    if (value !== undefined && value !== null) {
-      setPreview(value);
-    } else if (defaultValue !== undefined && defaultValue !== null) {
-      setPreview(defaultValue);
-    }
-  }, [value, defaultValue]);
 
   const triggerCallback = (url) => {
     if (typeof onUpload === "function") onUpload(url);
@@ -72,7 +69,7 @@ export function ImageUpload({
       reader.readAsDataURL(file);
       const base64DataUrl = await fileLoadPromise;
 
-      setPreview(base64DataUrl);
+      setInternalPreview(base64DataUrl);
       triggerCallback(base64DataUrl);
     } catch (err) {
       console.error("File conversion error:", err);
@@ -83,7 +80,7 @@ export function ImageUpload({
   };
 
   const removePhoto = () => {
-    setPreview(null);
+    setInternalPreview("");
     triggerCallback("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

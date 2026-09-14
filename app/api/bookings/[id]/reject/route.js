@@ -28,7 +28,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Verifikasi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -37,11 +36,9 @@ export async function POST(request, { params }) {
       return apiForbidden("Hanya Administrator yang berhak menolak pesanan.");
     }
 
-    // 2. Parse & Validasi input
     const body = await request.json();
     const validatedData = rejectSchema.parse(body);
 
-    // 3. Ambil data pesanan
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")
@@ -52,12 +49,10 @@ export async function POST(request, { params }) {
       return apiNotFound("Data booking tidak ditemukan");
     }
 
-    // 4. Cek status
     if (booking.status !== "Menunggu" && booking.status !== "Antrian") {
       return apiBadRequest("Hanya booking dengan status Menunggu atau Antrian yang dapat ditolak");
     }
 
-    // 5. Update status ke Dibatalkan dengan alasan penolakan
     const { error: updateError } = await supabase
       .from("bookings")
       .update({
@@ -71,7 +66,6 @@ export async function POST(request, { params }) {
       return apiError("Gagal menolak pesanan", 500);
     }
 
-    // 6. Buat notifikasi in-app untuk pengguna
     try {
       await supabase.from("notifications").insert({
         user_id: booking.user_id,
@@ -84,8 +78,6 @@ export async function POST(request, { params }) {
     } catch (notifErr) {
       console.warn("[Reject API Notice] User notification failed:", notifErr.message);
     }
-
-    // 7. Kirim email notifikasi penolakan
     const userEmail = booking.profiles?.email;
     if (userEmail) {
       try {

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense, useSyncExternalStore } from "react";
 import Link from "next/link";
+
+const emptySubscribe = () => () => {};
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarRange,
@@ -60,7 +62,8 @@ export default function AdminDashboard() {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language: storeLanguage, t } = useLanguage();
+  const { language, t } = useLanguage();
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [bookings, setBookings] = useState([]);
   const [outgoingLogs, setOutgoingLogs] = useState([]);
   const [adminEmail, setAdminEmail] = useState("admin@nekostay.com");
@@ -68,13 +71,11 @@ function DashboardContent() {
   const [activeSimulatorTab, setActiveSimulatorTab] = useState("all");
   const [currentLogPage, setCurrentLogPage] = useState(1);
   const [revenueRange, setRevenueRange] = useState("1m");
-  const [isMounted, setIsMounted] = useState(false);
 
   // Scan token modal states
   const [scanModal, setScanModal] = useState(null); // null | 'processing' | { type: 'success' | 'error', data?, message? }
 
   const supabase = createClient();
-  const language = isMounted ? storeLanguage : "id";
 
   const headerRef = useRef(null);
   const statsRef = useRef(null);
@@ -89,38 +90,42 @@ function DashboardContent() {
   useGsapReveal(chartsRef, { selector: ":scope > *", y: 28, stagger: 0.12, duration: 0.55, start: "top 95%" });
   useGsapReveal(tablesRef, { selector: ":scope > *", y: 32, stagger: 0.12, duration: 0.55, start: "top 95%" });
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   // Handle scan_token URL parameter (from native camera QR scan)
   useEffect(() => {
     const scanToken = searchParams.get("scan_token");
-    if (!scanToken || scanModal) return;
+    if (!scanToken) return;
 
-    setScanModal("processing");
-
-    fetch("/api/payments/scan-offline", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: scanToken }),
-    })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (ok) {
+    let isCancelled = false;
+    async function verifyToken() {
+      setScanModal("processing");
+      try {
+        const res = await fetch("/api/payments/scan-offline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: scanToken }),
+        });
+        const data = await res.json();
+        if (isCancelled) return;
+        if (res.ok) {
           setScanModal({ type: "success", data: data.booking });
         } else {
           setScanModal({ type: "error", message: data.error || "Verifikasi gagal" });
         }
-      })
-      .catch(() => {
-        setScanModal({ type: "error", message: "Kesalahan jaringan saat memverifikasi" });
-      })
-      .finally(() => {
-        // Clean the URL
-        router.replace("/admin/dashboard");
-      });
-  }, [searchParams]);
+      } catch {
+        if (!isCancelled) {
+          setScanModal({ type: "error", message: "Kesalahan jaringan saat memverifikasi" });
+        }
+      } finally {
+        if (!isCancelled) {
+          router.replace("/admin/dashboard");
+        }
+      }
+    }
+    verifyToken();
+    return () => {
+      isCancelled = true;
+    };
+  }, [searchParams, router]);
 
   const formatOmzet = (val) => {
     if (!val || val === 0) return "Rp 0,0 Juta";
@@ -130,7 +135,7 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    let isMounted = true;
+    let isActive = true;
 
     async function loadStatsAndLogs(currentUser) {
       try {
@@ -138,37 +143,42 @@ function DashboardContent() {
           setAdminEmail(currentUser.email);
         }
 
-        const { data, error } = await supabase
-          .from("bookings")
-          .select(
-            `
-            *,
-            profiles:user_id (full_name, phone)
-          `,
-          )
-          .order("created_at", { ascending: false });
-
-        if (!isMounted) return;
-        if (error) throw error;
-        setBookings(data);
-
-        // Fetch notifications as simulated WhatsApp/SMS outbox logs
-        const { data: notifs, error: notifErr } = await supabase
-          .from("notifications")
-          .select(`
-            id,
-            title,
-            message,
-            created_at,
-            profiles (
-              full_name,
-              phone
+        const [bookingsRes, notifsRes] = await Promise.all([
+          supabase
+            .from("bookings")
+            .select(
+              `
+              *,
+              profiles:user_id (full_name, phone)
+            `,
             )
-          `)
-          .order("created_at", { ascending: false })
-          .limit(100);
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("notifications")
+            .select(`
+              id,
+              user_id,
+              title,
+              message,
+              type,
+              created_at,
+              profiles:user_id (
+                full_name,
+                phone
+              )
+            `)
+            .order("created_at", { ascending: false })
+            .limit(100),
+        ]);
 
-        if (!isMounted) return;
+        if (!isActive) return;
+        if (bookingsRes.error) throw bookingsRes.error;
+        setBookings(bookingsRes.data);
+
+        const notifs = notifsRes.data;
+        const notifErr = notifsRes.error;
+
+        if (!isActive) return;
         if (!notifErr && notifs) {
           const uniqueLogs = [];
           const seen = new Set();
@@ -185,7 +195,7 @@ function DashboardContent() {
       } catch (err) {
         console.error("Error fetching admin stats & logs:", err);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isActive) setIsLoading(false);
       }
     }
 
@@ -194,11 +204,12 @@ function DashboardContent() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
+      if (!isActive) return;
       if (session?.user) {
         currentUserRef = session.user;
         loadStatsAndLogs(session.user);
       } else {
+        currentUserRef = null;
         setBookings([]);
         setOutgoingLogs([]);
         setIsLoading(false);
@@ -210,7 +221,7 @@ function DashboardContent() {
     const triggerDebouncedReload = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        if (isMounted && currentUserRef) {
+        if (isActive && currentUserRef) {
           loadStatsAndLogs(currentUserRef);
         }
       }, 400);
@@ -244,7 +255,7 @@ function DashboardContent() {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      isMounted = false;
+      isActive = false;
       if (debounceTimer) clearTimeout(debounceTimer);
       subscription.unsubscribe();
       supabase.removeChannel(channel);

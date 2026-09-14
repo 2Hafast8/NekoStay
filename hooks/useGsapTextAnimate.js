@@ -9,7 +9,7 @@ if (typeof window !== "undefined") {
 }
 
 /**
- * useGsapTextAnimate — Hook to animate text replacement on a target ref using GSAP TextPlugin.
+ * useGsapTextAnimate: Hook to animate text replacement on a target ref using GSAP TextPlugin.
  *
  * @param {React.RefObject} targetRef - Ref of element whose textContent will be replaced
  * @param {string} targetText - The target text to animate to

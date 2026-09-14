@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Settings,
   Check,
@@ -182,7 +182,7 @@ function getBrandShades(primaryHex) {
     { shade: "200", hex: hslToHex(h, s, 83), desc: "Border, divider" },
     { shade: "300", hex: hslToHex(h, s, 73), desc: "Hover state" },
     { shade: "400", hex: hslToHex(h, s, 61), desc: "Secondary accent" },
-    { shade: "500", hex: primaryHex, desc: "PRIMARY — brand utama", isPrimary: true },
+    { shade: "500", hex: primaryHex, desc: "PRIMARY: brand utama", isPrimary: true },
     { shade: "600", hex: hslToHex(h, s, Math.max(10, l - 5)), desc: "Primary hover", isHover: true },
     { shade: "700", hex: hslToHex(h, s, Math.max(10, l - 12)), desc: "Primary pressed" },
     { shade: "800", hex: hslToHex(h, s, 32), desc: "Teks di atas bg terang" },
@@ -423,15 +423,32 @@ export default function AdminSettingsPage() {
   const supabase = createClient();
 
   // Load all settings
-  const loadAllSettings = async () => {
+  const loadAllSettings = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // 1. Fetch Classes (Rooms)
-      const { data: classData, error: classErr } = await supabase
-        .from("classes")
-        .select("*")
-        .order("price_per_day", { ascending: true });
+      const [classRes, promoRes, landingRes, bookingsRes] = await Promise.all([
+        supabase
+          .from("classes")
+          .select("*")
+          .order("price_per_day", { ascending: true }),
+        supabase
+          .from("promos")
+          .select("*")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("landing_settings")
+          .select("*"),
+        supabase
+          .from("bookings")
+          .select("id, cat_name, class, status, check_in_date, check_out_date")
+          .in("status", ["Aktif", "Menunggu"]),
+      ]);
+
+      const { data: classData, error: classErr } = classRes;
+      const { data: promoData } = promoRes;
+      const { data: landingData } = landingRes;
+      const { data: bookingsData } = bookingsRes;
 
       if (!classErr && classData) {
         setClasses(classData);
@@ -457,20 +474,9 @@ export default function AdminSettingsPage() {
         setMaintenanceCagesMap(initialMaintenanceCages);
       }
 
-      // 2. Fetch Promos
-      const { data: promoData } = await supabase
-        .from("promos")
-        .select("*")
-        .order("created_at", { ascending: false });
-
       if (promoData) {
         setPromos(promoData);
       }
-
-      // 3. Fetch Landing Settings
-      const { data: landingData } = await supabase
-        .from("landing_settings")
-        .select("*");
 
       if (landingData) {
         landingData.forEach((row) => {
@@ -501,12 +507,6 @@ export default function AdminSettingsPage() {
         });
       }
 
-      // 4. Fetch Active & Pending Bookings for real-time cage occupancy
-      const { data: bookingsData } = await supabase
-        .from("bookings")
-        .select("id, cat_name, class, status, check_in_date, check_out_date")
-        .in("status", ["Aktif", "Menunggu"]);
-
       if (bookingsData) {
         setActiveBookings(bookingsData);
       }
@@ -515,7 +515,7 @@ export default function AdminSettingsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase, setPrimaryHex]);
 
   // Save Financial Rules
   const handleSaveFinanceSettings = async (e) => {
@@ -604,7 +604,7 @@ export default function AdminSettingsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadAllSettings, supabase]);
 
   // Save Class Details
   const handleUpdateClass = async (cls) => {
@@ -1274,7 +1274,7 @@ export default function AdminSettingsPage() {
 
           {classes.length === 0 ? (
             <div className="text-center py-12 bg-card border border-border rounded-3xl text-xs text-muted-foreground">
-              Belum ada kelas kamar. Klik 'Tambah Kelas Baru' untuk membuat kelas.
+              Belum ada kelas kamar. Klik &apos;Tambah Kelas Baru&apos; untuk membuat kelas.
             </div>
           ) : (
             <div className="space-y-4">
@@ -1496,7 +1496,7 @@ export default function AdminSettingsPage() {
 
           {promos.length === 0 ? (
             <div className="text-center py-12 bg-card border border-border rounded-3xl text-xs text-muted-foreground">
-              Belum ada kode promo aktif. Klik 'Buat Promo Baru' untuk membuat voucher diskon.
+              Belum ada kode promo aktif. Klik &apos;Buat Promo Baru&apos; untuk membuat voucher diskon.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1706,6 +1706,8 @@ export default function AdminSettingsPage() {
             <div className="space-y-1.5">
               <ImageUpload
                 label="Gambar / Foto Utama Hero Banner"
+                value={heroForm.hero_image || ""}
+                onChange={(url) => setHeroForm({ ...heroForm, hero_image: url })}
                 defaultValue={heroForm.hero_image || null}
                 onUploadComplete={(url) => setHeroForm({ ...heroForm, hero_image: url })}
               />
@@ -2173,7 +2175,7 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-2 bg-muted/30 border border-border rounded-xl text-xs font-medium text-foreground"
                 />
                 <span className="text-[10px] text-muted-foreground italic block">
-                  *Masukkan link 'src' dari Google Maps Share -&gt; Embed Map.
+                  *Masukkan link &apos;src&apos; dari Google Maps Share -&gt; Embed Map.
                 </span>
               </div>
             </div>

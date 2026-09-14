@@ -11,7 +11,7 @@ export function AuthRecoveryRedirect() {
   useEffect(() => {
     const supabase = createClient();
 
-    // 1. Listen to Supabase auth state change for PASSWORD_RECOVERY event
+    // Supabase auth listener for password recovery
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -22,7 +22,6 @@ export function AuthRecoveryRedirect() {
       }
     });
 
-    // 2. Inspect URL search & hash parameters on mount
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(

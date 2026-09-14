@@ -111,8 +111,8 @@ export function OfflineQrModal({
               <p className="text-[11px] sm:text-xs text-muted-foreground dark:text-zinc-400">
                 {isPaid
                   ? language === "en"
-                    ? "Payment completed — QR Code is no longer active"
-                    : "Pembayaran telah selesai — QR Code dinonaktifkan"
+                    ? "Payment completed. QR Code is no longer active"
+                    : "Pembayaran telah selesai. QR Code dinonaktifkan"
                   : language === "en"
                   ? "Show this QR code at hotel desk upon check-in"
                   : "Tunjukkan QR ini ke kasir saat check-in"}
@@ -198,6 +198,7 @@ export function OfflineQrModal({
                     <img
                       src={qrDataUrl}
                       alt="QR Code Pembayaran Offline"
+                      decoding="async"
                       className="w-full h-full object-contain select-none"
                     />
                   ) : (

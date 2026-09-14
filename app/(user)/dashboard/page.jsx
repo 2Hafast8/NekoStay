@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
   Cat,
@@ -26,7 +26,6 @@ import { gsap } from "gsap";
 export default function UserDashboard() {
   const { t, language } = useLanguage();
   const [bookings, setBookings] = useState([]);
-  const [filteredBookings, setFilteredBookings] = useState([]);
   const [activeTab, setActiveTab] = useState("Semua");
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState("");
@@ -61,8 +60,7 @@ export default function UserDashboard() {
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setBookings(data);
-        setFilteredBookings(data);
+        setBookings(data || []);
       } catch (err) {
         console.error("Error fetching bookings:", err);
       } finally {
@@ -86,7 +84,6 @@ export default function UserDashboard() {
         fetchBookings(currentUser.id);
       } else {
         setBookings([]);
-        setFilteredBookings([]);
         setIsLoading(false);
       }
     });
@@ -122,13 +119,11 @@ export default function UserDashboard() {
     };
   }, [userId, supabase, fetchBookings]);
 
-  useEffect(() => {
-    setCurrentPage(1);
+  const filteredBookings = useMemo(() => {
     if (activeTab === "Semua") {
-      setFilteredBookings(bookings);
-    } else {
-      setFilteredBookings(bookings.filter((b) => b.status === activeTab));
+      return bookings;
     }
+    return bookings.filter((b) => b.status === activeTab);
   }, [activeTab, bookings]);
 
   const totalPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
@@ -137,12 +132,23 @@ export default function UserDashboard() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  const stats = {
-    total: bookings.length,
-    active: bookings.filter((b) => b.status === "Aktif").length,
-    waiting: bookings.filter((b) => b.status === "Menunggu").length,
-    completed: bookings.filter((b) => b.status === "Selesai").length,
-  };
+  const stats = useMemo(() => {
+    let active = 0;
+    let waiting = 0;
+    let completed = 0;
+    for (let i = 0; i < bookings.length; i++) {
+      const s = bookings[i].status;
+      if (s === "Aktif") active++;
+      else if (s === "Menunggu") waiting++;
+      else if (s === "Selesai") completed++;
+    }
+    return {
+      total: bookings.length,
+      active,
+      waiting,
+      completed,
+    };
+  }, [bookings]);
 
   // Count up stats
   useGsapCounter(totalRef, stats.total);
@@ -253,7 +259,10 @@ export default function UserDashboard() {
           return (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setCurrentPage(1);
+              }}
               className={`pb-4 text-sm font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
                 activeTab === tab
                   ? "text-primary"

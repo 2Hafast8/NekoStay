@@ -20,7 +20,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verifikasi user terotentikasi
     const {
       data: { user },
       error: authError,
@@ -30,13 +29,11 @@ export async function POST(request) {
       return apiUnauthorized();
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const { ownerId, bookingId, points } = awardPointsSchema.parse(body);
 
     const adminDb = createAdminClient();
 
-    // 3. Verifikasi booking ada dan mencocokkan data
     const { data: booking, error: bookingErr } = await adminDb
       .from("bookings")
       .select("id, user_id, referral_owner_id, referral_code_used")
@@ -47,7 +44,7 @@ export async function POST(request) {
       return apiNotFound("Data booking tidak ditemukan.");
     }
 
-    // Keamanan: Pastikan pemanggil adalah pemilik pesanan atau admin
+    // Otorisasi: pemanggil harus merupakan pemilik pesanan atau administrator
     const { data: profileCaller } = await supabase
       .from("profiles")
       .select("role")
@@ -63,7 +60,6 @@ export async function POST(request) {
       return apiBadRequest("ID pemilik referral tidak sesuai dengan data pesanan.");
     }
 
-    // 4. Tambahkan neko_points ke profil penerima
     const { data: profile, error: profileErr } = await adminDb
       .from("profiles")
       .select("neko_points, full_name")
@@ -86,7 +82,6 @@ export async function POST(request) {
       return apiError("Gagal memperbarui poin referral.", 500);
     }
 
-    // 5. Kirim notifikasi in-app ke pemilik referral
     try {
       await adminDb.from("notifications").insert({
         user_id: ownerId,

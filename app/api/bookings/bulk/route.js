@@ -19,7 +19,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Verifikasi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -28,11 +27,9 @@ export async function POST(request) {
       return apiForbidden("Hanya Administrator yang berhak memproses tindakan massal.");
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const { ids, action, rejectReason } = bulkActionSchema.parse(body);
 
-    // 3. Ambil data pesanan
     const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")

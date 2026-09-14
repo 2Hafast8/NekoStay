@@ -18,7 +18,6 @@ export async function POST(request) {
     let userId = null;
     let userEmail = null;
 
-    // 1. Cek token dari header Authorization
     const authHeader = request.headers.get("authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
@@ -29,7 +28,6 @@ export async function POST(request) {
       }
     }
 
-    // 2. Fallback ke cookie session server
     if (!userId) {
       try {
         const supabase = await createClient();
@@ -43,12 +41,10 @@ export async function POST(request) {
       }
     }
 
-    // Jika tidak ada sesi aktif, tolak request
     if (!userId) {
       return apiUnauthorized("Sesi pengguna tidak valid.");
     }
 
-    // 3. Ambil data profil pengguna
     const { data: profile } = await adminDb
       .from("profiles")
       .select("full_name, email")
@@ -58,7 +54,6 @@ export async function POST(request) {
     const userName = profile?.full_name || "Pengguna NekoStay";
     const targetEmail = userEmail || profile?.email;
 
-    // 4. Masukkan notifikasi in-app
     await adminDb.from("notifications").insert({
       user_id: userId,
       title: "Password Berhasil Diubah",
@@ -67,7 +62,7 @@ export async function POST(request) {
       is_read: false,
     });
 
-    // 5. Kirim email notifikasi keamanan (non-blocking dengan timeout 4s)
+    // Notifikasi email keamanan non-blocking dengan timeout 4 detik
     if (targetEmail) {
       Promise.race([
         sendPasswordChangedNotification(targetEmail, userName),

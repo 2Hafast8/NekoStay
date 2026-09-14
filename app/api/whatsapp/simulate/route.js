@@ -6,7 +6,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -28,7 +27,6 @@ export async function POST(request) {
       );
     }
 
-    // 2. Parse payload
     const body = await request.json();
     let {
       phoneNumber = "6281234567890",
@@ -47,7 +45,6 @@ export async function POST(request) {
       senderName = "Pelanggan NekoStay";
     }
 
-    // 3. Proses via core bot engine
     const reply = await processIncomingWhatsAppMessage({
       phoneNumber,
       senderName,
@@ -64,9 +61,9 @@ export async function POST(request) {
       botReply: reply,
     });
   } catch (error) {
-    console.error("WhatsApp Simulate Error:", error);
+    console.error("[WhatsApp Simulate Error]:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal memproses simulasi WhatsApp" },
+      { error: "Gagal memproses simulasi pesan WhatsApp" },
       { status: 500 }
     );
   }

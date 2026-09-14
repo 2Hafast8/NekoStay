@@ -4,7 +4,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import { gsap } from "gsap";
 
 /**
- * GsapAuthCurveOverlay — Dynamic SVG Morphing Entrance & Organic Blake Bowen Curve Swipe Transition.
+ * GsapAuthCurveOverlay: Dynamic SVG Morphing Entrance & Organic Blake Bowen Curve Swipe Transition.
  * Rebuilt using Blake Bowen's multi-point Bezier liquid wave generator algorithm for button clicks & page navigation.
  */
 export const GsapAuthCurveOverlay = forwardRef(function GsapAuthCurveOverlay(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   MessageSquare,
@@ -42,6 +42,25 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+
+const emptySubscribe = () => () => {};
+
+function RatingStars({ rating, size = "w-4 h-4" }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`${size} ${
+            star <= rating
+              ? "text-amber-400 fill-amber-400"
+              : "text-muted-foreground/30"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 // Helper for WhatsApp link
 function getWhatsAppUrl(phone, catName, ownerName) {
@@ -89,7 +108,7 @@ export default function AdminReviewsPage() {
   const { t } = useLanguage();
   const [reviews, setReviews] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Search & Filters State
@@ -199,10 +218,6 @@ export default function AdminReviewsPage() {
     };
   }, [loadReviews, supabase]);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   // Submit review reply
   const handleReplySubmit = async (e, bookingId) => {
     e.preventDefault();
@@ -275,24 +290,20 @@ export default function AdminReviewsPage() {
   const filteredReviews = useMemo(() => {
     let list = [...reviews];
 
-    // 1. Rating filter
     if (selectedRating !== "all") {
       list = list.filter((r) => r.rating === parseInt(selectedRating, 10));
     }
 
-    // 2. Reply status filter
     if (selectedReplyStatus === "unreplied") {
       list = list.filter((r) => !r.reply_text);
     } else if (selectedReplyStatus === "replied") {
       list = list.filter((r) => !!r.reply_text);
     }
 
-    // 3. Room class filter
     if (selectedClass !== "all") {
       list = list.filter((r) => r.bookings?.class === selectedClass);
     }
 
-    // 4. Search query filter
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase();
       list = list.filter((r) => {
@@ -311,7 +322,6 @@ export default function AdminReviewsPage() {
       });
     }
 
-    // 5. Sorting
     if (sortBy === "highest") {
       list.sort((a, b) => b.rating - a.rating || new Date(b.created_at) - new Date(a.created_at));
     } else if (sortBy === "lowest") {
@@ -322,10 +332,6 @@ export default function AdminReviewsPage() {
 
     return list;
   }, [reviews, selectedRating, selectedReplyStatus, selectedClass, searchQuery, sortBy]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedRating, selectedReplyStatus, selectedClass, searchQuery, sortBy]);
 
   // Reset all filters
   const isFiltersActive =
@@ -341,14 +347,16 @@ export default function AdminReviewsPage() {
     setSelectedReplyStatus("all");
     setSelectedClass("all");
     setSortBy("newest");
+    setCurrentPage(1);
     toast.info("Semua filter pencarian telah direset.");
   };
 
   const reviewsPerPage = 6;
-  const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredReviews.length / reviewsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedReviews = filteredReviews.slice(
-    (currentPage - 1) * reviewsPerPage,
-    currentPage * reviewsPerPage
+    (safeCurrentPage - 1) * reviewsPerPage,
+    safeCurrentPage * reviewsPerPage
   );
 
   if (!isMounted) {

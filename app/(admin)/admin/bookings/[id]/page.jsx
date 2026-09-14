@@ -761,7 +761,7 @@ export default function AdminBookingDetailPage({ params }) {
               </span>
               {booking.cat_notes ? (
                 <div className="p-4 bg-muted/20 border border-border/80 rounded-2xl text-xs font-medium text-foreground leading-relaxed">
-                  "{booking.cat_notes}"
+                  &quot;{booking.cat_notes}&quot;
                 </div>
               ) : (
                 <div className="p-3 bg-muted/10 border border-border/40 rounded-xl text-xs text-muted-foreground italic">
@@ -820,6 +820,8 @@ export default function AdminBookingDetailPage({ params }) {
 
                 <div className="space-y-1.5">
                   <ImageUpload
+                    value={reportPhoto}
+                    onChange={(url) => setReportPhoto(url)}
                     onUpload={(url) => setReportPhoto(url)}
                     defaultValue={reportPhoto}
                     label="Foto Anabul Hari Ini (Opsional)"
@@ -976,7 +978,7 @@ export default function AdminBookingDetailPage({ params }) {
 
                     {review.review_text ? (
                       <p className="text-xs text-foreground bg-card p-3.5 rounded-xl border border-border/60 font-medium leading-relaxed">
-                        "{review.review_text}"
+                        &quot;{review.review_text}&quot;
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground italic">
@@ -1021,7 +1023,7 @@ export default function AdminBookingDetailPage({ params }) {
                     return (
                       <form onSubmit={handleReplySubmit} className="space-y-3 pt-1">
                         <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                          Balas Ulasan (Kirim via Email) — Balasan #{replyCount + 1}/3
+                          Balas Ulasan (Kirim via Email) | Balasan #{replyCount + 1}/3
                         </label>
                         <textarea
                           value={replyText}

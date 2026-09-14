@@ -21,16 +21,10 @@ import { gsap } from "gsap";
 
 export default function PrivacyPage() {
   const { language } = useLanguage();
-  const [mounted, setMounted] = useState(false);
   const headerRef = useRef(null);
   const contentRef = useRef(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const lang = mounted ? language : "id";
-  const isEn = lang === "en";
+  const isEn = language === "en";
 
   useEffect(() => {
     const prefersReduced = window.matchMedia(
@@ -53,7 +47,7 @@ export default function PrivacyPage() {
     });
 
     return () => ctx.revert();
-  }, [mounted]);
+  }, []);
 
   const sections = isEn
     ? [

@@ -8,7 +8,7 @@ import Lenis from "lenis";
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * useGsapSmoothScroll — Smooth scrolling & GSAP ScrollTrigger sync hook.
+ * useGsapSmoothScroll: Smooth scrolling & GSAP ScrollTrigger sync hook.
  * Exclusively used on Landing Page wrapper (#smooth-wrapper & #smooth-content).
  *
  * @param {Object} options
@@ -86,5 +86,5 @@ export function useGsapSmoothScroll(options = {}) {
     }
   };
 
-  return { lenis: lenisRef.current, scrollTo };
+  return { getLenis: () => lenisRef.current, scrollTo };
 }

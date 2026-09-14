@@ -19,7 +19,6 @@ export async function POST(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Cek sesi pengguna
     const {
       data: { user },
       error: authErr,
@@ -29,11 +28,9 @@ export async function POST(request, { params }) {
       return apiUnauthorized();
     }
 
-    // 2. Parse & Validasi body
     const body = await request.json();
     const validatedData = cancelBookingSchema.parse(body);
 
-    // 3. Ambil data pesanan dan verifikasi kepemilikan
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("id, status, cat_name, user_id")
@@ -45,14 +42,13 @@ export async function POST(request, { params }) {
       return apiNotFound("Booking tidak ditemukan atau bukan milik Anda");
     }
 
-    // 4. Cek status: User hanya dapat membatalkan pesanan berstatus 'Menunggu'
+    // Pembatalan mandiri oleh pelanggan dibatasi hanya untuk pesanan berstatus 'Menunggu'
     if (booking.status !== "Menunggu") {
       return apiBadRequest(
         `Pesanan ini telah diproses (Status: ${booking.status}) dan tidak dapat dibatalkan secara langsung.`
       );
     }
 
-    // 5. Update atomic database
     const { data: updatedBooking, error: updateError } = await supabase
       .from("bookings")
       .update({
@@ -76,7 +72,6 @@ export async function POST(request, { params }) {
       );
     }
 
-    // 6. Kirim notifikasi ke Admin
     try {
       const { data: admins } = await supabase
         .from("profiles")

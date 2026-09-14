@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -14,6 +14,12 @@ export const dictionary = {
     nav_login: "Masuk",
     nav_register: "Daftar",
     nav_logout: "Keluar",
+
+    // Mobile Bottom Tab Bar
+    tab_home: "Beranda",
+    tab_bookings: "Pesan",
+    tab_notif: "Notifikasi",
+    tab_profile: "Profil",
 
     // Hero Section
     hero_badge: "Hotel Kucing Bintang 5 Pertama di Kota Anda",
@@ -90,13 +96,32 @@ export const dictionary = {
     // Sidebar / Navigation
     side_panel_admin: "Panel Admin",
     side_admin_title: "NekoStay Admin",
-    side_overview: "Overview",
+    side_group_operational: "MANAJEMEN OPERASIONAL",
+    side_overview: "Dashboard & Metrik",
     side_all_bookings: "Semua Pesanan",
-    side_cat_conditions: "Kondisi Kucing",
-    side_customer_reviews: "Ulasan Pelanggan",
-    side_whatsapp_logs: "Log WhatsApp",
     side_scan_qr: "Scan QR Pembayaran",
-    side_rates_settings: "Pengaturan",
+    side_cat_conditions: "Laporan Kondisi Kucing",
+    side_group_communication: "KOMUNIKASI & LAYANAN",
+    side_customer_reviews: "Ulasan Pelanggan",
+    side_whatsapp_logs: "WhatsApp & Bot Care",
+    side_group_settings: "PENGATURAN & SISTEM",
+    side_rates_settings: "Kamar & Tarif",
+    side_admin_profile: "Profil Admin",
+    side_system_status: "Sistem Normal 24/7",
+    side_system_version: "NekoStay Workspace v2.4",
+
+    side_user_portal: "GUEST PORTAL",
+    side_user_brand: "NekoStay Guest",
+    side_user_group_main: "MENU UTAMA",
+    side_user_group_account: "AKUN & BANTUAN",
+    side_user_bookings: "Daftar Pesanan",
+    side_user_book_cta: "Pesan Penitipan",
+    side_user_notifications: "Notifikasi",
+    side_user_profile: "Profil Saya",
+    side_user_whatsapp: "WhatsApp Care",
+    side_user_subtitle: "Penitipan Kucing Premium",
+    side_logout: "Keluar Akun",
+
     tab_home: "Beranda",
     tab_bookings: "Pesanan",
     tab_notif: "Notif",
@@ -249,6 +274,12 @@ export const dictionary = {
     nav_register: "Register",
     nav_logout: "Logout",
 
+    // Mobile Bottom Tab Bar
+    tab_home: "Home",
+    tab_bookings: "Book",
+    tab_notif: "Notifications",
+    tab_profile: "Profile",
+
     // Hero Section
     hero_badge: "The First 5-Star Cat Hotel in Your Town",
     hero_title_1: "The Best Boarding for Your Beloved Cat, ",
@@ -324,13 +355,32 @@ export const dictionary = {
     // Sidebar / Navigation
     side_panel_admin: "Admin Panel",
     side_admin_title: "NekoStay Admin",
-    side_overview: "Overview",
+    side_group_operational: "OPERATIONAL MANAGEMENT",
+    side_overview: "Dashboard & Metrics",
     side_all_bookings: "All Bookings",
-    side_cat_conditions: "Cat Conditions",
-    side_customer_reviews: "Customer Reviews",
-    side_whatsapp_logs: "WhatsApp Logs",
     side_scan_qr: "Scan QR Payment",
-    side_rates_settings: "Settings",
+    side_cat_conditions: "Cat Daily Reports",
+    side_group_communication: "COMMUNICATION & CARE",
+    side_customer_reviews: "Customer Reviews",
+    side_whatsapp_logs: "WhatsApp & Bot Care",
+    side_group_settings: "SETTINGS & SYSTEM",
+    side_rates_settings: "Rooms & Rates",
+    side_admin_profile: "Admin Profile",
+    side_system_status: "System Active 24/7",
+    side_system_version: "NekoStay Workspace v2.4",
+
+    side_user_portal: "GUEST PORTAL",
+    side_user_brand: "NekoStay Guest",
+    side_user_group_main: "MAIN MENU",
+    side_user_group_account: "ACCOUNT & SUPPORT",
+    side_user_bookings: "My Bookings",
+    side_user_book_cta: "Book a Stay",
+    side_user_notifications: "Notifications",
+    side_user_profile: "My Profile",
+    side_user_whatsapp: "WhatsApp Care",
+    side_user_subtitle: "Premium Cat Boarding",
+    side_logout: "Sign Out",
+
     tab_home: "Home",
     tab_bookings: "Bookings",
     tab_notif: "Alerts",
@@ -491,15 +541,17 @@ const useLanguageStore = create(
   )
 );
 
+const emptySubscribe = () => () => {};
+
 export function useLanguage() {
   const store = useLanguageStore();
-  const [mounted, setMounted] = useState(false);
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const language = mounted ? store.language : "id";
+  const language = isMounted ? store.language : "id";
 
   const t = useCallback((key) => {
     return dictionary[language]?.[key] || key;

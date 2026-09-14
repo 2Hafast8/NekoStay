@@ -21,7 +21,6 @@ export async function PUT(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Verifikasi Admin
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -30,7 +29,6 @@ export async function PUT(request, { params }) {
       return apiForbidden("Hanya Administrator yang berhak mengubah detail pesanan.");
     }
 
-    // 2. Parse & Validasi payload
     const body = await request.json();
     const validatedData = editBookingSchema.parse(body);
 
@@ -48,7 +46,6 @@ export async function PUT(request, { params }) {
       console.warn("[Edit API] Could not fetch dynamic class price, using fallback:", e.message);
     }
 
-    // 3. Ambil data lama pesanan
     const { data: oldBooking, error: fetchError } = await supabase
       .from("bookings")
       .select(`
@@ -69,7 +66,6 @@ export async function PUT(request, { params }) {
     const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     const newEstimatedTotal = diffDays * pricePerDay;
 
-    // 4. Update pesanan di DB
     const { data: updatedBooking, error: updateError } = await supabase
       .from("bookings")
       .update({
@@ -89,7 +85,6 @@ export async function PUT(request, { params }) {
       return apiError("Gagal memperbarui data pesanan", 500);
     }
 
-    // 5. Notifikasi in-app untuk pemilik kucing
     try {
       await supabase.from("notifications").insert({
         user_id: oldBooking.user_id,
@@ -102,7 +97,6 @@ export async function PUT(request, { params }) {
       console.warn("[Edit API Notice] User notification failed:", notifErr.message);
     }
 
-    // 6. Kirim email transaksi
     const userEmail = oldBooking.profiles?.email;
     if (userEmail) {
       try {

@@ -10,16 +10,14 @@ import { formatRupiah } from "@/lib/utils/format";
 function ScanResultContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const [state, setState] = useState("loading"); // loading | success | error
+  const [state, setState] = useState(() => (!token ? "error" : "loading"));
   const [data, setData] = useState(null);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState(() =>
+    !token ? "Token pembayaran tidak ditemukan pada tautan QR ini." : ""
+  );
 
   useEffect(() => {
-    if (!token) {
-      setState("error");
-      setErrorMsg("Token pembayaran tidak ditemukan pada tautan QR ini.");
-      return;
-    }
+    if (!token) return;
 
     fetch("/api/payments/scan-offline", {
       method: "POST",

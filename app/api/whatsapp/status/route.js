@@ -5,7 +5,6 @@ export async function GET(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi admin
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -27,7 +26,6 @@ export async function GET(request) {
       );
     }
 
-    // 2. Ambil status terkini dari Supabase whatsapp_bot_state
     const { data: botState, error: stateErr } = await supabase
       .from("whatsapp_bot_state")
       .select("*")

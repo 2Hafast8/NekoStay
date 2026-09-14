@@ -63,6 +63,13 @@ export function BookingForm() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validasi tipe MIME allowlist
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Format foto harus berupa JPG, PNG, atau WebP')
+      return
+    }
+
     // Validasi ukuran (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Ukuran foto maksimal 5MB')
@@ -71,8 +78,9 @@ export function BookingForm() {
 
     try {
       setUploadingPhoto(true)
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
+      const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+      const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? rawExt : 'jpg'
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('cat-photos')
@@ -183,6 +191,8 @@ export function BookingForm() {
             <img
               src={catPhoto.url}
               alt="Cat"
+              loading="lazy"
+              decoding="async"
               className="w-32 h-32 rounded-lg object-cover"
             />
             <button

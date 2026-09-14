@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, getClientIp } from "@/lib/utils/rate-limit";
 
 export async function GET(request) {
   try {
+    const clientIp = getClientIp(request);
+    const { allowed } = checkRateLimit(`promo-verify:${clientIp}`, 30, 60 * 1000);
+    if (!allowed) {
+      return NextResponse.json(
+        { valid: false, message: "Terlalu banyak permintaan verifikasi. Silakan coba lagi sebentar lagi." },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code")?.trim().toUpperCase();
     const className = searchParams.get("class");
@@ -10,6 +20,10 @@ export async function GET(request) {
 
     if (!code) {
       return NextResponse.json({ valid: false, message: "Kode promo wajib diisi" }, { status: 400 });
+    }
+
+    if (code.length > 50) {
+      return NextResponse.json({ valid: false, message: "Kode promo tidak valid" }, { status: 400 });
     }
 
     const adminDb = createAdminClient();

@@ -18,7 +18,6 @@ export async function PATCH(request, { params }) {
     const supabase = await createClient();
     const { id } = await params;
 
-    // 1. Cek sesi user & role (Hanya admin)
     const { isAdmin, user } = await verifyAdmin(supabase);
     if (!user) {
       return apiUnauthorized();
@@ -27,7 +26,6 @@ export async function PATCH(request, { params }) {
       return apiForbidden("Hanya Administrator yang diizinkan mengubah status pembayaran.");
     }
 
-    // 2. Parse payload
     const body = await request.json();
     const paymentStatus = body.paymentStatus || body.payment_status;
     const validStatuses = ["Unpaid", "Paid", "Failed", "Refunded"];
@@ -36,7 +34,6 @@ export async function PATCH(request, { params }) {
       return apiBadRequest(`Status pembayaran tidak valid. Pilihan: ${validStatuses.join(", ")}`);
     }
 
-    // 3. Ambil data booking saat ini
     const { data: booking, error: fetchError } = await supabase
       .from("bookings")
       .select("*, profiles:user_id (full_name, email)")
@@ -47,7 +44,7 @@ export async function PATCH(request, { params }) {
       return apiNotFound("Data pesanan tidak ditemukan.");
     }
 
-    // 4. Update status pembayaran & sinkronisasi token offline jika ada
+    // Sinkronisasi status pemakaian token offline jika status pembayaran diubah
     const updateData = { payment_status: paymentStatus };
 
     if (paymentStatus === "Paid" && booking.offline_payment_token) {
@@ -68,7 +65,6 @@ export async function PATCH(request, { params }) {
       return apiError("Gagal memperbarui status pembayaran", 500);
     }
 
-    // 5. Kirim notifikasi in-app ke pemilik kucing
     const statusLabels = {
       Unpaid: "Belum Dibayar",
       Paid: "Lunas",

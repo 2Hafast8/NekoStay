@@ -6,7 +6,7 @@ import { User, Settings, ShieldCheck, LogOut, ChevronDown, LayoutDashboard, Plus
 import { gsap } from "gsap";
 
 /**
- * GsapAvatarDropdown — Premium User Avatar Dropdown with GSAP Orchestrated easeReverse (Desktop mode only).
+ * GsapAvatarDropdown: Premium User Avatar Dropdown with GSAP Orchestrated easeReverse (Desktop mode only).
  */
 export function GsapAvatarDropdown({ user, profile, role = "user", onSignOut, t }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +16,30 @@ export function GsapAvatarDropdown({ user, profile, role = "user", onSignOut, t 
   const tlRef = useRef(null);
 
   const currentRole = role || profile?.role || "user";
+
+  const closeDropdown = () => {
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
+    const panel = panelRef.current;
+
+    if (isDesktop && tlRef.current && panel) {
+      // Orchestrated easeReverse timeline on close
+      const tl = tlRef.current;
+      tl.eventCallback("onReverseComplete", () => {
+        setIsOpen(false);
+      });
+      tl.timeScale(1.3).reverse();
+    } else if (panel) {
+      gsap.to(panel, {
+        opacity: 0,
+        y: -4,
+        duration: 0.15,
+        ease: "power2.in",
+        onComplete: () => setIsOpen(false),
+      });
+    } else {
+      setIsOpen(false);
+    }
+  };
 
   // Close dropdown on click outside or Escape
   useEffect(() => {
@@ -58,10 +82,8 @@ export function GsapAvatarDropdown({ user, profile, role = "user", onSignOut, t 
       if (!panel) return;
 
       if (isDesktop) {
-        // Build GSAP Orchestrated easeReverse Timeline for Desktop
         const tl = gsap.timeline({ paused: true });
 
-        // 1. Menu Panel Entrance: back.out(2) on enter
         tl.fromTo(
           panel,
           { autoAlpha: 0, yPercent: -10, scale: 0.6, transformOrigin: "top right" },
@@ -69,7 +91,6 @@ export function GsapAvatarDropdown({ user, profile, role = "user", onSignOut, t 
           0
         );
 
-        // 2. Menu Links Stagger Entrance: power2.out on enter
         if (validItems.length > 0) {
           tl.fromTo(
             validItems,
@@ -90,30 +111,6 @@ export function GsapAvatarDropdown({ user, profile, role = "user", onSignOut, t 
         );
       }
     }, 10);
-  };
-
-  const closeDropdown = () => {
-    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 768;
-    const panel = panelRef.current;
-
-    if (isDesktop && tlRef.current && panel) {
-      // Orchestrated easeReverse timeline on close
-      const tl = tlRef.current;
-      tl.eventCallback("onReverseComplete", () => {
-        setIsOpen(false);
-      });
-      tl.timeScale(1.3).reverse();
-    } else if (panel) {
-      gsap.to(panel, {
-        opacity: 0,
-        y: -4,
-        duration: 0.15,
-        ease: "power2.in",
-        onComplete: () => setIsOpen(false),
-      });
-    } else {
-      setIsOpen(false);
-    }
   };
 
   const userName = profile?.full_name || user?.email?.split("@")[0] || "Pengguna";

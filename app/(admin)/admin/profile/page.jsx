@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { User, Phone, Mail, Check, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
 
+const emptySubscribe = () => () => {};
+
 export default function AdminProfilePage() {
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -35,10 +37,6 @@ export default function AdminProfilePage() {
     const timer = setTimeout(() => setErrorMsg(null), 3000);
     return () => clearTimeout(timer);
   }, [errorMsg]);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     async function loadProfile() {

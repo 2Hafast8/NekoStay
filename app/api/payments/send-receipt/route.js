@@ -5,20 +5,17 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Parse request body
     const body = await request.json();
     const { bookingId } = body;
     if (!bookingId) {
       return NextResponse.json({ error: 'ID Booking wajib diisi' }, { status: 400 });
     }
 
-    // 3. Ambil detail booking dan profile
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
       .select('*, profiles:user_id (full_name, email, phone)')
@@ -30,7 +27,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Pesanan tidak ditemukan' }, { status: 404 });
     }
 
-    // 4. Pastikan pesanan tidak dibatalkan
     if (booking.status === 'Dibatalkan') {
       return NextResponse.json(
         { error: 'Pesanan telah dibatalkan. Bukti pemesanan tidak tersedia.' },
@@ -38,7 +34,7 @@ export async function POST(request) {
       );
     }
 
-    // 5. Refresh token QR: generate baru jika belum ada/sudah dipakai, atau refresh 24 jam
+    // Refresh token QR jika belum ada atau sudah terpakai
     let token = booking.offline_payment_token;
     if (!token || booking.offline_token_used) {
       const crypto = await import('crypto');
@@ -59,7 +55,6 @@ export async function POST(request) {
         .eq('id', bookingId);
     }
 
-    // 6. Generate QR Code Data URL untuk respons langsung di web
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000';
     const qrUrl = `${appUrl}/scan-verify?token=${token}`;
     let qrDataUrl = null;
@@ -71,7 +66,6 @@ export async function POST(request) {
       console.warn('[Send Receipt] QR generation warning:', qrErr.message);
     }
 
-    // 7. Ambil email user & kirim PDF receipt via email
     const userEmail = booking.profiles?.email;
     if (userEmail) {
       const { sendBookingStatusUpdate } = await import('@/lib/email/resend');

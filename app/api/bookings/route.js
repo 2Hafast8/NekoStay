@@ -19,7 +19,6 @@ export async function POST(request) {
   try {
     const supabase = await createClient();
 
-    // 1. Cek sesi pengguna
     const {
       data: { user },
       error: authError,
@@ -29,33 +28,32 @@ export async function POST(request) {
       return apiUnauthorized();
     }
 
-    // 2. Parse & Validasi data masukan
     const body = await request.json();
     const validatedData = bookingFormSchema.parse(body);
 
-    // 3. Ambil profil pengguna
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", user.id)
-      .single();
+    const [profileRes, classRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("classes")
+        .select("price_per_day, total_cages, maintenance_cages")
+        .eq("name", validatedData.class)
+        .single(),
+    ]);
 
+    const { data: profile, error: profileError } = profileRes;
     if (profileError || !profile) {
       return apiNotFound("Profil pengguna tidak ditemukan");
     }
 
-    // 4. Ambil tarif kelas kamar
-    const { data: classData, error: classError } = await supabase
-      .from("classes")
-      .select("price_per_day")
-      .eq("name", validatedData.class)
-      .single();
-
+    const { data: classData, error: classError } = classRes;
     if (classError || !classData) {
       return apiNotFound("Kelas kamar tidak ditemukan");
     }
 
-    // 5. Kalkulasi durasi dan estimasi biaya
     const checkInDate = new Date(validatedData.check_in_date);
     const checkOutDate = new Date(validatedData.check_out_date);
     const totalDays = Math.floor(
@@ -68,15 +66,9 @@ export async function POST(request) {
 
     const estimatedTotal = totalDays * classData.price_per_day;
 
-    // 5. Cek kapasitas kamar dan toleransi antrian maksimal 3 hari
-    const { data: classRow } = await supabase
-      .from("classes")
-      .select("total_cages, maintenance_cages")
-      .eq("name", validatedData.class)
-      .maybeSingle();
-
-    const totalCages = classRow?.total_cages ?? 10;
-    const maintenanceCages = classRow?.maintenance_cages ?? 0;
+    // Evaluasi kapasitas kandang dan toleransi batas antrian (maksimal 3 hari)
+    const totalCages = classData.total_cages ?? 10;
+    const maintenanceCages = classData.maintenance_cages ?? 0;
     const effectiveCapacity = Math.max(1, totalCages - maintenanceCages);
 
     const { data: overlappingBookings } = await supabase
@@ -99,19 +91,18 @@ export async function POST(request) {
     });
 
     if (capacityResult.isFull && !capacityResult.canWaitlist) {
-      // Waktu tunggu melebihi toleransi maksimal 3 hari -> Otomatis Ditolak!
+      // Waktu tunggu melebihi toleransi maksimal 3 hari -> Otomatis Ditolak
       return apiBadRequest(
         capacityResult.rejectReason ||
           `Mohon maaf, pemesanan ditolak otomatis karena seluruh kamar kelas ${validatedData.class} penuh dan tidak tersedia ruang kosong dalam batas maksimal waktu 3 hari.`
       );
     }
 
-    // Tentukan status awal: jika penuh tapi masih <= 3 hari, masuk ke antrian (Waitlist)
+    // Jika kelas penuh tapi tanggal kosong masih dalam toleransi <= 3 hari, alihkan ke status Antrian
     const initialStatus = capacityResult.isFull
       ? "Antrian"
       : validatedData.status || "Menunggu";
 
-    // 6. Simpan pesanan ke database Supabase
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .insert({
@@ -141,7 +132,6 @@ export async function POST(request) {
 
     const isWaitlist = booking.status === "Antrian";
 
-    // 7. Notifikasi in-app untuk pengguna
     try {
       await supabase.from("notifications").insert({
         user_id: user.id,
@@ -158,7 +148,6 @@ export async function POST(request) {
       console.warn("[Booking API Notice] User notification failed:", notifErr.message);
     }
 
-    // 8. Notifikasi in-app untuk admin via RPC
     try {
       await supabase.rpc("create_admin_notification", {
         booking_id_param: booking.id,
@@ -174,7 +163,6 @@ export async function POST(request) {
       console.warn("[Booking API Notice] Admin notification failed:", notifErr.message);
     }
 
-    // 9. Kirim email konfirmasi ke email pengguna
     if (profile.email) {
       try {
         const { sendBookingConfirmation } = await import("@/lib/email/resend");
