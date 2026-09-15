@@ -843,8 +843,38 @@ node scripts/test-suite.mjs
   ✅ PASS: Template harus memuat kata penuh
   ✅ PASS: Template harus memuat batas waktu 3 hari
 
+📌 [TEST SUITE] WhatsApp JID & LID Routing Resolution
+  ✅ PASS: Format 08 harus dikonversi ke 62...@s.whatsapp.net
+  ✅ PASS: Format 62 harus menghasilkan 62...@s.whatsapp.net
+  ✅ PASS: Nomor dengan format tanda baca harus dibersihkan ke 62...@s.whatsapp.net
+  ✅ PASS: Nomor LID 14 digit harus di-route ke @lid bukan @s.whatsapp.net
+  ✅ PASS: JID @lid yang sudah lengkap tidak boleh diubah
+  ✅ PASS: JID @s.whatsapp.net yang sudah lengkap tidak boleh diubah
+  ✅ PASS: Metadata remote_jid harus diprioritaskan
+
+📌 [TEST SUITE] WhatsApp Chat with Admin & Bot Reactivation Flow
+  ✅ PASS: State CHAT_WITH_ADMIN harus terdefinisi 'chat_with_admin'
+  ✅ PASS: Respon salam pembuka harus berupa string pesan
+  ✅ PASS: Menu pembuka harus menampilkan Pilihan 3: Chat dengan Admin
+  ✅ PASS: Respon pilihan 3 harus berupa string pesan
+  ✅ PASS: Pilihan 3 harus mengonfirmasi peralihan ke Admin
+  ✅ PASS: Pilihan 3 harus menginformasikan bahwa auto-reply bot dijeda
+  ✅ PASS: Pesan bebas saat dalam mode Chat dengan Admin harus return null (bot tidak auto-reply)
+  ✅ PASS: Pesan lanjutan juga harus tetap return null agar obrolan manual tidak diganggu
+  ✅ PASS: Pemicu MENU harus mengembalikan balasan dari bot
+  ✅ PASS: Pemicu MENU harus mengaktifkan kembali bot dan menyajikan menu
+  ✅ PASS: Pengiriman template harus direspons langsung oleh bot
+  ✅ PASS: Template perubahan jadwal berhasil diproses dan dikonfirmasi
+  ✅ PASS: Batas waktu inaktivitas obrolan admin harus 1 jam (3.600.000 ms)
+  ✅ PASS: Sesi harus berada dalam status CHAT_WITH_ADMIN
+  ✅ PASS: Pesan saat sesi masih aktif (< 1 jam) harus return null (tanpa auto-reply)
+  ✅ PASS: Setelah 1 jam inaktivitas, pesan pelanggan harus langsung dibalas oleh bot
+  ✅ PASS: Bot yang auto-hidup kembali harus menyajikan menu layanan bot
+  ✅ PASS: checkAndExpireInactiveAdminChats harus mendeteksi sesi yang idle 1 jam
+  ✅ PASS: Status sesi harus otomatis kembali ke IDLE setelah di-sweep
+
 ========================================================
-📊 HASIL PENGUJIAN OTOMATIS: 50 / 50 BERHASIL (100% PASS)
+📊 HASIL PENGUJIAN OTOMATIS: 76 / 76 BERHASIL (100% PASS)
 🎉 SELURUH PENGUJIAN LOGIKA BISNIS & KEAMANAN BERHASIL 100%!
 ========================================================
 ```

@@ -14,8 +14,8 @@
 |------|-------------------------|
 | [SYSTEM_WALKTHROUGH.md](./SYSTEM_WALKTHROUGH.md) | **Complete System Code Flow Walkthrough** - Alur kode detail 10 subsistem, diagram Mermaid, data flow traces, dan referensi implementasi file. |
 | [C4-ARCHITECTURE.md](./C4-ARCHITECTURE.md) | **Arsitektur C4 Code-Level** - Diagram Mermaid Context, Container, Component, & Code Signatures. |
-| [API-SPECIFICATION.md](./API-SPECIFICATION.md) | **Spesifikasi Lengkap 30 REST API Endpoints** - Auth levels, payload schema, dan status respons. |
-| [SECURITY-AUDIT.md](./SECURITY-AUDIT.md) | **Laporan Audit Keamanan OWASP Top 10 & Compliance** - DevSecOps, proteksi RBAC, dan kepatuhan GDPR/PDP. |
+| [API-SPECIFICATION.md](./API-SPECIFICATION.md) | **Spesifikasi Lengkap 31 REST API Endpoints** - Auth levels, payload schema, dan status respons. |
+| [SECURITY-AUDIT.md](./SECURITY-AUDIT.md) | **Laporan Audit Keamanan OWASP Top 10 & Compliance** - DevSecOps, CSP, Turnstile, Rate Limiting, RBAC, dan kepatuhan GDPR/PDP. |
 
 ---
 
@@ -25,7 +25,7 @@ Panduan setup project, konfigurasi AI Agent, dan panduan skill teknis.
 | File | Deskripsi |
 |------|-----------|
 | [claude.md](./01-SETUP/claude.md) | **Konteks Proyek AI** - Identitas platform, stack Next.js 16/React 19, arsitektur data & API. |
-| [AGENTS.md](./01-SETUP/AGENTS.md) | **Registry 26 AI Agent Skills** - Konfigurasi `.agent/skills/` dan aturan otomatisasi AI. |
+| [AGENTS.md](./01-SETUP/AGENTS.md) | **Registry AI Agent Skills** - Konfigurasi `.agent/skills/` dan aturan otomatisasi AI. |
 | [skill.md](./01-SETUP/skill.md) | **Technical Skills Guide** - Standar implementasi kode, helper `lib/`, format rupiah, dan pola Next.js. |
 | [DEVELOPMENT_PLAN.md](./01-SETUP/DEVELOPMENT_PLAN.md) | **Roadmap Pengembangan** - Tahapan development, integrasi fitur, dan milestone selesai. |
 | [README.md](./01-SETUP/README.md) | **Setup Guide Overview** - Pengantar folder konfigurasi. |
@@ -81,7 +81,7 @@ Laporan perkembangan historis dan ringkasan sesi kerja.
 
 | File | Deskripsi |
 |------|-----------|
-| [SESSION_COMPLETE_SUMMARY.md](./06-STATUS/SESSION_COMPLETE_SUMMARY.md) | **Session Summary** - Ringkasan pencapaian implementasi 26 skills dan stabilisasi sistem. |
+| [SESSION_COMPLETE_SUMMARY.md](./06-STATUS/SESSION_COMPLETE_SUMMARY.md) | **Session Summary** - Ringkasan pencapaian pengerasan keamanan, optimasi performa, dan stabilisasi sistem. |
 | [STATUS_JUNE_23_2026.md](./06-STATUS/STATUS_JUNE_23_2026.md) | **Status Update** - Penyempurnaan RLS, DB trigger, dan UI scanner. |
 | [STATUS_JUNE_15_2026.md](./06-STATUS/STATUS_JUNE_15_2026.md) | **Status Update** - Integrasi Midtrans, Dual-Email engine, dan WhatsApp bot. |
 | [STATUS_MAY_26_2026.md](./06-STATUS/STATUS_MAY_26_2026.md) | **Status Update** - Pengembangan modul lanjutan. |
@@ -94,14 +94,14 @@ Laporan perkembangan historis dan ringkasan sesi kerja.
 
 ```
 Core Implementation (Next.js 16 + React 19): 100% ✅✅✅✅✅
-Components & Pages (44 Routes Prerendered):   100% ✅✅✅✅✅
-REST API Endpoints (30 Handlers Hardened):    100% ✅✅✅✅✅
+Components & Pages (48 Routes Prerendered):   100% ✅✅✅✅✅
+REST API Endpoints (31 Handlers Hardened):    100% ✅✅✅✅✅
 Database Schema & RLS (Supabase PostgreSQL):  100% ✅✅✅✅✅
-26 AI Agent Skills Integration:               100% ✅✅✅✅✅
-Automated Test Suite (npm test):              100% ✅✅✅✅✅
+Automated Test Suite (76/76 Tests Passing):   100% ✅✅✅✅✅
 Midtrans Payment & QR Offline Scanner:        100% ✅✅✅✅✅
-WhatsApp Gateway (lily-baileys Multi-Device): 100% ✅✅✅✅✅
-Dual-Mode Email & Cloud PDF Receipt:          100% ✅✅✅✅✅
+WhatsApp Gateway (@whiskeysockets/baileys):   100% ✅✅✅✅✅
+Security Hardening (CSP, Turnstile, RateLim): 100% ✅✅✅✅✅
+React & Next.js Performance Optimizations:    100% ✅✅✅✅✅
 Documentation & C4 Specifications:            100% ✅✅✅✅✅
 ───────────────────────────────────────────────────────────
 TOTAL PROJECT READINESS:                      100% ✅ PRODUCTION READY

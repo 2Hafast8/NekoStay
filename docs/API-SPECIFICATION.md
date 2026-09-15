@@ -15,13 +15,13 @@
 
 ---
 
-## 📋 Daftar 30 API Endpoints
+## 📋 Daftar 31 API Endpoints
 
 ### 1. Booking Endpoints (`/api/bookings`)
 
 | Endpoint | Method | Auth Level | Deskripsi |
 |---|---|---|---|
-| `/api/bookings` | `POST` | Authenticated | Membuat pesanan penitipan kucing baru. |
+| `/api/bookings` | `POST` | Authenticated | Membuat pesanan penitipan kucing baru (query terparalelisasi via Promise.all). |
 | `/api/bookings/bulk` | `POST` | Admin Only | Menyetujui atau menolak pesanan secara massal. |
 | `/api/bookings/[id]/confirm` | `POST` | Admin Only | Mengonfirmasi pesanan ('Menunggu'/'Antrian' → 'Aktif'). |
 | `/api/bookings/[id]/reject` | `POST` | Admin Only | Menolak pesanan dengan alasan penolakan. |
@@ -41,11 +41,11 @@
 | Endpoint | Method | Auth Level | Deskripsi |
 |---|---|---|---|
 | `/api/payments/create` | `POST` | Authenticated | Menginisiasi transaksi Snap Midtrans untuk pembayaran online. |
-| `/api/payments/webhook` | `POST` | Webhook Signature | Callback notifikasi status pembayaran dari server Midtrans. |
-| `/api/payments/offline-qr` | `POST` | Authenticated | Menghasilkan QR Code data URL & token pembayaran kasir. |
+| `/api/payments/webhook` | `POST` | Webhook Signature | Callback notifikasi status pembayaran dari server Midtrans (SHA512). |
+| `/api/payments/offline-qr` | `POST` | Authenticated | Menghasilkan QR Code data URL & token pembayaran kasir (24 jam). |
 | `/api/payments/scan-offline` | `POST` | Admin Only | Memvalidasi pemindaian QR token pembayaran tunai di kasir. |
 | `/api/payments/send-receipt` | `POST` | Owner / Admin | Mengirimkan bukti pembayaran PDF ke email pelanggan. |
-| `/api/payments/check-status` | `GET` | Authenticated | Cek status transaksi pembayaran terkini. |
+| `/api/payments/check-status` | `GET` | Authenticated | Cek status transaksi pembayaran Midtrans dengan AbortSignal timeout 10 detik. |
 | `/api/payments/sandbox-mock` | `POST` | Admin Only | Simulasi pembayaran untuk pengujian sandbox lokal. |
 
 ---
@@ -56,7 +56,7 @@
 |---|---|---|---|
 | `/api/reviews` | `GET` | Public | Mengambil daftar ulasan publik terbaru. |
 | `/api/reviews` | `POST` | Owner Only | Mengirimkan ulasan untuk pesanan berstatus 'Selesai'. |
-| `/api/reviews/reply` | `POST` | Admin Only | Membalas ulasan pelanggan dan mengirim email. |
+| `/api/reviews/reply` | `POST` | Admin Only | Membalas ulasan pelanggan dan mengirim email tersanitasi anti-XSS. |
 
 ---
 
@@ -64,9 +64,9 @@
 
 | Endpoint | Method | Auth Level | Deskripsi |
 |---|---|---|---|
-| `/api/referral/verify` | `GET` | Public / User | Memverifikasi kevalidan kode referral dan kuota 1x pakai. |
+| `/api/referral/verify` | `GET` | Public / User | Verifikasi kode referral & kuota 1x pakai (Dilindungi Rate Limiter 30 req/min). |
 | `/api/referral/award-points` | `POST` | Owner / Admin | Menambahkan poin reward ke akun pemilik referral. |
-| `/api/promos/verify` | `GET` | Public | Memvalidasi kode voucher promo dan menghitung diskon. |
+| `/api/promos/verify` | `GET` | Public | Validasi kupon voucher & hitung diskon (Dilindungi Rate Limiter 30 req/min). |
 
 ---
 
@@ -74,10 +74,11 @@
 
 | Endpoint | Method | Auth Level | Deskripsi |
 |---|---|---|---|
-| `/api/whatsapp/status` | `GET` | Admin Only | Memeriksa status koneksi WhatsApp Gateway (QR / Connected). |
-| `/api/whatsapp/connect` | `POST` | Admin Only | Menginisialisasi koneksi socket Baileys WhatsApp. |
+| `/api/whatsapp/status` | `GET` | Admin Only | Memeriksa status koneksi WhatsApp Gateway (@whiskeysockets/baileys). |
+| `/api/whatsapp/connect` | `POST` | Admin Only | Menginisialisasi koneksi socket Baileys WhatsApp & QR pairing. |
 | `/api/whatsapp/disconnect` | `POST` | Admin Only | Memutuskan sesi WhatsApp dan membersihkan credentials. |
 | `/api/whatsapp/logs` | `GET` | Admin Only | Mengambil riwayat log pesan masuk dan keluar WhatsApp. |
+| `/api/whatsapp/send` | `POST` | Admin Only | Mengirim pesan langsung dari admin ke WhatsApp pelanggan (chat manual). |
 | `/api/whatsapp/simulate` | `POST` | Admin Only | Simulasi interaksi chat bot WhatsApp untuk pengujian internal. |
 
 ---
@@ -86,7 +87,7 @@
 
 | Endpoint | Method | Auth Level | Deskripsi |
 |---|---|---|---|
-| `/api/auth/callback` | `GET` | Public | Handler OAuth & Email Verification callback Supabase. |
+| `/api/auth/callback` | `GET` | Public | Handler OAuth & Email Verification Supabase dengan Open Redirect Guard (`sanitizeRedirectPath`). |
 | `/api/auth/notify-password-changed` | `POST` | Authenticated | Mengirim alert keamanan in-app & email setelah reset password. |
 | `/api/cron/check-late` | `GET` | Cron Secret | Cron harian perhitungan akumulatif denda 8% keterlambatan. |
 | `/api/cron/check-waiting` | `GET` | Cron Secret | Cron harian evaluasi antrian penuh dan penolakan otomatis >3 hari. |

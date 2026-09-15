@@ -54,6 +54,20 @@ Folder ini berisi panduan testing lengkap dan scenario checks sebelum launch pro
 - ✅ Email testing (emails send correctly)
 - ✅ Edge case testing (error scenarios)
 - ✅ Security testing (role-based access)
+- ✅ Automated Unit & Regression testing (76 automated tests via `npm test`)
+
+### 🤖 Automated Test Suite (`scripts/test-suite.mjs`)
+Eksekusi pengujian otomatis menyeluruh via `npm test` atau `node scripts/test-suite.mjs`:
+- **Pricing & Mathematical Calculations** (8 tests): Estimasi biaya Basic/Standard/Premium, keterlambatan, denda 8% eksponensial majemuk, refund 90% checkout awal.
+- **Date Utilities** (4 tests): Perhitungan selisih hari, deteksi keterlambatan, format tanggal lokal.
+- **Zod Validation Schemas** (12 tests): Validasi payload booking, pencegahan checkout sebelum checkin, laporan kesehatan kucing, rating ulasan 1-5, alasan cancel, bulk action, dan QR schema.
+- **API Response Helpers** (5 tests): Standarisasi HTTP 200, 400, 401, 403, 404.
+- **Offline QR Token & Verification** (4 tests): URL verification `/scan-verify`, UUID matching, validasi token < 24 jam dan kedaluwarsa > 24 jam.
+- **Kapasitas Kamar & Toleransi Antrian 3 Hari** (15 tests): Deteksi kamar kosong/penuh, toleransi antrian ≤ 3 hari, penolakan otomatis > 3 hari, template alasan penolakan resmi.
+- **WhatsApp JID & LID Routing Resolution** (7 tests): Konversi format nomor 08/62/+62, proteksi routing LID 14-digit ke `@lid`, preservasi JID lengkap, dan prioritas metadata `remote_jid`.
+- **WhatsApp Direct Admin Chat & Timeout Reactivation** (21 tests): Mode peralihan chat admin, jeda bot otomatis, passthrough pesan obrolan manual tanpa balasan bot, reaktivasi kata kunci MENU, batas inaktivitas 1 jam (3.600.000 ms), dan sweep auto-expire.
+
+*Hasil verifikasi: **76 / 76 PASSED (100%)**.*
 
 ---
 

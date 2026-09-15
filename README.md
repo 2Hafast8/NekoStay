@@ -3,8 +3,9 @@
 [![Next.js Version](https://img.shields.io/badge/Next.js-16.2.6%20(Turbopack)-orange?style=flat-square&logo=nextdotjs)](https://nextjs.org)
 [![React Version](https://img.shields.io/badge/React-19.2.4-blue?style=flat-square&logo=react)](https://react.dev)
 [![Supabase Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL%20(RLS)-emerald?style=flat-square&logo=supabase)](https://supabase.com)
-[![Payment Gateway](https://img.shields.io/badge/Payments-Midtrans%20Snap%20%2B%20QR%20Offline-blueviolet?style=flat-square)](https://midtrans.com)
-[![WhatsApp Engine](https://img.shields.io/badge/WhatsApp-lily--baileys%20Multi--Device-25D366?style=flat-square&logo=whatsapp)](https://github.com/adiwajshing/baileys)
+[![WhatsApp Engine](https://img.shields.io/badge/WhatsApp-whiskeysockets--baileys-25D366?style=flat-square&logo=whatsapp)](https://github.com/WhiskeySockets/Baileys)
+[![Automated Tests](https://img.shields.io/badge/Tests-76%2F76%20Passed-success?style=flat-square)](scripts/test-suite.mjs)
+[![Security](https://img.shields.io/badge/Security-Hardened%20(CSP%20%2B%20Rate%20Limit)-blueviolet?style=flat-square)](docs/SECURITY-AUDIT.md)
 [![Tailwind CSS v4](https://img.shields.io/badge/Styling-Tailwind%20CSS%20v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square)](LICENSE)
 
@@ -15,7 +16,8 @@
 ## 🌟 Fitur Utama (Key Features)
 
 ### 👤 Portal Pelanggan (Cat Owner Portal)
-* **Formulir Pemesanan Cerdas (3 Langkah)**: Input data kucing (nama, umur, ras, makanan favorit, riwayat kesehatan, kehamilan, catatan khusus), upload foto ke Supabase Storage, dan pilih paket kamar (`Basic`, `Standard`, `Premium`).
+* **Autentikasi Aman & Captcha Turnstile**: Proteksi bot terverifikasi via Cloudflare Turnstile Captcha pada form Login, Registrasi, dan Reset Password.
+* **Formulir Pemesanan Cerdas (3 Langkah)**: Input data kucing (nama, umur, ras, makanan favorit, riwayat kesehatan, kehamilan, catatan khusus), validasi format MIME gambar client-side, upload foto ke Supabase Storage, dan pilih paket kamar (`Basic`, `Standard`, `Premium`).
 * **Sistem Pembayaran Fleksibel**:
   - **Online**: Integrasi Snap Midtrans (Virtual Account, GoPay, QRIS, Kartu Kredit).
   - **Kasir (Offline)**: Pop-up modal QR Code interaktif berskala responsif (25% - 100%+ zoom), unduh bukti pemesanan PDF resmi, dan token bayar di kasir dengan masa berlaku 24 jam.
@@ -23,19 +25,23 @@
   - Pengecekan ketersediaan kamar dan perkiraan hari terdekat (`earliestCheckoutDate`).
   - **Toleransi Antrian Maksimal 3 Hari**: Jika kamar penuh dan perkiraan ketersediaan terdekat `≤ 3 hari`, pengguna dapat masuk antrian (*Waitlist*).
   - **Penolakan Otomatis (> 3 Hari)**: Jika perkiraan kamar kosong melebihi 3 hari, sistem otomatis menolak pemesanan dengan template penolakan resmi karena kamar penuh.
-* **Laporan Kondisi Kucing Realtime**: Memantau laporan perkembangan harian kucing (foto terbaru, nafsu makan, status kesehatan: Sehat / Kurang Fit / Perlu Perhatian) dari dashboard dan notifikasi email.
+* **Laporan Kondisi Kucing Realtime**: Memantau laporan perkembangan harian kucing (foto terbaru, nafsu makan, status kesehatan: Sehat / Kurang Fit / Perlu Perhatian) dari dashboard dan notifikasi email tersanitasi anti-XSS.
 * **Program Loyalitas & Referral**: Dapatkan kode referral unik (`NEKO-XXXXXXXX`) saat mendaftar. Bagikan ke teman untuk mendapatkan diskon 10% dan kumpulkan Poin Neko.
 * **Ulasan & Rating**: Berikan penilaian bintang 1-5 dan ulasan setelah pesanan selesai, serta lihat balasan resmi dari admin.
-* **Fitur Kenyamanan**: Dark & Light mode switch, multi-bahasa instan (Bahasa Indonesia & English), dan animasi interaktif GSAP.
+* **Fitur Kenyamanan**: Dark & Light mode switch, multi-bahasa instan (Bahasa Indonesia & English), animasi interaktif GSAP, dan optimasi Core Web Vitals (Next.js Image LCP priority).
 
 ### 👑 Panel Manajemen Admin (Admin Control Center)
-* **Executive Analytics Dashboard**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts.
-* **Manajemen & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan template alasan cepat, atau lakukan persetujuan massal (*bulk actions*).
+* **Executive Analytics Dashboard**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts dengan kalkulasi single-pass O(n).
+* **Manajemen Kamar & Kandang**: Kartu kelas kamar ringkas dengan modal edit terintegrasi, pemantauan kapasitas terisi real-time, dan pengaturan kandang isolasi/maintenance.
+* **Manajemen Pesanan & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan template alasan cepat, atau lakukan persetujuan massal (*bulk actions*).
 * **Evaluasi Otomatis Antrian Penuh**: Tombol 1-klik `Cek Antrian Penuh (>3 Hari)` dan background cron `GET /api/cron/check-waiting` untuk membersihkan dan menolak antrian yang melebihi batas 3 hari.
 * **QR Camera Scanner Kasir (`/admin/scanner`)**: Pemindaian kamera langsung untuk memvalidasi pembayaran tunai di kasir secara instan dan aman (*one-time use*).
 * **Pembuat Laporan Kucing Harian (`/admin/reports`)**: Input laporan kondisi fisik & mental kucing dengan upload foto yang langsung terkirim ke email pelanggan.
-* **WhatsApp Multi-Device Gateway (`/admin/whatsapp`)**: Scan QR pairing WhatsApp Baileys, monitoring riwayat log interaksi pesan masuk/keluar, dan simulasi auto-responder.
-* **Ekspor Laporan PDF Premium**: Unduh rekapitulasi data transaksi dan laporan keuangan dalam format PDF Landscape A4 resmi.
+* **WhatsApp Multi-Device Gateway & Direct Chat (`/admin/whatsapp`)**:
+  - Koneksi resmi `@whiskeysockets/baileys` Multi-Device tanpa biaya langganan API.
+  - Scan QR pairing, riwayat log percakapan live, dan auto-responder cerdas 24/7.
+  - **Fitur Chat Langsung Admin**: Pelanggan dapat memilih opsi 3 (Chat dengan Admin) untuk menjeda bot, dan bot otomatis aktif kembali setelah 1 jam inaktivitas atau saat pelanggan mengetik kata kunci *MENU*.
+* **Ekspor Laporan PDF Premium**: Unduh rekapitulasi data transaksi dan laporan keuangan dalam format PDF Landscape A4 resmi (termasuk perbaikan bug decode saat dibuka dari aplikasi Gmail seluler).
 
 ---
 
@@ -43,15 +49,16 @@
 
 | Layer / Kategori | Teknologi | Deskripsi |
 |---|---|---|
-| **Frontend & Framework** | Next.js 16.2.6 (App Router) & React 19.2.4 | Server Components, dynamic async routing, Turbopack builder |
-| **Database & Auth** | Supabase (PostgreSQL 15+) | Row Level Security (RLS), Auth SSR, Realtime WebSocket CDC |
-| **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide Icons | Glassmorphism UI, Dark Mode, mobile bottom navigation |
-| **Animasi** | GSAP, Anime.js, Lenis | Magnetic CTA, looping marquee, 3D card tilt, elastic interactions |
-| **Payment Gateway** | Midtrans Client & Offline QR Scanner | Pembayaran online Snap API & verifikasi webhook SHA512 |
-| **WhatsApp Gateway** | `lily-baileys` Multi-Device | Koneksi socket WhatsApp, auto-responder, dan cloud log |
-| **Email & Struk** | Resend / EmailJS + jsPDF & jsPDF-Autotable | Pengiriman email transaksional & render struk PDF otomatis |
-| **Validasi & State** | Zod 3 + React Hook Form + Zustand 5 | Validasi runtime ketat & global store multi-language |
-| **Testing Suite** | Node.js Test Runner (`scripts/test-suite.mjs`) | Pengujian otomatis kalkulasi matematika, denda 8%, dan Zod |
+| **Frontend & Framework** | Next.js 16.2.6 (App Router) & React 19.2.4 | Server Components, dynamic async routing, Turbopack builder, Core Web Vitals Next/Image |
+| **Database & Auth** | Supabase (PostgreSQL 15+) & Turnstile | Row Level Security (RLS), Auth SSR, Cloudflare Turnstile Captcha bot protection |
+| **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide Icons | Glassmorphism UI, Dark Mode, mobile bottom navigation, tree-shaking optimizePackageImports |
+| **Animasi** | GSAP, Anime.js, Lenis | Magnetic CTA, looping marquee, 3D card tilt, elastic smooth scroll |
+| **Payment Gateway** | Midtrans Client & Offline QR Scanner | Pembayaran online Snap API, timeout protection & verifikasi webhook SHA512 |
+| **WhatsApp Gateway** | `@whiskeysockets/baileys` Multi-Device | Koneksi socket WhatsApp, auto-responder, chat langsung admin 1h timeout |
+| **Email & Struk** | Resend / EmailJS + jsPDF & jsPDF-Autotable | Pengiriman email transaksional tersanitasi XSS & render struk PDF otomatis |
+| **Validasi & State** | Zod 3 + React Hook Form + Zustand 5 | Validasi runtime ketat, client MIME allowlist & global store multi-language |
+| **Keamanan & Rate Limit** | In-Memory Sliding Window + CSP Headers | Anti-clickjacking CSP frame-ancestors, open redirect guard, dan pembatasan 30 req/menit |
+| **Testing Suite** | Node.js Test Runner (`scripts/test-suite.mjs`) | Pengujian otomatis 76 skenario logika bisnis, matematika denda, Zod, dan bot lifecycle |
 
 ---
 
@@ -139,11 +146,11 @@ CRON_SECRET=random-super-secret-string-12345
 ---
 
 ### 6. Menjalankan Pengujian Otomatis (Automated Tests)
-Verifikasi logika bisnis, kalkulasi harga, denda keterlambatan, dan skema validasi:
+Verifikasi logika bisnis, kalkulasi harga, denda keterlambatan 8%, skema validasi Zod, resolusi JID/LID WhatsApp, dan timeout direct chat:
 ```bash
 npm test
 ```
-*Output yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 24 / 24 BERHASIL 100%`.*
+*Output yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 76 / 76 BERHASIL (100% PASS)`.*
 
 ---
 
@@ -157,7 +164,7 @@ Buka browser dan akses **[http://localhost:3000](http://localhost:3000)**.
 ---
 
 ### 8. (Opsional) Menjalankan WhatsApp Bot Engine
-Untuk mengaktifkan integrasi WhatsApp gateway Baileys Multi-Device:
+Untuk mengaktifkan integrasi WhatsApp gateway `@whiskeysockets/baileys` Multi-Device:
 ```bash
 # Menjalankan service WhatsApp bot
 npm run wa:bot
@@ -165,7 +172,7 @@ npm run wa:bot
 # Atau menjalankan pairing code langsung di terminal
 npm run wa:bot:pair
 ```
-Buka menu `/admin/whatsapp` di web untuk melihat QR code pairing dan status koneksi live.
+Buka menu `/admin/whatsapp` di web untuk melihat QR code pairing, status koneksi live, log pesan, dan status sesi chat langsung admin.
 
 ---
 
@@ -218,27 +225,27 @@ sequenceDiagram
 
 ```
 NekoStay/
-├── app/                  # Next.js App Router (44 Routes)
-│   ├── (auth)/           # Halaman Login, Register, Forgot Password
+├── app/                  # Next.js App Router (48 Routes Prerendered)
+│   ├── (auth)/           # Halaman Login, Register, Forgot Password (Turnstile Captcha)
 │   ├── (user)/           # Dashboard user, booking, profil, notifikasi
-│   ├── admin/            # Dashboard admin, scanner QR, laporan, reviews, whatsapp
-│   └── api/              # 30 REST API Route Handlers (hardened with Zod)
+│   ├── (admin)/          # Dashboard admin, scanner QR, laporan, reviews, whatsapp
+│   └── api/              # 31 REST API Route Handlers (hardened with Zod, RBAC, Rate-Limit)
 ├── components/           # Komponen React (UI, Form, Dialogs, Charts, Badges)
 ├── docs/                 # Dokumentasi Lengkap (C4, API Spec, Security Audit)
 │   ├── 00-INDEX.md       # Indeks dokumentasi utama
 │   ├── C4-ARCHITECTURE.md# Arsitektur sistem C4 Code-level
-│   ├── API-SPECIFICATION.md # Spesifikasi 30 REST API Endpoints
-│   └── SECURITY-AUDIT.md # Laporan audit keamanan OWASP Top 10
-├── hooks/                # Custom React & Zustand Hooks
+│   ├── API-SPECIFICATION.md # Spesifikasi 31 REST API Endpoints
+│   └── SECURITY-AUDIT.md # Laporan audit keamanan OWASP Top 10 & Hardening
+├── hooks/                # Custom React & Zustand Hooks (zero cascading renders)
 ├── lib/                  # Library utilitas (Supabase, Pricing, Response helpers)
 │   ├── constants/        # Enums, rates, dan JSDoc typedefs
 │   ├── supabase/         # Client browser, server, dan admin helpers
-│   ├── utils/            # Helper response.js, pricing.js, dates.js
+│   ├── utils/            # Helper response.js, pricing.js, dates.js, rate-limit.js
 │   └── validations/      # Zod validation schemas
 ├── public/               # File statis, logo, dan aset gambar
 ├── scripts/              # Automated Test Runner & WhatsApp Bot script
-│   ├── test-suite.mjs    # Node.js automated test runner (npm test)
-│   └── whatsapp-bot.mjs  # Lily-baileys WhatsApp gateway worker
+│   ├── test-suite.mjs    # Node.js automated test runner (76 skenario uji)
+│   └── whatsapp-bot.mjs  # @whiskeysockets/baileys WhatsApp gateway worker
 ├── supabase/             # Skema SQL, triggers, RLS, dan migrasi database
 │   └── schema.sql        # Skema lengkap Supabase PostgreSQL
 ├── package.json          # Manifest dependensi dan npm scripts
@@ -252,9 +259,13 @@ NekoStay/
 Proyek ini dibangun dengan standar keamanan modern:
 * **Row Level Security (RLS)** pada seluruh tabel database untuk menjamin isolasi data pengguna.
 * **Role-Based Access Control (RBAC)** dengan guard [`verifyAdmin()`](./lib/supabase/admin.js) dan [`verifyBookingAccess()`](./lib/supabase/admin.js).
-* **Verifikasi SHA512 Signature** pada seluruh notifikasi webhook Midtrans.
-* **Perlindungan Insecure Direct Object Reference (IDOR)** pada pengunduhan bukti transaksi PDF.
-* **Header Keamanan Browser**: CSP, HSTS, X-Frame-Options `DENY`, dan X-Content-Type-Options `nosniff`.
+* **Anti-Bot & Brute-Force Defense**: Cloudflare Turnstile Captcha diintegrasikan pada seluruh formulir autentikasi.
+* **Rate Limiting Sisi Server**: In-memory sliding window rate limiter (30 req/menit) pada endpoint publik verifikasi kupon & referral (`lib/utils/rate-limit.js`).
+* **Verifikasi SHA512 Signature** pada seluruh notifikasi webhook Midtrans dan timeout outbound API 10 detik (`AbortSignal.timeout`).
+* **Perlindungan Open Redirect**: Sanitasi path redirection pada auth callback Supabase (`sanitizeRedirectPath`).
+* **Validasi Tipe Konten File (MIME)**: Pengecekan ketat format gambar kucing client-side (`image/jpeg`, `image/png`, `image/webp`).
+* **Sanitasi Entitas HTML Email**: Context-aware HTML entity encoding (`escapeHtml`) di seluruh template email transaksional untuk mencegah injeksi XSS.
+* **Header Keamanan Browser**: Content-Security-Policy `frame-ancestors 'none'`, HSTS, X-Frame-Options `DENY`, Referrer-Policy `strict-origin-when-cross-origin`, dan X-Content-Type-Options `nosniff`.
 
 ---
 
