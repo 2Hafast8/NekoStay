@@ -66,6 +66,8 @@ import {
   setConversationSession,
   getConversationSession,
   checkAndExpireInactiveAdminChats,
+  isBotMessageEcho,
+  isUnfilledTemplate,
 } from "../lib/whatsapp/bot-service.js";
 
 let totalTests = 0;
@@ -527,6 +529,207 @@ Alasan: Liburan dimajukan 1 hari`;
       const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
       await supabase.from("whatsapp_logs").delete().eq("phone_number", testPhone);
       await supabase.from("notifications").delete().ilike("message", `%${testPhone}%`);
+    }
+  } catch (err) {
+    // Non-blocking cleanup
+  }
+});
+
+// -------------------------------------------------------------
+// 9. UNIT & INTEGRATION TEST: BOT COPY-PASTE ECHO & UNFILLED TEMPLATE PROTECTION
+// -------------------------------------------------------------
+await group("WhatsApp Bot Copy-Paste Echo & Template Protection", async () => {
+  const sampleMainMenu = `🐾 *Halo, Kak Fikri! Selamat datang di Layanan WhatsApp NekoStay Care* 🐱
+
+Ada yang bisa kami bantu terkait pesanan penitipan kucing Anda? Silakan balas dengan angka pilihan di bawah:
+
+1️⃣ *Ubah Jadwal* (Memajukan / Memundurkan tanggal menginap)
+2️⃣ *Ubah Kelas Kamar* (Ganti tipe kelas kamar kucing)
+3️⃣ *Chat dengan Admin* (Bicara langsung dengan Customer Service / Admin NekoStay)
+
+_Ketik angka *1*, *2*, atau *3* untuk memilih layanan._`;
+
+  const sampleScheduleMenu = `📅 *Layanan Perubahan Jadwal Penitipan*
+
+Silakan pilih jenis perubahan jadwal yang Anda inginkan:
+
+1️⃣ *Memajukan Jadwal* (Check-in lebih awal dari jadwal semula)
+2️⃣ *Memundurkan Jadwal* (Check-in lebih lambat / perpanjang jadwal)
+
+_Ketik angka *1* atau *2* untuk memilih._`;
+
+  const sampleClassMenu = `🏨 *Layanan Perubahan Kelas Kamar NekoStay*
+
+Berikut adalah daftar kelas kamar yang saat ini tersedia di NekoStay:
+
+1️⃣ *Standard Room* : Rp 80.000/hari
+2️⃣ *Deluxe Room* : Rp 120.000/hari
+3️⃣ *VIP Room* : Rp 180.000/hari
+
+_Silakan balas dengan angka pilihan kelas di atas (cth: ketik *1*, *2*, atau *3*) untuk mendapatkan format perubahan kelas._`;
+
+  const sampleUnfilledScheduleTemplate = `📝 *Template Formulir Memundurkan Jadwal*
+
+Silakan *SALIN / COPY* teks template di bawah ini, lalu isi datanya dan kirim kembali ke chat ini:
+
+-----------------------------------
+*Format Perubahan Jadwal NekoStay*
+• ID Booking: [Masukkan ID Booking Anda]
+• Nama Kucing: [Nama Kucing]
+• Jenis: Memundurkan Jadwal
+• Tanggal Check-In Baru: [cth: 10-09-2026]
+• Tanggal Check-Out Baru: [cth: 15-09-2026]
+• Alasan: [Alasan singkat perubahan]
+-----------------------------------
+
+💡 _Setelah pesan format terkirim, Admin NekoStay akan memproses penyesuaian jadwal secara manual di sistem._`;
+
+  const sampleUnfilledClassTemplate = `*Format Perubahan Kelas NekoStay*
+• ID Booking: [Masukkan ID Booking Anda]
+• Nama Kucing: [Nama Kucing]
+• Kelas Kamar Baru: Deluxe Room
+• Catatan Tambahan: [Catatan/Kebutuhan khusus kucing jika ada]`;
+
+  const sampleFilledScheduleTemplate = `*Format Perubahan Jadwal NekoStay*
+• ID Booking: 8e2b8281-9bdf-48c5-9279-9941a5fe0c23
+• Nama Kucing: Oyen
+• Jenis: Memundurkan Jadwal
+• Tanggal Check-In Baru: 15-09-2026
+• Tanggal Check-Out Baru: 20-09-2026
+• Alasan: Tiket penerbangan tertunda`;
+
+  // 1. Verifikasi fungsi isBotMessageEcho
+  assert(isBotMessageEcho(sampleMainMenu) === true, "isBotMessageEcho harus mendeteksi salinan Menu Utama bot");
+  assert(isBotMessageEcho(sampleScheduleMenu) === true, "isBotMessageEcho harus mendeteksi salinan Submenu Jadwal bot");
+  assert(isBotMessageEcho(sampleClassMenu) === true, "isBotMessageEcho harus mendeteksi salinan Submenu Kelas Kamar bot");
+  assert(isBotMessageEcho(sampleUnfilledScheduleTemplate) === true, "isBotMessageEcho harus mendeteksi template jadwal yang disalin utuh");
+  assert(isBotMessageEcho("1") === false, "isBotMessageEcho harus false untuk input angka '1'");
+  assert(isBotMessageEcho("2") === false, "isBotMessageEcho harus false untuk input angka '2'");
+  assert(isBotMessageEcho("3") === false, "isBotMessageEcho harus false untuk input angka '3'");
+  assert(isBotMessageEcho("ubah jadwal") === false, "isBotMessageEcho harus false untuk frasa 'ubah jadwal'");
+  assert(isBotMessageEcho("chat admin") === false, "isBotMessageEcho harus false untuk frasa 'chat admin'");
+  assert(isBotMessageEcho(sampleFilledScheduleTemplate) === false, "isBotMessageEcho harus false untuk template yang sudah diisi data asli");
+
+  // 2. Verifikasi fungsi isUnfilledTemplate
+  assert(isUnfilledTemplate(sampleUnfilledScheduleTemplate) === true, "isUnfilledTemplate harus mendeteksi template dengan placeholder bracket");
+  assert(isUnfilledTemplate(sampleUnfilledClassTemplate) === true, "isUnfilledTemplate harus mendeteksi template kelas dengan placeholder");
+  assert(isUnfilledTemplate(sampleFilledScheduleTemplate) === false, "isUnfilledTemplate harus false jika data sudah diisi tanpa bracket");
+
+  // 3. Pengujian Interaksi Nyata: Pengguna Mengirim Salinan Menu Utama
+  const echoTestPhone = "628999999002";
+  const echoTestName = "Budi Santoso";
+
+  // Langkah 1: Sesi baru, kirim salam
+  await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: "Halo NekoStay",
+  });
+  let session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_MAIN_CHOICE, "Sesi harus berada dalam status AWAITING_MAIN_CHOICE");
+
+  // Langkah 2: Pengguna meng-copy paste SEMUA teks Menu Utama
+  const echoMenuReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleMainMenu,
+  });
+  assert(typeof echoMenuReply === "string", "Balasan echo menu harus berupa string");
+  assert(echoMenuReply.includes("Pesan Terdeteksi Hasil Salinan"), "Bot harus memberikan peringatan bahwa pesan terdeteksi salinan menu");
+  assert(!echoMenuReply.includes("Layanan Perubahan Jadwal Penitipan"), "Bot TIDAK BOLEH salah lompat ke Ubah Jadwal saat menu di-paste");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_MAIN_CHOICE, "Status sesi harus tetap AWAITING_MAIN_CHOICE");
+
+  // Langkah 3: Pengguna mengetik angka 1 yang valid
+  const scheduleReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: "1",
+  });
+  assert(scheduleReply.includes("Layanan Perubahan Jadwal Penitipan"), "Input '1' harus membuka Submenu Jadwal");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_SCHEDULE_TYPE, "Status sesi harus AWAITING_SCHEDULE_TYPE");
+
+  // Langkah 4: Pengguna meng-copy paste SEMUA teks Submenu Jadwal
+  const echoScheduleReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleScheduleMenu,
+  });
+  assert(echoScheduleReply.includes("Pesan Terdeteksi Hasil Salinan"), "Bot harus memberikan panduan saat submenu jadwal di-paste");
+  assert(!echoScheduleReply.includes("Template Formulir"), "Bot TIDAK BOLEH langsung memilih Memundurkan Jadwal saat submenu di-paste");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_SCHEDULE_TYPE, "Status sesi harus tetap AWAITING_SCHEDULE_TYPE");
+
+  // Langkah 5: Pengguna memilih '2' (Memundurkan Jadwal)
+  const templatePromptReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: "2",
+  });
+  assert(templatePromptReply.includes("Template Formulir Memundurkan Jadwal"), "Pilihan '2' harus memberikan template formulir");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_SCHEDULE_SUBMISSION, "Status sesi harus AWAITING_SCHEDULE_SUBMISSION");
+
+  // Langkah 6: Pengguna meng-copy paste template TANPA mengisi datanya (masih ada [Masukkan ID Booking Anda])
+  const unfilledRejectReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleUnfilledScheduleTemplate,
+  });
+  assert(unfilledRejectReply.includes("Formulir Belum Diisi dengan Benar"), "Bot harus menolak template yang belum diganti datanya");
+  assert(unfilledRejectReply.includes("placeholder kurung siku"), "Peringatan harus menyebutkan kurung siku placeholder");
+
+  // Langkah 7: Pengguna mengirim template yang sudah diisi data valid
+  const filledAcceptReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleFilledScheduleTemplate,
+  });
+  assert(filledAcceptReply.includes("Pengajuan Ubah Jadwal Anda Telah Diterima"), "Template dengan data valid harus diterima");
+  assert(filledAcceptReply.includes("Oyen"), "Balasan konfirmasi harus memuat nama kucing 'Oyen'");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.IDLE, "Setelah pengajuan selesai, sesi kembali ke IDLE");
+
+  // Langkah 8: Pengujian Submenu Kelas Kamar yang di-copy paste
+  setConversationSession(echoTestPhone, {
+    state: BOT_FLOW_STATES.AWAITING_CLASS_TYPE,
+    data: {},
+  });
+  const echoClassReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleClassMenu,
+  });
+  assert(echoClassReply.includes("Pesan Terdeteksi Hasil Salinan"), "Bot harus menolak salinan menu kelas");
+  assert(!echoClassReply.includes("Template Formulir Ubah Kelas Kamar (Standard Room)"), "Bot TIDAK BOLEH auto-select Standard Room saat daftar kelas di-paste");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.AWAITING_CLASS_TYPE, "Status sesi harus tetap AWAITING_CLASS_TYPE");
+
+  // Langkah 9: Pengujian Copy-Paste saat berada dalam Mode Chat Admin
+  setConversationSession(echoTestPhone, {
+    state: BOT_FLOW_STATES.CHAT_WITH_ADMIN,
+    lastActivityAt: Date.now(),
+    data: {},
+  });
+  const adminEchoReply = await processIncomingWhatsAppMessage({
+    phoneNumber: echoTestPhone,
+    senderName: echoTestName,
+    messageText: sampleMainMenu,
+  });
+  assert(adminEchoReply === null, "Copy-paste bot text saat dalam mode Admin Chat harus tetap hening (return null)");
+  session = getConversationSession(echoTestPhone);
+  assert(session?.state === BOT_FLOW_STATES.CHAT_WITH_ADMIN, "Sesi harus tetap berada dalam mode CHAT_WITH_ADMIN");
+
+  // Pembersihan testing log
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+      await supabase.from("whatsapp_logs").delete().eq("phone_number", echoTestPhone);
+      await supabase.from("notifications").delete().ilike("message", `%${echoTestPhone}%`);
     }
   } catch (err) {
     // Non-blocking cleanup

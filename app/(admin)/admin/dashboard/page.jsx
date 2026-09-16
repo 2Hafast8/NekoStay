@@ -378,7 +378,7 @@ function DashboardContent() {
 
   if (!isMounted) {
     return (
-      <div className="space-y-8 animate-pulse p-4 sm:p-6 bg-background dark:bg-zinc-950 min-h-screen">
+      <div className="space-y-8 animate-pulse pb-12">
         <div className="h-8 bg-muted dark:bg-zinc-800/60 rounded-xl w-48 mb-4" />
         <div className="h-6 bg-muted dark:bg-zinc-800/60 rounded-xl w-96 mb-8" />
         <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
@@ -391,7 +391,7 @@ function DashboardContent() {
   }
 
   return (
-    <div className="space-y-8 bg-background dark:bg-zinc-950 p-4 sm:p-6 transition-colors duration-300">
+    <div className="space-y-8 pb-12">
       <GsapDashboardCurveUnveil />
       {/* Scan Token Modal */}
       {scanModal && (
@@ -573,76 +573,106 @@ function DashboardContent() {
       {/* Analytics Charts */}
       <div ref={chartsRef} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Revenue Chart */}
-        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4">
+        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4 min-w-0">
           <h3 className="font-bold text-foreground dark:text-zinc-200 text-base border-b border-border/60 dark:border-zinc-800/60 pb-2">
             {t("admin_db_chart_trend")}
           </h3>
-          <div className="h-[280px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-zinc-800" />
-                <XAxis dataKey="name" tick={{fontSize: 11}} tickLine={false} axisLine={false} />
-                <YAxis tick={{fontSize: 11}} tickLine={false} axisLine={false} tickFormatter={(val) => `Rp ${val/1000}k`} width={60}/>
-                <RechartsTooltip 
-                  formatter={(value) => [formatRupiah(value), t("admin_db_chart_revenue")]}
-                  contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                  cursor={{ fill: 'transparent' }}
-                />
-                <Bar dataKey="revenue" name={t("admin_db_chart_revenue")} fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-[280px] w-full min-w-0 pt-4">
+            {isMounted ? (
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth={0}
+                minHeight={0}
+                initialDimension={{ width: 500, height: 280 }}
+              >
+                <BarChart data={revenueData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-zinc-800" />
+                  <XAxis dataKey="name" tick={{fontSize: 11}} tickLine={false} axisLine={false} />
+                  <YAxis tick={{fontSize: 11}} tickLine={false} axisLine={false} tickFormatter={(val) => `Rp ${val/1000}k`} width={60}/>
+                  <RechartsTooltip 
+                    formatter={(value) => [formatRupiah(value), t("admin_db_chart_revenue")]}
+                    contentStyle={{ borderRadius: "12px", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                    cursor={{ fill: 'transparent' }}
+                  />
+                  <Bar dataKey="revenue" name={t("admin_db_chart_revenue")} fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full min-h-[280px] bg-muted/20 animate-pulse rounded-2xl" />
+            )}
           </div>
         </div>
 
         {/* Donut Charts (Class & Status) */}
-        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4 flex flex-col">
+        <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4 flex flex-col min-w-0">
           <h3 className="font-bold text-foreground dark:text-zinc-200 text-base border-b border-border/60 dark:border-zinc-800/60 pb-2">
             {t("admin_db_chart_dist")}
           </h3>
-          <div className="flex-1 flex flex-col sm:flex-row items-center justify-around pt-2">
+          <div className="flex-1 min-w-0 flex flex-col sm:flex-row items-center justify-around pt-2">
             
-            <div className="h-48 w-full sm:w-1/2">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={classData.filter(d => d.value > 0)}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {classData.filter(d => d.value > 0).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-48 w-full sm:w-1/2 min-w-0">
+              {isMounted ? (
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  minHeight={0}
+                  initialDimension={{ width: 220, height: 192 }}
+                >
+                  <PieChart>
+                    <Pie
+                      data={classData.filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {classData.filter(d => d.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full min-h-[192px] bg-muted/20 animate-pulse rounded-2xl" />
+              )}
             </div>
 
-            <div className="h-48 w-full sm:w-1/2 mt-8 sm:mt-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusData.filter(d => d.value > 0)}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {statusData.filter(d => d.value > 0).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-48 w-full sm:w-1/2 min-w-0 mt-8 sm:mt-0">
+              {isMounted ? (
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={0}
+                  minHeight={0}
+                  initialDimension={{ width: 220, height: 192 }}
+                >
+                  <PieChart>
+                    <Pie
+                      data={statusData.filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {statusData.filter(d => d.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full min-h-[192px] bg-muted/20 animate-pulse rounded-2xl" />
+              )}
             </div>
 
           </div>

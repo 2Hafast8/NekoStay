@@ -433,9 +433,12 @@ export default function LandingPage() {
     <div id="smooth-wrapper">
       <div id="smooth-content" className="flex flex-col min-h-screen bg-background dark:bg-zinc-950 transition-colors duration-300">
         <GsapBentoGallery images={bentoImages} />
-        <header className="sticky top-0 z-40">
-          <Navbar />
-        </header>
+
+        {/* Main Page Content - Solid background and z-30 to isolate from Bento and prevent background bleed-through */}
+        <div className="relative z-30 w-full bg-background dark:bg-zinc-950">
+          <header className="sticky top-0 z-40">
+            <Navbar />
+          </header>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-16 sm:pb-24 lg:pt-32 lg:pb-32 bg-linear-to-b from-secondary/40 via-background to-background dark:from-zinc-900/20 dark:via-zinc-950 dark:to-zinc-950">
@@ -924,6 +927,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+        </div>
       </div>
     </div>
   );

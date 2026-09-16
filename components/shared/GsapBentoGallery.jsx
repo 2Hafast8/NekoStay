@@ -134,8 +134,19 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
                   });
                 }
               }
+
+              if (wrapRef.current && self.progress < 1 && wrapRef.current.style.opacity !== "1") {
+                wrapRef.current.style.opacity = "1";
+              }
             },
             onLeave: () => {
+              if (wrapRef.current) {
+                gsap.to(wrapRef.current, {
+                  opacity: 0,
+                  duration: 0.25,
+                  ease: "power2.out",
+                });
+              }
               const navbar = document.querySelector("header");
               if (navbar)
                 gsap.to(navbar, {
@@ -145,7 +156,23 @@ export function GsapBentoGallery({ images = DEFAULT_BENTO_IMAGES }) {
                   ease: "power2.out",
                 });
             },
+            onEnterBack: () => {
+              if (wrapRef.current) {
+                gsap.to(wrapRef.current, {
+                  opacity: 1,
+                  duration: 0.25,
+                  ease: "power2.out",
+                });
+              }
+            },
             onLeaveBack: () => {
+              if (wrapRef.current) {
+                gsap.to(wrapRef.current, {
+                  opacity: 1,
+                  duration: 0.25,
+                  ease: "power2.out",
+                });
+              }
               const navbar = document.querySelector("header");
               if (navbar)
                 gsap.to(navbar, {
