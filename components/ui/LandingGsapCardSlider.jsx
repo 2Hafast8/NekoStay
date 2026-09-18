@@ -4,12 +4,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { gsap } from "gsap";
 
-export function GsapCardSlider({
+/**
+ * LandingGsapCardSlider
+ * Slider khusus landing page: dioptimalkan untuk ukuran kartu kamar/layanan yang besar
+ * dengan ruang vertikal (padding dan stageHeight) luas agar badge popular (-top-3.5),
+ * gambar, daftar fasilitas, dan tombol CTA tidak terpotong.
+ */
+export function LandingGsapCardSlider({
   items = [],
   renderItem,
   className = "",
-  stageHeight = "min-h-[580px] sm:min-h-[640px]",
-  cardWidth = "w-[85%] max-w-[320px] sm:max-w-[360px] md:max-w-[380px]",
+  stageHeight = "min-h-[860px] sm:min-h-[620px]",
+  cardWidth = "w-[88%] max-w-[320px] sm:max-w-[360px]",
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
@@ -22,13 +28,11 @@ export function GsapCardSlider({
   const updateCardPositions = useCallback(() => {
     if (!cardsRef.current || total === 0) return;
 
-    cardsRef.current.slice(0, total).forEach((card, index) => {
+    cardsRef.current.forEach((card, index) => {
       if (!card) return;
 
-      // Calculate distance relative to activeIndex considering wrapping
       let diff = index - activeIndex;
 
-      // Normalize diff for circular loop if total > 2
       if (total > 2) {
         if (diff > total / 2) diff -= total;
         if (diff < -total / 2) diff += total;
@@ -37,13 +41,12 @@ export function GsapCardSlider({
       const isActive = diff === 0;
 
       let xPercent = 0;
-      let scale = 0.82;
-      let opacity = 0.3;
+      let scale = 0.84;
+      let opacity = 0.35;
       let zIndex = 1;
 
-      // Responsive X offset based on viewport width
       const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-      const sideOffset = isMobile ? 88 : 105;
+      const sideOffset = isMobile ? 90 : 108;
       const farOffset = isMobile ? 180 : 210;
 
       if (isActive) {
@@ -53,22 +56,22 @@ export function GsapCardSlider({
         zIndex = 30;
       } else if (diff === 1) {
         xPercent = sideOffset;
-        scale = 0.86;
-        opacity = 0.55;
+        scale = 0.88;
+        opacity = 0.6;
         zIndex = 10;
       } else if (diff === -1) {
         xPercent = -sideOffset;
-        scale = 0.86;
-        opacity = 0.55;
+        scale = 0.88;
+        opacity = 0.6;
         zIndex = 10;
       } else if (diff > 1) {
         xPercent = farOffset;
-        scale = 0.72;
+        scale = 0.75;
         opacity = 0;
         zIndex = 1;
       } else if (diff < -1) {
         xPercent = -farOffset;
-        scale = 0.72;
+        scale = 0.75;
         opacity = 0;
         zIndex = 1;
       }
@@ -78,25 +81,17 @@ export function GsapCardSlider({
         scale,
         opacity,
         zIndex,
-        duration: 0.45,
+        duration: 0.5,
         ease: "power2.out",
         overwrite: "auto",
       });
     });
   }, [activeIndex, total]);
 
-  // Clamp activeIndex when total changes
-  useEffect(() => {
-    if (activeIndex >= total && total > 0) {
-      setActiveIndex(0);
-    }
-  }, [total, activeIndex]);
-
   useEffect(() => {
     updateCardPositions();
   }, [activeIndex, updateCardPositions]);
 
-  // Recalculate on window resize
   useEffect(() => {
     const handleResize = () => updateCardPositions();
     window.addEventListener("resize", handleResize);
@@ -111,7 +106,6 @@ export function GsapCardSlider({
     setActiveIndex((prev) => (prev - 1 + total) % total);
   };
 
-  // Touch / Drag Navigation Handlers
   const handleTouchStart = (e) => {
     dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
     isDragging.current = true;
@@ -133,8 +127,8 @@ export function GsapCardSlider({
   if (total === 0) return null;
 
   return (
-    <div className={`relative w-full overflow-hidden py-1.5 select-none ${className}`}>
-      {/* Slider Stage Container */}
+    <div className={`relative w-full overflow-hidden pt-10 pb-8 select-none ${className}`}>
+      {/* Slider Stage Container dengan ruang bebas untuk badge melayang dan bayangan */}
       <div
         ref={containerRef}
         onTouchStart={handleTouchStart}
@@ -160,27 +154,27 @@ export function GsapCardSlider({
 
       {/* Navigation Controls: Prev / Next Buttons & Indicators */}
       {total > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-2.5">
+        <div className="flex items-center justify-center gap-4 mt-6 sm:mt-8">
           <button
             type="button"
             onClick={handlePrev}
             aria-label="Previous Slide"
-            className="p-1.5 rounded-full bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs active:scale-95 cursor-pointer"
+            className="p-3 rounded-full bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-primary hover:text-primary-foreground transition-all shadow-md active:scale-95 cursor-pointer"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
 
           {/* Dots Indicator */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {items.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => setActiveIndex(idx)}
-                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
                   idx === activeIndex
-                    ? "w-6 bg-primary shadow-xs shadow-primary/30"
-                    : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                    ? "w-8 bg-primary shadow-xs shadow-primary/30"
+                    : "w-2.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
                 }`}
               />
             ))}
@@ -190,12 +184,13 @@ export function GsapCardSlider({
             type="button"
             onClick={handleNext}
             aria-label="Next Slide"
-            className="p-1.5 rounded-full bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs active:scale-95 cursor-pointer"
+            className="p-3 rounded-full bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 text-foreground dark:text-zinc-200 hover:bg-primary hover:text-primary-foreground transition-all shadow-md active:scale-95 cursor-pointer"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       )}
     </div>
   );
 }
+

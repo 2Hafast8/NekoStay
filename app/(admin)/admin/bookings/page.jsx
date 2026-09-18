@@ -37,10 +37,12 @@ import {
   DollarSign,
   AlertCircle,
   Eye,
+  FileText,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { AdminBookingNotesQuickModal } from "@/components/admin/AdminBookingNotesQuickModal";
 import { toast } from "sonner";
 import { formatRupiah } from "@/lib/utils/format";
 import { formatDate } from "@/lib/utils/dates";
@@ -229,6 +231,7 @@ export default function AdminBookingsPage() {
   const [isBulkRejectOpen, setIsBulkRejectOpen] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'grid'
   const itemsPerPage = 10;
+  const [quickNotesBooking, setQuickNotesBooking] = useState(null);
 
   // Monthly / Yearly filter states (defaults to current month and year)
   const currentDate = new Date();
@@ -325,7 +328,8 @@ export default function AdminBookingsPage() {
     try {
       let query = supabase.from("bookings").select(`
           *,
-          profiles:user_id (full_name, phone)
+          profiles:user_id (full_name, phone),
+          booking_admin_notes (id, category, content, is_pinned, created_at, profiles:admin_id(id, full_name, role))
         `);
 
       if (selectedMonth !== "all" && selectedYear !== "all") {
@@ -388,6 +392,13 @@ export default function AdminBookingsPage() {
           triggerDebouncedReload();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "booking_admin_notes" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
       .subscribe();
 
     const handleVisibilityChange = () => {
@@ -403,6 +414,16 @@ export default function AdminBookingsPage() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [fetchAllBookings, supabase]);
+
+  // Keep quickNotesBooking updated if bookings change while modal is open
+  useEffect(() => {
+    if (quickNotesBooking?.id) {
+      const freshBooking = bookings.find((b) => b.id === quickNotesBooking.id);
+      if (freshBooking && freshBooking !== quickNotesBooking) {
+        setQuickNotesBooking(freshBooking);
+      }
+    }
+  }, [bookings, quickNotesBooking?.id]);
 
   // Executive KPI stats calculation
   const stats = useMemo(() => {
@@ -1483,6 +1504,8 @@ export default function AdminBookingsPage() {
                     b.cat_name,
                     b.profiles?.full_name
                   );
+                  const pinnedNote = b.booking_admin_notes?.find((n) => n.is_pinned);
+                  const notesCount = b.booking_admin_notes?.length || 0;
 
                   return (
                     <div
@@ -1545,6 +1568,37 @@ export default function AdminBookingsPage() {
                             </a>
                           )}
                         </div>
+
+                        {/* Sticky Alert / Note Indicator in Grid */}
+                        {pinnedNote ? (
+                          <div
+                            onClick={() => setQuickNotesBooking(b)}
+                            className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2 cursor-pointer hover:bg-rose-500/15 transition-all text-xs group"
+                            title="Klik untuk membuka catatan internal admin"
+                          >
+                            <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                                Peringatan Kritis
+                              </span>
+                              <p className="font-bold text-foreground line-clamp-2 text-[11px] mt-0.5 group-hover:text-primary transition-colors">
+                                {pinnedNote.content}
+                              </p>
+                            </div>
+                          </div>
+                        ) : notesCount > 0 ? (
+                          <div
+                            onClick={() => setQuickNotesBooking(b)}
+                            className="p-2 rounded-xl bg-muted/40 hover:bg-muted border border-border/60 flex items-center justify-between gap-2 cursor-pointer text-xs transition-all group"
+                            title="Klik untuk membuka catatan internal admin"
+                          >
+                            <span className="inline-flex items-center gap-1.5 font-medium text-foreground text-[11px] group-hover:text-primary transition-colors">
+                              <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span>{notesCount} Catatan Admin</span>
+                            </span>
+                            <span className="text-[10px] font-bold text-primary">Lihat</span>
+                          </div>
+                        ) : null}
 
                         {/* Room & Schedule breakdown */}
                         <div className="space-y-2 border-t border-b border-border/60 py-3 text-xs text-muted-foreground">
@@ -1620,6 +1674,16 @@ export default function AdminBookingsPage() {
                         >
                           Detail
                         </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => setQuickNotesBooking(b)}
+                          className="px-2.5 py-2 border border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-bold rounded-xl transition-all text-center text-foreground flex items-center justify-center gap-1 cursor-pointer"
+                          title="Buka Catatan Internal Tim"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-primary" />
+                          <span>{notesCount > 0 ? notesCount : "+"}</span>
+                        </button>
 
                         {b.status === "Menunggu" && (
                           <>
@@ -1698,6 +1762,8 @@ export default function AdminBookingsPage() {
                           b.cat_name,
                           b.profiles?.full_name
                         );
+                        const pinnedNote = b.booking_admin_notes?.find((n) => n.is_pinned);
+                        const notesCount = b.booking_admin_notes?.length || 0;
 
                         return (
                           <tr
@@ -1757,6 +1823,18 @@ export default function AdminBookingsPage() {
                                       </a>
                                     )}
                                   </div>
+
+                                  {pinnedNote && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setQuickNotesBooking(b)}
+                                      className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 text-[10px] font-extrabold cursor-pointer hover:bg-rose-500/25 transition-all max-w-[220px] text-left group"
+                                      title={`Peringatan Kritis: ${pinnedNote.content}`}
+                                    >
+                                      <AlertTriangle className="w-3 h-3 shrink-0 text-rose-600 dark:text-rose-400" />
+                                      <span className="truncate">{pinnedNote.content}</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1830,6 +1908,16 @@ export default function AdminBookingsPage() {
                                   Detail
                                 </Link>
 
+                                <button
+                                  type="button"
+                                  onClick={() => setQuickNotesBooking(b)}
+                                  className="px-2.5 py-1.5 border border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-bold rounded-xl transition-all text-foreground inline-flex items-center gap-1 cursor-pointer"
+                                  title="Buka Catatan Internal Tim"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-primary" />
+                                  <span>{notesCount > 0 ? notesCount : "+"}</span>
+                                </button>
+
                                 {b.status === "Menunggu" && (
                                   <>
                                     <button
@@ -1882,6 +1970,8 @@ export default function AdminBookingsPage() {
                     b.cat_name,
                     b.profiles?.full_name
                   );
+                  const pinnedNote = b.booking_admin_notes?.find((n) => n.is_pinned);
+                  const notesCount = b.booking_admin_notes?.length || 0;
 
                   return (
                     <div
@@ -1927,6 +2017,37 @@ export default function AdminBookingsPage() {
                           </a>
                         )}
                       </div>
+
+                      {/* Sticky Alert / Note Indicator in Mobile Card */}
+                      {pinnedNote ? (
+                        <div
+                          onClick={() => setQuickNotesBooking(b)}
+                          className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2 cursor-pointer hover:bg-rose-500/15 transition-all text-xs group"
+                          title="Klik untuk membuka catatan internal admin"
+                        >
+                          <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                              Peringatan Kritis
+                            </span>
+                            <p className="font-bold text-foreground line-clamp-2 text-[11px] mt-0.5 group-hover:text-primary transition-colors">
+                              {pinnedNote.content}
+                            </p>
+                          </div>
+                        </div>
+                      ) : notesCount > 0 ? (
+                        <div
+                          onClick={() => setQuickNotesBooking(b)}
+                          className="p-2 rounded-xl bg-muted/40 hover:bg-muted border border-border/60 flex items-center justify-between gap-2 cursor-pointer text-xs transition-all group"
+                          title="Klik untuk membuka catatan internal admin"
+                        >
+                          <span className="inline-flex items-center gap-1.5 font-medium text-foreground text-[11px] group-hover:text-primary transition-colors">
+                            <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span>{notesCount} Catatan Admin</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-primary">Lihat</span>
+                        </div>
+                      ) : null}
 
                       {/* Details */}
                       <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground border-t border-b border-border/60 py-3">
@@ -1995,6 +2116,16 @@ export default function AdminBookingsPage() {
                         >
                           Detail
                         </Link>
+
+                        <button
+                          type="button"
+                          onClick={() => setQuickNotesBooking(b)}
+                          className="px-3 py-2 border border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-bold rounded-xl text-center text-foreground flex items-center justify-center gap-1 cursor-pointer"
+                          title="Buka Catatan Internal Tim"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-primary" />
+                          <span>{notesCount > 0 ? notesCount : "+"}</span>
+                        </button>
 
                         {b.status === "Menunggu" && (
                           <>
@@ -2379,6 +2510,15 @@ export default function AdminBookingsPage() {
         onConfirm={handleAutoRejectWaiting}
         onCancel={() => setIsAutoRejectConfirmOpen(false)}
       />
+
+      {/* QUICK ADMIN NOTES MODAL (Option 5) */}
+      <AdminBookingNotesQuickModal
+        isOpen={Boolean(quickNotesBooking)}
+        booking={quickNotesBooking}
+        onClose={() => setQuickNotesBooking(null)}
+        onNotesUpdated={fetchAllBookings}
+      />
     </div>
   );
 }
+

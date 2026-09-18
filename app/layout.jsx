@@ -54,19 +54,52 @@ export const metadata = {
     images: [`${siteUrl}/og-banner.jpg`],
   },
 
-  // Favicon & Icon
+  // Favicon & Icons (Logo Tab, Google Search Icon, Apple Touch)
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
     shortcut: "/favicon.ico",
-    apple: "/favicon.ico",
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+
+  // Chrome Web App / PWA manifest
+  manifest: "/site.webmanifest",
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NekoStay",
   },
 
   metadataBase: new URL(siteUrl),
 };
 
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "NekoStay",
+  url: siteUrl,
+  logo: `${siteUrl}/android-chrome-512x512.png`,
+  image: `${siteUrl}/og-banner.jpg`,
+  description:
+    "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="id" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      </head>
       <body
         className="antialiased min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-white transition-colors duration-300"
         suppressHydrationWarning

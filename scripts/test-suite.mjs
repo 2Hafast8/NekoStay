@@ -48,6 +48,7 @@ import {
   scanOfflineSchema,
   editBookingSchema,
   offlineQrSchema,
+  adminBookingNoteSchema,
 } from "../lib/validations/booking.js";
 import {
   apiSuccess,
@@ -239,7 +240,49 @@ group("Zod Validation Schemas", () => {
     bookingId: "invalid-uuid-format",
   });
   assert(invalidOfflineQr.success === false, "offlineQrSchema dengan bookingId bukan UUID harus ditolak");
+
+  // Option 5: Multi-Admin Internal Notes & Sticky Alerts
+  const validUrgentNote = adminBookingNoteSchema.safeParse({
+    booking_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    category: "urgent",
+    content: "Kucing memiliki alergi ikan laut! Hanya berikan pakan khusus hypoallergenic.",
+    is_pinned: true,
+  });
+  assert(validUrgentNote.success === true, "Catatan kritis tersemat (urgent + is_pinned) harus lolos validasi");
+
+  const validMedicalNote = adminBookingNoteSchema.safeParse({
+    booking_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    category: "medical",
+    content: "Obat antibiotik diberikan setiap 12 jam setelah makan.",
+    is_pinned: false,
+  });
+  assert(validMedicalNote.success === true, "Catatan medis valid harus lolos validasi");
+
+  const validShiftNote = adminBookingNoteSchema.safeParse({
+    category: "shift_handoff",
+    content: "Shift pagi selesai. Kucing sudah makan dan litterbox bersih.",
+  });
+  assert(validShiftNote.success === true, "Catatan serah terima shift tanpa explicit is_pinned (default false) harus lolos");
+
+  const invalidCatNote = adminBookingNoteSchema.safeParse({
+    category: "invalid_category",
+    content: "Test catatan",
+  });
+  assert(invalidCatNote.success === false, "Kategori yang tidak dikenal harus ditolak oleh schema");
+
+  const emptyContentNote = adminBookingNoteSchema.safeParse({
+    category: "general",
+    content: "   ",
+  });
+  assert(emptyContentNote.success === false, "Konten catatan kosong/whitespace harus ditolak oleh schema");
+
+  const tooLongNote = adminBookingNoteSchema.safeParse({
+    category: "general",
+    content: "A".repeat(1001),
+  });
+  assert(tooLongNote.success === false, "Konten catatan melebihi 1000 karakter harus ditolak");
 });
+
 
 // -------------------------------------------------------------
 // 4. UNIT TEST: STANDARDIZED API RESPONSES

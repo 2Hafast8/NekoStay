@@ -12,7 +12,7 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
 import { useGsapSmoothScroll } from "@/hooks/useGsapSmoothScroll";
-import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
+import { LandingGsapCardSlider } from "@/components/ui/LandingGsapCardSlider";
 import { GsapReviewSlider } from "@/components/shared/GsapReviewSlider";
 import { GsapBentoGallery, DEFAULT_BENTO_IMAGES } from "@/components/shared/GsapBentoGallery";
 
@@ -647,8 +647,8 @@ export default function LandingPage() {
           </div>
 
           <div ref={pricingRef}>
-            <GsapCardSlider
-              stageHeight="min-h-[840px] sm:min-h-[580px]"
+            <LandingGsapCardSlider
+              stageHeight="min-h-[860px] sm:min-h-[620px]"
               cardWidth="w-[88%] max-w-[320px] sm:max-w-[360px]"
               items={
                 dbClasses && dbClasses.length > 0

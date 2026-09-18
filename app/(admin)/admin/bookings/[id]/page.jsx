@@ -50,6 +50,8 @@ import {
 import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { toast } from "sonner";
+import { AdminBookingStickyAlert } from "@/components/admin/AdminBookingStickyAlert";
+import { AdminBookingNotesTimeline } from "@/components/admin/AdminBookingNotesTimeline";
 
 export default function AdminBookingDetailPage({ params }) {
   const { id } = use(params);
@@ -81,10 +83,9 @@ export default function AdminBookingDetailPage({ params }) {
   const [editCheckOut, setEditCheckOut] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Admin Notes States
-  const [adminNotes, setAdminNotes] = useState("");
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
-  const [notesSaveMsg, setNotesSaveMsg] = useState(null);
+  // Admin Notes States (Multi-admin activity feed & sticky alerts)
+  const [adminNotesList, setAdminNotesList] = useState([]);
+  const [isNotesActionLoading, setIsNotesActionLoading] = useState(false);
 
   // Payment Status States
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
@@ -97,7 +98,6 @@ export default function AdminBookingDetailPage({ params }) {
   useAutoDismiss(errorMsg, setErrorMsg);
   useAutoDismiss(replySuccess, setReplySuccess);
   useAutoDismiss(reportSuccess, setReportSuccess);
-  useAutoDismiss(notesSaveMsg, setNotesSaveMsg);
   useAutoDismiss(resendReceiptMsg, setResendReceiptMsg);
 
   const supabase = createClient();
@@ -120,7 +120,6 @@ export default function AdminBookingDetailPage({ params }) {
       setEditClass(data.class);
       setEditCheckIn(data.check_in_date);
       setEditCheckOut(data.check_out_date);
-      setAdminNotes(data.admin_notes || "");
 
       // Fetch dynamic room classes
       const { data: classList } = await supabase
@@ -141,6 +140,17 @@ export default function AdminBookingDetailPage({ params }) {
 
       if (reportsData) {
         setReports(reportsData);
+      }
+
+      // Fetch admin notes
+      const { data: notesData } = await supabase
+        .from("booking_admin_notes")
+        .select("*, profiles:admin_id(id, full_name, role)")
+        .eq("booking_id", id)
+        .order("created_at", { ascending: false });
+
+      if (notesData) {
+        setAdminNotesList(notesData);
       }
 
       // Fetch review
@@ -195,6 +205,13 @@ export default function AdminBookingDetailPage({ params }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reviews", filter: `booking_id=eq.${id}` },
+        () => {
+          triggerDebouncedReload();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "booking_admin_notes", filter: `booking_id=eq.${id}` },
         () => {
           triggerDebouncedReload();
         },
@@ -333,28 +350,65 @@ export default function AdminBookingDetailPage({ params }) {
     }
   };
 
-  // Handle admin notes submission
-  const handleSaveAdminNotes = async () => {
-    setIsSavingNotes(true);
-    setNotesSaveMsg(null);
+  // Multi-Admin Notes Handlers (Option 5: Sticky Alert Banner + Activity Feed)
+  const handleCreateAdminNote = async ({ category, content, isPinned }) => {
+    setIsNotesActionLoading(true);
     try {
-      const { error } = await supabase
-        .from("bookings")
-        .update({ admin_notes: adminNotes })
-        .eq("id", id);
+      const res = await fetch(`/api/bookings/${id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, content, is_pinned: isPinned }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan catatan.");
 
-      if (error) throw error;
-      setNotesSaveMsg("Catatan admin berhasil disimpan!");
-      toast.success("Catatan admin berhasil disimpan!");
-      setTimeout(() => setNotesSaveMsg(null), 3000);
+      toast.success("Catatan admin berhasil ditambahkan!");
+      await loadBookingDetails();
     } catch (err) {
-      console.error("Error saving admin notes:", err);
-      setErrorMsg("Gagal menyimpan catatan admin.");
-      toast.error("Gagal menyimpan catatan admin.");
+      toast.error(err.message || "Gagal menyimpan catatan.");
     } finally {
-      setIsSavingNotes(false);
+      setIsNotesActionLoading(false);
     }
   };
+
+  const handleTogglePinNote = async (noteId, currentPin) => {
+    setIsNotesActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${id}/notes/${noteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: !currentPin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal mengubah status sematan.");
+
+      toast.success(!currentPin ? "Catatan disematkan ke banner kritis!" : "Sematan catatan dilepas.");
+      await loadBookingDetails();
+    } catch (err) {
+      toast.error(err.message || "Gagal mengubah status sematan.");
+    } finally {
+      setIsNotesActionLoading(false);
+    }
+  };
+
+  const handleDeleteAdminNote = async (noteId) => {
+    setIsNotesActionLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${id}/notes/${noteId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menghapus catatan.");
+
+      toast.success("Catatan admin berhasil dihapus.");
+      await loadBookingDetails();
+    } catch (err) {
+      toast.error(err.message || "Gagal menghapus catatan.");
+    } finally {
+      setIsNotesActionLoading(false);
+    }
+  };
+
 
   // Handle payment status toggle
   const handlePaymentStatusChange = async (newStatus) => {
@@ -438,6 +492,8 @@ export default function AdminBookingDetailPage({ params }) {
   const cleanPhone = booking.profiles?.phone ? booking.profiles.phone.replace(/[^0-9]/g, "") : "";
   const waUrl = cleanPhone ? `https://wa.me/${cleanPhone.startsWith("0") ? "62" + cleanPhone.slice(1) : cleanPhone}` : null;
 
+  const pinnedNote = adminNotesList.find((n) => n.is_pinned) || null;
+
   const finalTotal =
     (booking.estimated_total || 0) -
     (booking.discount_amount || 0) +
@@ -463,6 +519,7 @@ export default function AdminBookingDetailPage({ params }) {
           <span className="font-mono font-bold text-foreground">#{booking.id.slice(0, 8)}...</span>
         </span>
       </div>
+
 
       {/* Hero Header Control Bar */}
       <div className="bg-card border border-border/80 p-6 sm:p-7 rounded-3xl shadow-xs relative overflow-hidden">
@@ -619,6 +676,17 @@ export default function AdminBookingDetailPage({ params }) {
           <span>{resendReceiptMsg.text}</span>
         </div>
       )}
+
+      {/* Layer 1: Sticky Alert Banner (Option 5) */}
+      <AdminBookingStickyAlert
+        pinnedNote={pinnedNote}
+        onUnpin={() => pinnedNote && handleTogglePinNote(pinnedNote.id, true)}
+        onOpenCreateModal={() => {
+          const feedEl = document.getElementById("admin-notes-feed-section");
+          if (feedEl) feedEl.scrollIntoView({ behavior: "smooth" });
+        }}
+        isActionLoading={isNotesActionLoading}
+      />
 
       {/* Two-Column Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
@@ -1258,46 +1326,19 @@ export default function AdminBookingDetailPage({ params }) {
             </div>
           </div>
 
-          {/* 3. Internal Admin Notes Card */}
-          <div className="bg-card border border-border/80 p-6 sm:p-7 rounded-3xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                <span>Catatan Internal Admin</span>
-              </h3>
-            </div>
-
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Catatan ini hanya dapat diakses oleh tim staf dan pengasuh klinik.
-            </p>
-
-            {notesSaveMsg && (
-              <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-xl p-2.5 text-[11px] font-bold text-center">
-                {notesSaveMsg}
-              </div>
-            )}
-
-            <textarea
-              value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
-              placeholder="Tulis catatan penanganan khusus anabul (kebiasaan makan, alergi obat, dll)..."
-              rows={4}
-              className="w-full px-3.5 py-2.5 bg-muted/30 border border-border/80 rounded-xl text-xs focus:outline-hidden focus:border-primary text-foreground font-medium resize-none leading-relaxed transition-all"
+          {/* 3. Internal Admin Notes Activity Feed (Option 5) */}
+          <div id="admin-notes-feed-section">
+            <AdminBookingNotesTimeline
+              notes={adminNotesList}
+              onCreateNote={handleCreateAdminNote}
+              onTogglePinNote={handleTogglePinNote}
+              onDeleteNote={handleDeleteAdminNote}
+              isActionLoading={isNotesActionLoading}
             />
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleSaveAdminNotes}
-                disabled={isSavingNotes}
-                className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:bg-primary/95 transition-all disabled:opacity-50 cursor-pointer shadow-xs shadow-primary/10"
-              >
-                {isSavingNotes ? "Menyimpan..." : "Simpan Catatan"}
-              </button>
-            </div>
           </div>
         </div>
       </div>
+
 
       {/* Edit Booking Modal */}
       {isEditOpen && (

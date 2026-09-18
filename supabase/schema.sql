@@ -99,6 +99,24 @@ CREATE TABLE IF NOT EXISTS public.bookings (
 );
 
 -- ============================================================
+-- 3b. TABEL: booking_admin_notes (catatan multi-admin & sticky alert)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.booking_admin_notes (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id     UUID NOT NULL REFERENCES public.bookings(id) ON DELETE CASCADE,
+  admin_id       UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  category       TEXT NOT NULL DEFAULT 'general'
+                   CHECK (category IN ('general', 'medical', 'diet', 'behavior', 'shift_handoff', 'urgent')),
+  content        TEXT NOT NULL,
+  is_pinned      BOOLEAN DEFAULT FALSE,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_notes_booking_id ON public.booking_admin_notes(booking_id);
+CREATE INDEX IF NOT EXISTS idx_admin_notes_pinned ON public.booking_admin_notes(booking_id, is_pinned);
+
+-- ============================================================
 -- 4. TABEL: cat_reports (laporan harian kondisi kucing)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.cat_reports (
@@ -303,6 +321,7 @@ ALTER TABLE public.reviews           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.promos            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.whatsapp_bot_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.whatsapp_logs     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.booking_admin_notes ENABLE ROW LEVEL SECURITY;
 
 -- ---------- profiles ----------
 DROP POLICY IF EXISTS "Profiles are viewable by owner and admin" ON public.profiles;
@@ -350,6 +369,11 @@ CREATE POLICY "User lihat laporan kucing sendiri" ON public.cat_reports FOR SELE
 
 DROP POLICY IF EXISTS "Admin full control on reports" ON public.cat_reports;
 CREATE POLICY "Admin full control on reports" ON public.cat_reports FOR ALL
+  USING (is_admin());
+
+-- ---------- booking_admin_notes ----------
+DROP POLICY IF EXISTS "Admin full access to booking admin notes" ON public.booking_admin_notes;
+CREATE POLICY "Admin full access to booking admin notes" ON public.booking_admin_notes FOR ALL
   USING (is_admin());
 
 -- ---------- notifications ----------
