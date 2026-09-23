@@ -52,6 +52,7 @@ import { formatRupiah } from "@/lib/utils/format";
 import { toast } from "sonner";
 import { AdminBookingStickyAlert } from "@/components/admin/AdminBookingStickyAlert";
 import { AdminBookingNotesTimeline } from "@/components/admin/AdminBookingNotesTimeline";
+import { EmergencyPaymentModal } from "@/components/admin/EmergencyPaymentModal";
 
 export default function AdminBookingDetailPage({ params }) {
   const { id } = use(params);
@@ -89,6 +90,8 @@ export default function AdminBookingDetailPage({ params }) {
 
   // Payment Status States
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [targetPaymentStatus, setTargetPaymentStatus] = useState(null);
 
   // Resend Receipt States
   const [isResendingReceipt, setIsResendingReceipt] = useState(false);
@@ -410,15 +413,25 @@ export default function AdminBookingDetailPage({ params }) {
   };
 
 
-  // Handle payment status toggle
-  const handlePaymentStatusChange = async (newStatus) => {
+  // Open emergency payment modal
+  const handleOpenEmergencyPaymentModal = (newStatus) => {
     if (booking.payment_status === newStatus) return;
+    setTargetPaymentStatus(newStatus);
+    setIsEmergencyModalOpen(true);
+  };
+
+  // Handle payment status toggle with reason
+  const handlePaymentStatusChange = async (reason) => {
+    if (!targetPaymentStatus || booking.payment_status === targetPaymentStatus) return;
     setIsUpdatingPayment(true);
     try {
       const res = await fetch(`/api/bookings/${id}/payment-status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentStatus: newStatus }),
+        body: JSON.stringify({
+          paymentStatus: targetPaymentStatus,
+          reason,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -430,7 +443,9 @@ export default function AdminBookingDetailPage({ params }) {
         Failed: "Gagal",
         Refunded: "Dikembalikan",
       };
-      toast.success(`Status pembayaran berhasil diubah ke ${labelMap[newStatus] || newStatus}!`);
+      toast.success(`Status pembayaran berhasil diubah ke ${labelMap[targetPaymentStatus] || targetPaymentStatus}!`);
+      setIsEmergencyModalOpen(false);
+      setTargetPaymentStatus(null);
       loadBookingDetails();
     } catch (err) {
       setErrorMsg(err.message);
@@ -1247,7 +1262,7 @@ export default function AdminBookingDetailPage({ params }) {
                   ].map((opt) => (
                     <DropdownMenuItem
                       key={opt.value}
-                      onClick={() => handlePaymentStatusChange(opt.value)}
+                      onClick={() => handleOpenEmergencyPaymentModal(opt.value)}
                       className={`flex items-center justify-between cursor-pointer ${
                         booking.payment_status === opt.value ? `${opt.color} font-extrabold` : ""
                       }`}
@@ -1435,6 +1450,19 @@ export default function AdminBookingDetailPage({ params }) {
           </div>
         </div>
       )}
+
+      {/* Emergency Payment Status Modal */}
+      <EmergencyPaymentModal
+        isOpen={isEmergencyModalOpen}
+        onClose={() => {
+          setIsEmergencyModalOpen(false);
+          setTargetPaymentStatus(null);
+        }}
+        onConfirm={handlePaymentStatusChange}
+        booking={booking}
+        targetStatus={targetPaymentStatus}
+        isSubmitting={isUpdatingPayment}
+      />
     </div>
   );
 }

@@ -49,6 +49,7 @@ import {
   editBookingSchema,
   offlineQrSchema,
   adminBookingNoteSchema,
+  emergencyPaymentStatusSchema,
 } from "../lib/validations/booking.js";
 import {
   apiSuccess,
@@ -281,6 +282,25 @@ group("Zod Validation Schemas", () => {
     content: "A".repeat(1001),
   });
   assert(tooLongNote.success === false, "Konten catatan melebihi 1000 karakter harus ditolak");
+
+  // Emergency Payment Status Schema
+  const validEmergencyPayment = emergencyPaymentStatusSchema.safeParse({
+    paymentStatus: "Paid",
+    reason: "Transfer manual darurat via Bank BCA telah diverifikasi mutasi.",
+  });
+  assert(validEmergencyPayment.success === true, "Perubahan status darurat valid harus lolos validasi");
+
+  const shortReasonEmergencyPayment = emergencyPaymentStatusSchema.safeParse({
+    paymentStatus: "Paid",
+    reason: "ok",
+  });
+  assert(shortReasonEmergencyPayment.success === false, "Alasan darurat terlalu pendek (< 5 karakter) harus ditolak");
+
+  const invalidStatusEmergencyPayment = emergencyPaymentStatusSchema.safeParse({
+    paymentStatus: "UnknownStatus",
+    reason: "Transfer manual telah diverifikasi.",
+  });
+  assert(invalidStatusEmergencyPayment.success === false, "Status pembayaran tidak dikenal harus ditolak");
 });
 
 

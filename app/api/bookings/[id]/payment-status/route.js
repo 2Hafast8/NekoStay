@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { verifyAdmin } from "@/lib/supabase/admin";
+import { emergencyPaymentStatusSchema } from "@/lib/validations/booking";
 import {
   apiSuccess,
   apiError,
@@ -11,7 +12,7 @@ import {
 
 /**
  * PATCH /api/bookings/[id]/payment-status
- * Memperbarui status pembayaran pesanan (Hanya Admin).
+ * Memperbarui status pembayaran pesanan secara manual (Hanya Admin / Situasi Darurat).
  */
 export async function PATCH(request, { params }) {
   try {
@@ -27,12 +28,18 @@ export async function PATCH(request, { params }) {
     }
 
     const body = await request.json();
-    const paymentStatus = body.paymentStatus || body.payment_status;
-    const validStatuses = ["Unpaid", "Paid", "Failed", "Refunded"];
+    const parsed = emergencyPaymentStatusSchema.safeParse({
+      paymentStatus: body.paymentStatus || body.payment_status,
+      reason: body.reason,
+    });
 
-    if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
-      return apiBadRequest(`Status pembayaran tidak valid. Pilihan: ${validStatuses.join(", ")}`);
+    if (!parsed.success) {
+      return apiBadRequest(
+        parsed.error.issues[0]?.message || "Validasi status pembayaran atau alasan darurat tidak valid."
+      );
     }
+
+    const { paymentStatus, reason } = parsed.data;
 
     const { data: booking, error: fetchError } = await supabase
       .from("bookings")
@@ -71,6 +78,22 @@ export async function PATCH(request, { params }) {
       Failed: "Gagal",
       Refunded: "Dikembalikan",
     };
+
+    // Catat riwayat audit darurat ke booking_admin_notes
+    try {
+      const previousStatusLabel = statusLabels[booking.payment_status] || booking.payment_status;
+      const newStatusLabel = statusLabels[paymentStatus] || paymentStatus;
+
+      await supabase.from("booking_admin_notes").insert({
+        booking_id: id,
+        admin_id: user.id,
+        category: "urgent",
+        content: `[PERUBAHAN MANUAL DARURAT]: Status pembayaran diubah dari "${previousStatusLabel}" ke "${newStatusLabel}".\nAlasan verifikasi: ${reason}`,
+        is_pinned: true,
+      });
+    } catch (noteErr) {
+      console.warn("[Payment Status Audit Note Warning]:", noteErr.message);
+    }
 
     try {
       await supabase.from("notifications").insert({
