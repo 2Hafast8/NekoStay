@@ -15,6 +15,7 @@ export async function POST(request) {
       status_code,
       gross_amount,
       signature_key,
+      fraud_status,
     } = body;
 
     if (!order_id || !status_code || !gross_amount || !signature_key) {
@@ -31,22 +32,67 @@ export async function POST(request) {
       return apiBadRequest("Signature key tidak valid");
     }
 
-    const bookingId = order_id.substring(0, 36);
+    let bookingId = body.custom_field1 || null;
+
+    if (!bookingId && order_id) {
+      if (order_id.length > 36 && order_id[36] === "-") {
+        bookingId = order_id.substring(0, 36);
+      } else if (order_id.length === 36 && order_id.includes("-")) {
+        bookingId = order_id;
+      }
+    }
+
     const supabaseAdmin = createAdminClient();
 
-    const { data: booking, error: fetchError } = await supabaseAdmin
-      .from("bookings")
-      .select("*, profiles(full_name)")
-      .eq("id", bookingId)
-      .single();
+    let booking = null;
+    let fetchError = null;
+
+    if (bookingId) {
+      const res = await supabaseAdmin
+        .from("bookings")
+        .select("id, user_id, cat_name, payment_status")
+        .eq("id", bookingId)
+        .maybeSingle();
+      booking = res.data;
+      fetchError = res.error;
+    }
+
+    // Fallback tangguh untuk E-Wallet (seperti DANA) yang menggunakan ID transaksi sendiri
+    if (!booking) {
+      const amountNum = parseFloat(gross_amount);
+      const { data: matchedBookings } = await supabaseAdmin
+        .from("bookings")
+        .select("id, user_id, cat_name, payment_status, estimated_total, discount_amount, late_fee_total, refund_amount")
+        .eq("payment_status", "Unpaid")
+        .order("updated_at", { ascending: false })
+        .limit(5);
+
+      if (matchedBookings && matchedBookings.length > 0) {
+        const found = matchedBookings.find((b) => {
+          const total = (b.estimated_total || 0) - (b.discount_amount || 0) + (b.late_fee_total || 0) - (b.refund_amount || 0);
+          return Math.abs(total - amountNum) < 1;
+        });
+        if (found) {
+          booking = found;
+          bookingId = found.id;
+          fetchError = null;
+        }
+      }
+    }
 
     if (fetchError || !booking) {
-      console.error(`[Midtrans Webhook]: Booking dengan ID ${bookingId} tidak ditemukan.`);
+      console.error(`[Midtrans Webhook]: Booking dengan ID ${bookingId || order_id} tidak ditemukan. Error:`, fetchError);
       return apiNotFound("Booking tidak ditemukan");
     }
 
+    if (booking.payment_status === "Paid") {
+      return apiSuccess({ alreadyPaid: true }, "Pesanan sudah berstatus lunas");
+    }
+
     let paymentStatus = "Unpaid";
-    if (transaction_status === "capture" || transaction_status === "settlement") {
+    if (transaction_status === "capture") {
+      paymentStatus = fraud_status === "challenge" ? "Unpaid" : "Paid";
+    } else if (transaction_status === "settlement") {
       paymentStatus = "Paid";
     } else if (
       transaction_status === "deny" ||
@@ -56,13 +102,18 @@ export async function POST(request) {
       paymentStatus = "Failed";
     } else if (transaction_status === "pending") {
       paymentStatus = "Unpaid";
-    } else if (transaction_status === "refund") {
+    } else if (transaction_status === "refund" || transaction_status === "partial_refund") {
       paymentStatus = "Refunded";
+    }
+
+    const updatePayload = { payment_status: paymentStatus };
+    if (order_id || transaction_id) {
+      updatePayload.payment_link_url = order_id || transaction_id;
     }
 
     const { error: updateError } = await supabaseAdmin
       .from("bookings")
-      .update({ payment_status: paymentStatus })
+      .update(updatePayload)
       .eq("id", bookingId);
 
     if (updateError) {

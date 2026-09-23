@@ -46,7 +46,6 @@
 | `/api/payments/scan-offline` | `POST` | Admin Only | Memvalidasi pemindaian QR token pembayaran tunai di kasir. |
 | `/api/payments/send-receipt` | `POST` | Owner / Admin | Mengirimkan bukti pembayaran PDF ke email pelanggan. |
 | `/api/payments/check-status` | `GET` | Authenticated | Cek status transaksi pembayaran Midtrans dengan AbortSignal timeout 10 detik. |
-| `/api/payments/sandbox-mock` | `POST` | Admin Only | Simulasi pembayaran untuk pengujian sandbox lokal. |
 
 ---
 

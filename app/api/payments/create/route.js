@@ -67,13 +67,15 @@ export async function POST(request) {
     }
 
     const orderId = `${booking.id}-${Date.now()}`;
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const requestOrigin = request.headers.get("origin") || request.nextUrl?.origin;
+    const baseUrl = requestOrigin || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
     const parameter = {
       transaction_details: {
         order_id: orderId,
         gross_amount: finalAmount,
       },
+      custom_field1: booking.id,
       customer_details: {
         first_name: booking.profiles?.full_name || "Pelanggan",
         email: booking.profiles?.email || user.email,

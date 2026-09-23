@@ -92,7 +92,6 @@ function BookingDetailContent({ id }) {
   const [isReceiptSending, setIsReceiptSending] = useState(false);
   const [receiptSent, setReceiptSent] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
-  const [sandboxCountdown, setSandboxCountdown] = useState(null);
   const hasAutoVerified = useRef(false);
   const searchParams = useSearchParams();
 
@@ -297,110 +296,46 @@ function BookingDetailContent({ id }) {
   const handlePayment = async () => {
     setIsPaymentLoading(true);
     setErrorMsg(null);
-    hasAutoVerified.current = false; // Reset agar auto-verify bisa jalan setelah pembayaran baru
+    hasAutoVerified.current = false;
     try {
-      const isProduction = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true';
-
-      if (!isProduction) {
-        // Start 10-second countdown for sandbox simulation
-        setSandboxCountdown(10);
-
-        // Update payment_status to 'Paid' immediately in background
-        fetch("/api/payments/sandbox-mock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: id }),
-        }).catch(err => console.error("Sandbox mock error:", err));
-
-        // Create transaction as usual
-        const res = await fetch("/api/payments/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: id }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || (language === "en" ? "Failed to initialize payment" : "Gagal memproses pembayaran"));
-        }
-
-        const currentOrderId = data.orderId;
-
-        // Perform 10-second countdown
-        let count = 10;
-        const timer = setInterval(() => {
-          count -= 1;
-          setSandboxCountdown(count);
-          if (count <= 0) {
-            clearInterval(timer);
-            setSandboxCountdown(null);
-            setIsPaymentLoading(false);
-
-            // Open Midtrans Snap popup
-            if (window.snap) {
-              window.snap.pay(data.token, {
-                onSuccess: async function (result) {
-                  await checkPaymentStatus(currentOrderId);
-                },
-                onPending: async function (result) {
-                  await checkPaymentStatus(currentOrderId);
-                },
-                onError: function (result) {
-                  setErrorMsg(language === "en" ? "Online payment failed. Please try again." : "Pembayaran online gagal. Silakan coba lagi.");
-                },
-                onClose: async function () {
-                  if (currentOrderId) {
-                    await checkPaymentStatus(currentOrderId);
-                  }
-                }
-              });
-            }
-          }
-        }, 1000);
-
-      } else {
-        // Production Mode Flow: Immediate without delay
-        const res = await fetch("/api/payments/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookingId: id }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || (language === "en" ? "Failed to initialize payment" : "Gagal memproses pembayaran"));
-        }
-
-        const currentOrderId = data.orderId;
-        setIsPaymentLoading(false);
-
-        if (window.snap) {
-          window.snap.pay(data.token, {
-            onSuccess: async function (result) {
-              console.log("payment success", result);
-              await checkPaymentStatus(currentOrderId);
-            },
-            onPending: async function (result) {
-              console.log("payment pending", result);
-              await checkPaymentStatus(currentOrderId);
-            },
-            onError: function (result) {
-              console.error("payment error", result);
-              setErrorMsg(language === "en" ? "Online payment failed. Please try again." : "Pembayaran online gagal. Silakan coba lagi.");
-            },
-            onClose: async function () {
-              console.log("payment popup closed");
-              if (currentOrderId) {
-                await checkPaymentStatus(currentOrderId);
-              }
-            }
-          });
-        } else {
-          throw new Error(language === "en" ? "Midtrans Snap SDK not loaded yet. Please refresh." : "SDK Midtrans Snap belum termuat. Silakan muat ulang.");
-        }
+      const res = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || (language === "en" ? "Failed to initialize payment" : "Gagal memproses pembayaran"));
       }
+
+      const currentOrderId = data.orderId;
+      setIsPaymentLoading(false);
+
+      if (!window.snap) {
+        throw new Error(language === "en" ? "Midtrans Snap SDK not loaded yet. Please refresh." : "SDK Midtrans Snap belum termuat. Silakan muat ulang.");
+      }
+
+      window.snap.pay(data.token, {
+        onSuccess: async function (result) {
+          const idToCheck = result?.transaction_id || result?.order_id || currentOrderId;
+          await checkPaymentStatus(idToCheck);
+        },
+        onPending: async function (result) {
+          const idToCheck = result?.transaction_id || result?.order_id || currentOrderId;
+          await checkPaymentStatus(idToCheck);
+        },
+        onError: function () {
+          setErrorMsg(language === "en" ? "Online payment failed. Please try again." : "Pembayaran online gagal. Silakan coba lagi.");
+        },
+        onClose: async function () {
+          if (currentOrderId) {
+            await checkPaymentStatus(currentOrderId);
+          }
+        },
+      });
     } catch (err) {
       setErrorMsg(err.message);
       setIsPaymentLoading(false);
-      setSandboxCountdown(null);
     }
   };
 
@@ -1288,15 +1223,13 @@ function BookingDetailContent({ id }) {
                     </p>
                     <button
                       onClick={handlePayment}
-                      disabled={isPaymentLoading || sandboxCountdown !== null}
+                      disabled={isPaymentLoading}
                       className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/95 transition-all shadow-sm shadow-primary/15 cursor-pointer disabled:opacity-50 active:scale-98"
                     >
                       <CreditCard className="w-3.5 h-3.5" />
-                      {sandboxCountdown !== null
-                        ? (language === "en" ? `Sandbox simulation... (${sandboxCountdown}s)` : `Simulasi Sandbox... (${sandboxCountdown}s)`)
-                        : isPaymentLoading
-                          ? (language === "en" ? "Processing..." : "Memproses...")
-                          : (language === "en" ? "Pay Online Now" : "Bayar Online Sekarang")}
+                      {isPaymentLoading
+                        ? (language === "en" ? "Processing..." : "Memproses...")
+                        : (language === "en" ? "Pay Online Now" : "Bayar Online Sekarang")}
                     </button>
                   </div>
 

@@ -95,9 +95,15 @@ export async function POST(request) {
     }
 
     if (paymentStatus !== booking.payment_status) {
+      const updateData = { payment_status: paymentStatus };
+      const actualId = transactionData.transaction_id || transactionData.order_id || orderId;
+      if (actualId) {
+        updateData.payment_link_url = actualId;
+      }
+
       const { error: updateError } = await supabaseAdmin
         .from('bookings')
-        .update({ payment_status: paymentStatus })
+        .update(updateData)
         .eq('id', bookingId);
 
       if (updateError) {
