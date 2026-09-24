@@ -879,6 +879,26 @@ group("User-Centric Error Sanitizer & Captcha Protection", async () => {
     !sanitizedApi.sanitizedMessage.includes("SELECT"),
     "sanitizedMessage tidak boleh mengekspos sintaks SQL"
   );
+
+  // Test 9: _isFormatted flag & Raw Supabase/Postgres Error Object
+  const rawPostgresObj = {
+    code: "428C9",
+    details: 'Column "total_days" is a generated column.',
+    hint: null,
+    message: 'column "total_days" can only be updated to DEFAULT',
+  };
+  const formattedPostgres = formatUserError(rawPostgresObj, { language: "id" });
+  assert(formattedPostgres._isFormatted === true, "Objek hasil formatUserError harus memiliki _isFormatted: true");
+  assert(formattedPostgres.code === "DATABASE_INTERNAL_ERROR", "Harus mengenali kode 428C9 sebagai DATABASE_INTERNAL_ERROR");
+  assert(!formattedPostgres.message.includes("total_days"), "Pesan terformat tidak boleh mengekspos total_days");
+
+  // Test 10: Idempotency with already-formatted error
+  const reFormatted = formatUserError(formattedPostgres);
+  assert(reFormatted === formattedPostgres, "formatUserError harus idempoten jika objek sudah diformat");
+
+  // Test 11: Postgres unique constraint 23505 via code
+  const uniqueViolation = formatUserError({ code: "23505", message: "duplicate entry" });
+  assert(uniqueViolation.code === "DUPLICATE_DATA", "Harus mengenali kode 23505 sebagai DUPLICATE_DATA");
 });
 
 // -------------------------------------------------------------

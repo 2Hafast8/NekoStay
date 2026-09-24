@@ -26,6 +26,7 @@ import { getBookingSummary, calculateCapacityAndWaitlist } from "@/lib/modules/p
 import { formatDate } from "@/lib/utils/dates";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 export default function NewBookingPage() {
   return (
@@ -512,7 +513,7 @@ function BookingFormContent() {
       router.refresh();
     } catch (err) {
       setServerError(
-        err.message || (language === "en" ? "Failed to save booking" : "Gagal menyimpan pesanan. Silakan coba lagi.")
+        err || (language === "en" ? "Failed to save booking" : "Gagal menyimpan pesanan. Silakan coba lagi.")
       );
     } finally {
       setIsLoading(false);
@@ -596,22 +597,12 @@ function BookingFormContent() {
         </div>
       )}
 
-      {serverError && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-sm font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{serverError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setServerError(null)}
-            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-            title="Tutup notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      <UserErrorAlert
+        error={serverError}
+        onDismiss={() => setServerError(null)}
+        language={language}
+        className="mb-6"
+      />
 
       {/* STEP 1: Data Kucing */}
       {step === 1 && (
