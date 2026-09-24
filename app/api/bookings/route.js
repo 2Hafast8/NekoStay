@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { bookingFormSchema } from "@/lib/validations/booking";
-import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
+import { calculateCapacityAndWaitlist } from "@/lib/modules/pricing";
 import {
   apiSuccess,
   apiError,

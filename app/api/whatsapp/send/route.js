@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { resolveRemoteJid } from "@/lib/whatsapp/jid";
+import { resolveRemoteJid } from "@/lib/modules/whatsapp";
 
 export async function POST(request) {
   try {

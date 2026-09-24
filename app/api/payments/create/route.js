@@ -1,8 +1,7 @@
-import midtransClient from "midtrans-client";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
-import { paymentCreateSchema } from "@/lib/validations/booking";
+import { paymentCreateSchema } from "@/lib/modules/payments/payments.dto";
+import { PaymentsService } from "@/lib/modules/payments/payments.service";
 import {
   apiSuccess,
   apiError,
@@ -14,7 +13,7 @@ import {
 
 /**
  * POST /api/payments/create
- * Membuat sesi transaksi Midtrans Snap untuk pembayaran online pesanan.
+ * Controller: Create Midtrans Snap payment session
  */
 export async function POST(request) {
   try {
@@ -32,103 +31,24 @@ export async function POST(request) {
     const body = await request.json();
     const { bookingId } = paymentCreateSchema.parse(body);
 
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .select("*, profiles:user_id (full_name, email, phone)")
-      .eq("id", bookingId)
-      .eq("user_id", user.id)
-      .single();
+    const requestOrigin = request.headers.get("origin") || request.nextUrl?.origin;
 
-    if (bookingError || !booking) {
-      return apiNotFound("Pesanan tidak ditemukan atau bukan milik akun Anda.");
-    }
-
-    if (booking.payment_status === "Paid") {
-      return apiBadRequest("Pesanan ini sudah lunas.");
-    }
-
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || "";
-    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
-
-    const snap = new midtransClient.Snap({
-      isProduction,
-      serverKey,
-      clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
+    const result = await PaymentsService.createPaymentSession({
+      supabase,
+      user,
+      bookingId,
+      requestOrigin,
     });
 
-    const finalAmount =
-      (booking.estimated_total || 0) -
-      (booking.discount_amount || 0) +
-      (booking.late_fee_total || 0) -
-      (booking.refund_amount || 0);
-
-    if (finalAmount <= 0) {
-      return apiBadRequest("Total nominal pembayaran tidak valid.");
-    }
-
-    const orderId = `${booking.id}-${Date.now()}`;
-    const requestOrigin = request.headers.get("origin") || request.nextUrl?.origin;
-    const baseUrl = requestOrigin || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-    const parameter = {
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: finalAmount,
-      },
-      custom_field1: booking.id,
-      customer_details: {
-        first_name: booking.profiles?.full_name || "Pelanggan",
-        email: booking.profiles?.email || user.email,
-        phone: booking.profiles?.phone || "",
-      },
-      item_details: [
-        {
-          id: booking.class,
-          price: finalAmount,
-          quantity: 1,
-          name: `NekoStay: Kelas ${booking.class} (${booking.cat_name})`,
-        },
-      ],
-      callbacks: {
-        finish: `${baseUrl}/booking/${bookingId}?payment=finish&order_id=${orderId}`,
-        unfinish: `${baseUrl}/booking/${bookingId}?payment=unfinish&order_id=${orderId}`,
-        error: `${baseUrl}/booking/${bookingId}?payment=error&order_id=${orderId}`,
-      },
-    };
-
-    const transaction = await snap.createTransaction(parameter);
-
-    if (!transaction || !transaction.token) {
-      throw new Error("Gagal mendapatkan token transaksi dari Midtrans");
-    }
-
-    const adminDb = createAdminClient();
-    const { error: updateError } = await adminDb
-      .from("bookings")
-      .update({
-        payment_token: transaction.token,
-        payment_link_url: orderId,
-      })
-      .eq("id", bookingId);
-
-    if (updateError) {
-      console.error("[Midtrans Payment DB Update Error]:", updateError);
-    }
-
-    return apiSuccess(
-      {
-        token: transaction.token,
-        redirectUrl: transaction.redirect_url,
-        orderId,
-      },
-      "Sesi pembayaran berhasil dibuat"
-    );
+    return apiSuccess(result, "Sesi pembayaran berhasil dibuat");
   } catch (error) {
     if (error instanceof z.ZodError) {
       return apiValidationError(error);
     }
+    if (error.status === 404) return apiNotFound(error.message);
+    if (error.status === 400) return apiBadRequest(error.message);
 
-    console.error("[Midtrans Create Payment Exception]:", error);
-    return apiError("Gagal memproses pembayaran online", 500);
+    console.error("[Payments Create Controller Exception]:", error);
+    return apiError(error.message || "Gagal memproses pembayaran online", error.status || 500);
   }
 }

@@ -73,8 +73,6 @@ export async function PUT(request, { params }) {
         price_per_day: pricePerDay,
         check_in_date: validatedData.checkInDate,
         check_out_date: validatedData.checkOutDate,
-        total_days: diffDays,
-        estimated_total: newEstimatedTotal,
       })
       .eq("id", id)
       .select()
@@ -115,8 +113,8 @@ export async function PUT(request, { params }) {
             className: updatedBooking.class,
             checkIn: updatedBooking.check_in_date,
             checkOut: updatedBooking.check_out_date,
-            totalDays: updatedBooking.total_days,
-            estimatedTotal: updatedBooking.estimated_total,
+            totalDays: updatedBooking.total_days ?? diffDays,
+            estimatedTotal: updatedBooking.estimated_total ?? newEstimatedTotal,
           }
         );
       } catch (emailErr) {

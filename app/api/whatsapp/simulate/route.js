@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { processIncomingWhatsAppMessage } from "@/lib/whatsapp/bot-service";
+import { processIncomingWhatsAppMessage } from "@/lib/modules/whatsapp";
 
 export async function POST(request) {
   try {

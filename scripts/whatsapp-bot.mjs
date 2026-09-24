@@ -15,8 +15,8 @@ import {
   processIncomingWhatsAppMessage,
   recordConversationActivity,
   checkAndExpireInactiveAdminChats,
-} from "../lib/whatsapp/bot-service.js";
-import { resolveRemoteJid } from "../lib/whatsapp/jid.js";
+  resolveRemoteJid,
+} from "../lib/modules/whatsapp/index.js";
 
 const makeWASocket = namedMakeWASocket || baileys?.makeWASocket || baileys?.default || baileys;
 

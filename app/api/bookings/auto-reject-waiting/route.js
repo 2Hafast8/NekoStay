@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
+import { calculateCapacityAndWaitlist } from "@/lib/modules/pricing";
 import { getCapacityFullRejectReason } from "@/lib/constants/index";
 import { apiSuccess, apiError, apiUnauthorized } from "@/lib/utils/response";
 

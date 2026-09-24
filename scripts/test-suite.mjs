@@ -30,8 +30,8 @@ import {
   calculateRefund,
   getCheckoutCalculation,
   CLASS_PRICES,
-} from "../lib/utils/pricing.js";
-import { calculateCapacityAndWaitlist } from "../lib/utils/capacity.js";
+  calculateCapacityAndWaitlist,
+} from "../lib/modules/pricing/index.js";
 import { getCapacityFullRejectReason, MAX_WAITLIST_DAYS } from "../lib/constants/index.js";
 import {
   daysBetween,
@@ -59,8 +59,8 @@ import {
   apiNotFound,
   apiBadRequest,
 } from "../lib/utils/response.js";
-import { resolveRemoteJid } from "../lib/whatsapp/jid.js";
 import {
+  resolveRemoteJid,
   processIncomingWhatsAppMessage,
   BOT_FLOW_STATES,
   ADMIN_CHAT_INACTIVITY_TIMEOUT_MS,
@@ -70,7 +70,7 @@ import {
   checkAndExpireInactiveAdminChats,
   isBotMessageEcho,
   isUnfilledTemplate,
-} from "../lib/whatsapp/bot-service.js";
+} from "../lib/modules/whatsapp/index.js";
 
 let totalTests = 0;
 let passedTests = 0;

@@ -21,9 +21,13 @@ import {
   ChevronDown,
   ScanLine,
   XCircle,
+  Palette,
 } from "lucide-react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { BookingStatus } from "@/components/booking/BookingStatus";
+import { ClassColorCustomizerModal } from "@/components/admin/ClassColorCustomizerModal";
+import { getClassColor } from "@/lib/constants";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -74,6 +78,48 @@ function DashboardContent() {
 
   // Scan token modal states
   const [scanModal, setScanModal] = useState(null); // null | 'processing' | { type: 'success' | 'error', data?, message? }
+
+  // Dynamic Room Classes & Custom Chart Colors state
+  const [classesList, setClassesList] = useState([]);
+  const [customClassColors, setCustomClassColors] = useState({});
+  const [showColorModal, setShowColorModal] = useState(false);
+
+  // Load customized chart colors from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nekostay_chart_class_colors");
+      if (saved) {
+        setCustomClassColors(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.warn("Failed to load chart class colors from localStorage", e);
+    }
+  }, []);
+
+  const handleUpdateClassColor = (className, newColor, isReset = false) => {
+    const updated = { ...customClassColors };
+    if (isReset) {
+      delete updated[className];
+    } else {
+      updated[className] = newColor;
+    }
+    setCustomClassColors(updated);
+    try {
+      localStorage.setItem("nekostay_chart_class_colors", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to save chart class colors to localStorage", e);
+    }
+  };
+
+  const handleResetClassColors = () => {
+    setCustomClassColors({});
+    try {
+      localStorage.removeItem("nekostay_chart_class_colors");
+    } catch (e) {
+      console.warn("Failed to clear chart class colors from localStorage", e);
+    }
+    toast.success(language === "en" ? "Class colors reset to default" : "Warna kelas dikembalikan ke default");
+  };
 
   const supabase = createClient();
 
@@ -143,7 +189,7 @@ function DashboardContent() {
           setAdminEmail(currentUser.email);
         }
 
-        const [bookingsRes, notifsRes] = await Promise.all([
+        const [bookingsRes, notifsRes, classesRes] = await Promise.all([
           supabase
             .from("bookings")
             .select(
@@ -169,11 +215,18 @@ function DashboardContent() {
             `)
             .order("created_at", { ascending: false })
             .limit(100),
+          supabase
+            .from("classes")
+            .select("id, name, price_per_day")
+            .order("price_per_day", { ascending: true }),
         ]);
 
         if (!isActive) return;
         if (bookingsRes.error) throw bookingsRes.error;
-        setBookings(bookingsRes.data);
+        setBookings(bookingsRes.data || []);
+        if (classesRes.data) {
+          setClassesList(classesRes.data);
+        }
 
         const notifs = notifsRes.data;
         const notifErr = notifsRes.error;
@@ -212,6 +265,7 @@ function DashboardContent() {
         currentUserRef = null;
         setBookings([]);
         setOutgoingLogs([]);
+        setClassesList([]);
         setIsLoading(false);
       }
     });
@@ -233,6 +287,13 @@ function DashboardContent() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bookings" },
+        () => {
+          triggerDebouncedReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "classes" },
         () => {
           triggerDebouncedReload();
         }
@@ -311,11 +372,28 @@ function DashboardContent() {
   useGsapCounter(activeRef, stats.active);
 
   const processChartData = () => {
-    if (!bookings.length) return { revenueData: [], classData: [], statusData: [] };
+    if (!bookings.length && !classesList.length) {
+      return { revenueData: [], classData: [], statusData: [] };
+    }
 
     const monthlyStats = {};
-    const classCount = { Basic: 0, Standard: 0, Premium: 0 };
-    const statusCount = { Menunggu: 0, Aktif: 0, Selesai: 0, Dibatalkan: 0 };
+
+    // 1. Kumpulkan semua kelas secara dinamis (dari database classes, baseline default, dan bookings)
+    const classSet = new Set();
+    classesList.forEach((c) => {
+      if (c.name) classSet.add(c.name.trim());
+    });
+    ["Basic", "Standard", "Premium"].forEach((d) => classSet.add(d));
+    bookings.forEach((b) => {
+      if (b.class) classSet.add(b.class.trim());
+    });
+
+    const classCount = {};
+    classSet.forEach((cls) => {
+      classCount[cls] = 0;
+    });
+
+    const statusCount = { Menunggu: 0, Aktif: 0, Selesai: 0, Dibatalkan: 0, Antrian: 0 };
 
     [...bookings].reverse().forEach((b) => {
       const date = new Date(b.created_at);
@@ -327,24 +405,33 @@ function DashboardContent() {
 
       if (b.status === "Selesai" || b.status === "Aktif") {
         monthlyStats[monthYear].revenue +=
-          b.estimated_total - (b.discount_amount || 0) + (b.late_fee_total || 0) - (b.refund_amount || 0);
+          (b.estimated_total || 0) - (b.discount_amount || 0) + (b.late_fee_total || 0) - (b.refund_amount || 0);
       }
 
-      if (classCount[b.class] !== undefined) classCount[b.class] += 1;
-      if (statusCount[b.status] !== undefined) statusCount[b.status] += 1;
+      const bClass = b.class?.trim();
+      if (bClass) {
+        classCount[bClass] = (classCount[bClass] || 0) + 1;
+      }
+      if (statusCount[b.status] !== undefined) {
+        statusCount[b.status] += 1;
+      }
     });
 
     const revenueData = Object.values(monthlyStats).slice(-6); // last 6 months
-    const classData = [
-      { name: "Basic", value: classCount.Basic, color: "#3b82f6" },
-      { name: "Standard", value: classCount.Standard, color: "#f59e0b" },
-      { name: "Premium", value: classCount.Premium, color: "#8b5cf6" },
-    ];
+
+    // Petakan setiap kelas dengan warna adaptif (kustom atau palet otomatis)
+    const classData = Array.from(classSet).map((name, index) => ({
+      name,
+      value: classCount[name] || 0,
+      color: getClassColor(name, index, customClassColors),
+    }));
+
     const statusData = [
       { name: "Menunggu", value: statusCount.Menunggu, color: "#f59e0b" },
       { name: "Aktif", value: statusCount.Aktif, color: "#10b981" },
       { name: "Selesai", value: statusCount.Selesai, color: "#6366f1" },
       { name: "Dibatalkan", value: statusCount.Dibatalkan, color: "#ef4444" },
+      { name: "Antrian", value: statusCount.Antrian, color: "#ec4899" },
     ];
 
     return { revenueData, classData, statusData };
@@ -606,70 +693,110 @@ function DashboardContent() {
 
         {/* Donut Charts (Class & Status) */}
         <div className="bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 p-6 rounded-3xl space-y-4 flex flex-col min-w-0">
-          <h3 className="font-bold text-foreground dark:text-zinc-200 text-base border-b border-border/60 dark:border-zinc-800/60 pb-2">
-            {t("admin_db_chart_dist")}
-          </h3>
+          <div className="flex items-center justify-between border-b border-border/60 dark:border-zinc-800/60 pb-3">
+            <div>
+              <h3 className="font-bold text-foreground dark:text-zinc-200 text-base">
+                {t("admin_db_chart_dist")}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {language === "en"
+                  ? "Booking distribution comparison by room class and status"
+                  : "Perbandingan distribusi pesanan berdasarkan kelas kamar dan status"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowColorModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/60 hover:bg-muted dark:bg-zinc-800/60 dark:hover:bg-zinc-800 text-foreground dark:text-zinc-200 border border-border/80 dark:border-zinc-700/80 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-xs hover:border-primary/40"
+              title={language === "en" ? "Customize chart colors" : "Sesuaikan warna chart kelas"}
+            >
+              <Palette className="w-3.5 h-3.5 text-primary" />
+              <span>{language === "en" ? "Customize Colors" : "Sesuaikan Warna"}</span>
+            </button>
+          </div>
           <div className="flex-1 min-w-0 flex flex-col sm:flex-row items-center justify-around pt-2">
             
-            <div className="h-48 w-full sm:w-1/2 min-w-0">
+            <div className="h-56 w-full sm:w-1/2 min-w-0 flex flex-col items-center">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                {t("admin_db_chart_class")}
+              </span>
               {isMounted ? (
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                  minWidth={0}
-                  minHeight={0}
-                  initialDimension={{ width: 220, height: 192 }}
-                >
-                  <PieChart>
-                    <Pie
-                      data={classData.filter(d => d.value > 0)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {classData.filter(d => d.value > 0).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                classData.filter(d => d.value > 0).length > 0 ? (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    minWidth={0}
+                    minHeight={0}
+                    initialDimension={{ width: 220, height: 192 }}
+                  >
+                    <PieChart>
+                      <Pie
+                        data={classData.filter(d => d.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {classData.filter(d => d.value > 0).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="w-full h-full min-h-[192px] flex flex-col items-center justify-center text-center p-4 border border-dashed border-border/60 dark:border-zinc-800 rounded-2xl bg-muted/10">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {language === "en" ? "No bookings in any room class yet" : "Belum ada pesanan pada kelas kamar"}
+                    </span>
+                  </div>
+                )
               ) : (
                 <div className="w-full h-full min-h-[192px] bg-muted/20 animate-pulse rounded-2xl" />
               )}
             </div>
 
-            <div className="h-48 w-full sm:w-1/2 min-w-0 mt-8 sm:mt-0">
+            <div className="h-56 w-full sm:w-1/2 min-w-0 flex flex-col items-center mt-8 sm:mt-0">
+              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                {t("admin_db_chart_status")}
+              </span>
               {isMounted ? (
-                <ResponsiveContainer
-                  width="100%"
-                  height="100%"
-                  minWidth={0}
-                  minHeight={0}
-                  initialDimension={{ width: 220, height: 192 }}
-                >
-                  <PieChart>
-                    <Pie
-                      data={statusData.filter(d => d.value > 0)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {statusData.filter(d => d.value > 0).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                statusData.filter(d => d.value > 0).length > 0 ? (
+                  <ResponsiveContainer
+                    width="100%"
+                    height="100%"
+                    minWidth={0}
+                    minHeight={0}
+                    initialDimension={{ width: 220, height: 192 }}
+                  >
+                    <PieChart>
+                      <Pie
+                        data={statusData.filter(d => d.value > 0)}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {statusData.filter(d => d.value > 0).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}/>
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: "11px" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="w-full h-full min-h-[192px] flex flex-col items-center justify-center text-center p-4 border border-dashed border-border/60 dark:border-zinc-800 rounded-2xl bg-muted/10">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {language === "en" ? "No booking status data yet" : "Belum ada data status pesanan"}
+                    </span>
+                  </div>
+                )
               ) : (
                 <div className="w-full h-full min-h-[192px] bg-muted/20 animate-pulse rounded-2xl" />
               )}
@@ -961,6 +1088,17 @@ function DashboardContent() {
           </div>
         )}
       </div>
+
+      {/* Modal Penyesuaian Warna Kelas Kamar */}
+      <ClassColorCustomizerModal
+        isOpen={showColorModal}
+        onClose={() => setShowColorModal(false)}
+        classData={classData}
+        customColors={customClassColors}
+        onUpdateColor={handleUpdateClassColor}
+        onResetColors={handleResetClassColors}
+        language={language}
+      />
     </div>
   );
 }

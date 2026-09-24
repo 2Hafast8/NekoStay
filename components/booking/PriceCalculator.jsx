@@ -1,6 +1,5 @@
 import { formatRupiah } from '@/lib/utils/format'
-import { CLASS_PRICES } from '@/lib/utils/pricing'
-import { getBookingSummary } from '@/lib/utils/pricing'
+import { CLASS_PRICES, getBookingSummary } from '@/lib/modules/pricing'
 import { Info } from 'lucide-react'
 
 export function PriceCalculator({ className, checkIn, checkOut }) {

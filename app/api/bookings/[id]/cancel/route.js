@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { cancelBookingSchema } from "@/lib/validations/booking";
+import { cancelBookingSchema } from "@/lib/modules/bookings/bookings.dto";
+import { BookingsService } from "@/lib/modules/bookings/bookings.service";
 import {
   apiSuccess,
   apiError,
@@ -12,7 +13,7 @@ import {
 
 /**
  * POST /api/bookings/[id]/cancel
- * Membatalkan pesanan yang berstatus 'Menunggu' oleh pemilik pesanan.
+ * Controller: Cancel booking by owner (Customer Only)
  */
 export async function POST(request, { params }) {
   try {
@@ -31,76 +32,21 @@ export async function POST(request, { params }) {
     const body = await request.json();
     const validatedData = cancelBookingSchema.parse(body);
 
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .select("id, status, cat_name, user_id")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .single();
+    const result = await BookingsService.cancelBooking(supabase, {
+      bookingId: id,
+      userId: user.id,
+      reason: validatedData.reason,
+    });
 
-    if (bookingError || !booking) {
-      return apiNotFound("Booking tidak ditemukan atau bukan milik Anda");
-    }
-
-    // Pembatalan mandiri oleh pelanggan dibatasi hanya untuk pesanan berstatus 'Menunggu'
-    if (booking.status !== "Menunggu") {
-      return apiBadRequest(
-        `Pesanan ini telah diproses (Status: ${booking.status}) dan tidak dapat dibatalkan secara langsung.`
-      );
-    }
-
-    const { data: updatedBooking, error: updateError } = await supabase
-      .from("bookings")
-      .update({
-        status: "Dibatalkan",
-        cancel_reason: validatedData.reason,
-      })
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .eq("status", "Menunggu")
-      .select()
-      .maybeSingle();
-
-    if (updateError) {
-      console.error("[Cancel API Error]:", updateError);
-      return apiError("Gagal membatalkan pesanan", 500);
-    }
-
-    if (!updatedBooking) {
-      return apiBadRequest(
-        "Status pesanan telah berubah saat proses pembatalan. Pembatalan tidak dapat dilanjutkan."
-      );
-    }
-
-    try {
-      const { data: admins } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("role", "admin");
-
-      if (admins && admins.length > 0) {
-        const notificationsToInsert = admins.map((admin) => ({
-          user_id: admin.id,
-          title: "Pesanan Dibatalkan User",
-          message: `Booking untuk kucing ${booking.cat_name} telah dibatalkan oleh pemilik. Alasan: ${validatedData.reason}`,
-          type: "warning",
-          booking_id: id,
-          is_read: false,
-        }));
-
-        await supabase.from("notifications").insert(notificationsToInsert);
-      }
-    } catch (notifErr) {
-      console.warn("[Cancel API Warning] Admin notification failed:", notifErr.message);
-    }
-
-    return apiSuccess({ id: updatedBooking.id }, "Booking berhasil dibatalkan");
+    return apiSuccess({ id: result.id }, "Booking berhasil dibatalkan");
   } catch (error) {
     if (error instanceof z.ZodError) {
       return apiValidationError(error);
     }
+    if (error.status === 404) return apiNotFound(error.message);
+    if (error.status === 400) return apiBadRequest(error.message);
 
-    console.error("[Cancel API Exception]:", error);
-    return apiError("Gagal membatalkan booking", 500);
+    console.error("[Cancel Controller Exception]:", error);
+    return apiError(error.message || "Gagal membatalkan booking", error.status || 500);
   }
 }

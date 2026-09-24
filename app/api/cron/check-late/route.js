@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calculateLateFee } from "@/lib/utils/pricing";
+import { calculateLateFee } from "@/lib/modules/pricing";
 import { sendLateWarning } from "@/lib/email/resend";
 import { apiSuccess, apiError, apiUnauthorized } from "@/lib/utils/response";
 

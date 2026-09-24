@@ -22,9 +22,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/shared/ImageUpload";
 import { formatRupiah } from "@/lib/utils/format";
-import { getBookingSummary } from "@/lib/utils/pricing";
+import { getBookingSummary, calculateCapacityAndWaitlist } from "@/lib/modules/pricing";
 import { formatDate } from "@/lib/utils/dates";
-import { calculateCapacityAndWaitlist } from "@/lib/utils/capacity";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
