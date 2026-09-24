@@ -21,9 +21,10 @@
 ---
 
 ### 👑 2. Fitur Administrator (Backoffice & Kasir)
-* **Dashboard Statistik & Analitik**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik operasional secara realtime dengan kalkulasi single-pass O(n).
+* **Executive Analytics & Chart Donut Adaptif**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik operasional secara realtime dengan kalkulasi single-pass O(n), ditambah chart donut kelas kamar adaptif yang otomatis mendeteksi kelas baru dengan palet 16 warna harmonis dan kustomisasi per kelas (`ClassColorCustomizerModal`).
 * **Manajemen Kamar & Kandang**: Kartu kelas kamar ringkas dengan modal edit terintegrasi, pemantauan kapasitas terisi real-time, dan pengaturan kandang isolasi/maintenance.
-* **Manajemen Pesanan Komprehensif**: Filter status, verifikasi detail, persetujuan/penolakan dengan alasan cepat, tombol evaluasi antrian >3 hari, serta tindakan massal (*bulk actions*).
+* **Manajemen Pesanan & Tindakan Massal**: Filter status, verifikasi detail, persetujuan/penolakan dengan alasan cepat, tombol evaluasi antrian >3 hari, serta tindakan massal (*bulk actions*).
+* **Perubahan Status Pembayaran Darurat Terverifikasi**: Modal khusus `EmergencyPaymentModal` dengan validasi alasan audit wajib (min 5 karakter), konfirmasi tanggung jawab, dan pencatatan audit.
 * **QR Scanner Kasir (`/admin/scanner`)**: Pemindaian kamera langsung untuk memvalidasi token QR bukti pemesanan pelanggan saat check-in di kasir offline secara instan dan aman (*one-time use*).
 * **Modul Laporan Kondisi Harian (`/admin/reports`)**: Form pembuatan laporan kucing harian dengan upload foto dan dispatching email otomatis ke pemilik.
 * **Manajemen WhatsApp Gateway & Direct Chat (`/admin/whatsapp`)**: Pemindaian pairing QR code Baileys Multi-Device, monitoring riwayat log chat, chat langsung admin dengan auto-reactivation timeout 1 jam, dan auto-responder 24/7.
@@ -33,9 +34,11 @@
 ---
 
 ### 🛡️ 3. Fondasi Teknis & Keamanan (Comprehensive Skills Integrated)
-* **Arsitektur Next.js 16 App Router**: 48 rute halaman teroptimasi Turbopack, pemisahan Server Components & Client Components yang efisien, dan tree-shaking `optimizePackageImports`.
-* **Standardized API Helpers**: Helper terpusat [`lib/utils/response.js`](../../lib/utils/response.js) untuk konsistensi respon HTTP JSON (`apiSuccess`, `apiError`, `apiUnauthorized`, `apiForbidden`, `apiNotFound`, `apiBadRequest`, `apiValidationError`).
+* **Arsitektur Next.js 16 App Router**: 47 rute halaman teroptimasi Turbopack, pemisahan Server Components & Client Components yang efisien, dan tree-shaking `optimizePackageImports`.
+* **Arsitektur Modular Domain (Pola NestJS)**: Pemisahan domain services, DTO, dan repositories di `lib/modules/` (`pricing/`, `whatsapp/`) dengan barrel exports terpusat.
+* **Standardized API Helpers & Error Sanitization**: Helper terpusat [`lib/utils/response.js`](../../lib/utils/response.js) dan [`lib/utils/errors.js`](../../lib/utils/errors.js) untuk konsistensi respon HTTP JSON (`apiSuccess`, `apiError`) dengan redaksi otomatis kebocoran error SQL di mode produksi.
+* **Sistem Notifikasi Error Ramah Pengguna**: Komponen [`UserErrorAlert`](../../components/shared/UserErrorAlert.jsx) yang menyajikan pesan empati dari sudut pandang user, tips aksi mitigasi, dan accordion diagnostik khusus mode pengembang.
 * **Validasi Input Zod & Rate Limiting**: 100% payload request API divalidasi dengan skema Zod di [`lib/validations/booking.js`](../../lib/validations/booking.js) dan sliding-window in-memory rate limiter di [`lib/utils/rate-limit.js`](../../lib/utils/rate-limit.js).
 * **Otorisasi Server & Keamanan Browser**: Proteksi [`verifyAdmin`](../../lib/supabase/admin.js) untuk rute administratif, isolasi data kepemilikan user ([`verifyBookingAccess`](../../lib/supabase/admin.js)), CSP anti-clickjacking `frame-ancestors 'none'`, dan Open Redirect guard (`sanitizeRedirectPath`).
-* **Database Supabase PostgreSQL & RLS**: 9 tabel utama (`profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, `reviews`, `promos`, `whatsapp_bot_state`, `whatsapp_logs`) dengan kebijakan Row Level Security ketat.
-* **Automated Test Runner**: Test suite pengujian otomatis di [`scripts/test-suite.mjs`](../../scripts/test-suite.mjs) (`npm test`) memverifikasi 76/76 skenario lulus 100%.
+* **Database Supabase PostgreSQL & RLS**: 9 tabel utama (`profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, `reviews`, `promos`, `whatsapp_bot_state`, `whatsapp_logs`) dengan kebijakan Row Level Security ketat dan PostgreSQL generated columns (`428C9` guarded).
+* **Automated Test Runner**: Test suite pengujian otomatis di [`scripts/test-suite.mjs`](../../scripts/test-suite.mjs) (`npm test`) memverifikasi **141 / 141 skenario uji lulus 100%**.

@@ -37,8 +37,9 @@ Dokumentasi teknis struktur sistem, design system, dan keamanan database.
 
 | File | Deskripsi |
 |------|-----------|
+| [MODULAR-SYSTEM.md](./02-ARCHITECTURE/MODULAR-SYSTEM.md) | **Arsitektur Modular (Pola NestJS)** - Pemisahan domain services di `lib/modules/` (pricing, whatsapp), DTO, dan repositories. |
 | [NekoStay_Technical_Design.md](./02-ARCHITECTURE/NekoStay_Technical_Design.md) | **Desain Teknis Lengkap** - Alur bisnis penitipan, kalkulasi denda 8% & refund 90%, payment gateway, dan WhatsApp. |
-| [design.md](./02-ARCHITECTURE/design.md) | **UI/UX Design System** - Tailwind CSS v4, shadcn/ui, animasi GSAP, dark/light mode, mobile responsive. |
+| [design.md](./02-ARCHITECTURE/design.md) | **UI/UX Design System** - Tailwind CSS v4, shadcn/ui, animasi GSAP, dark/light mode, chart adaptif, dan alert error ramah pengguna. |
 | [RLS_POLICIES.md](./02-ARCHITECTURE/RLS_POLICIES.md) | **Row Level Security (RLS)** - Kebijakan isolasi data database Supabase per tabel. |
 | [README.md](./02-ARCHITECTURE/README.md) | **Architecture Overview** - Pengantar folder arsitektur. |
 
@@ -61,7 +62,7 @@ Infrastruktur pengujian otomatis, skenario QA, dan validasi fungsional.
 
 | File | Deskripsi |
 |------|-----------|
-| [TESTING_AND_LAUNCH_GUIDE.md](./04-TESTING/TESTING_AND_LAUNCH_GUIDE.md) | **Testing & QA Guide** - 20 skenario uji manual & panduan automated test suite (`npm test`). |
+| [TESTING_AND_LAUNCH_GUIDE.md](./04-TESTING/TESTING_AND_LAUNCH_GUIDE.md) | **Testing & QA Guide** - 24 skenario uji manual & panduan automated test suite 141 skenario (`npm test`). |
 | [README.md](./04-TESTING/README.md) | **Testing Overview** - Pengantar folder testing. |
 
 ---
@@ -81,6 +82,7 @@ Laporan perkembangan historis dan ringkasan sesi kerja.
 
 | File | Deskripsi |
 |------|-----------|
+| [STATUS_SEPT_24_2026.md](./06-STATUS/STATUS_SEPT_24_2026.md) | **Status Update (September 2026)** - Restrukturisasi modular NestJS, perbaikan 428C9, chart adaptif, validasi pembayaran darurat, sistem error ramah pengguna, dan 141 tests. |
 | [SESSION_COMPLETE_SUMMARY.md](./06-STATUS/SESSION_COMPLETE_SUMMARY.md) | **Session Summary** - Ringkasan pencapaian pengerasan keamanan, optimasi performa, dan stabilisasi sistem. |
 | [STATUS_JUNE_23_2026.md](./06-STATUS/STATUS_JUNE_23_2026.md) | **Status Update** - Penyempurnaan RLS, DB trigger, dan UI scanner. |
 | [STATUS_JUNE_15_2026.md](./06-STATUS/STATUS_JUNE_15_2026.md) | **Status Update** - Integrasi Midtrans, Dual-Email engine, dan WhatsApp bot. |
@@ -94,10 +96,11 @@ Laporan perkembangan historis dan ringkasan sesi kerja.
 
 ```
 Core Implementation (Next.js 16 + React 19): 100% ✅✅✅✅✅
-Components & Pages (48 Routes Prerendered):   100% ✅✅✅✅✅
-REST API Endpoints (31 Handlers Hardened):    100% ✅✅✅✅✅
+Components & Pages (47 Routes Prerendered):   100% ✅✅✅✅✅
+REST API Endpoints (33 Handlers Hardened):    100% ✅✅✅✅✅
 Database Schema & RLS (Supabase PostgreSQL):  100% ✅✅✅✅✅
-Automated Test Suite (76/76 Tests Passing):   100% ✅✅✅✅✅
+Automated Test Suite (141/141 Tests Passing): 100% ✅✅✅✅✅
+User-Centric Error System & Captcha Security: 100% ✅✅✅✅✅
 Midtrans Payment & QR Offline Scanner:        100% ✅✅✅✅✅
 WhatsApp Gateway (@whiskeysockets/baileys):   100% ✅✅✅✅✅
 Security Hardening (CSP, Turnstile, RateLim): 100% ✅✅✅✅✅

@@ -1119,6 +1119,43 @@ function CancelBookingDialog({ open, onClose, onConfirm, isLoading }) {
 }
 ```
 
+### Helper: Penanganan Error Ramah Pengguna & Zero-Leakage (UserErrorAlert)
+```javascript
+// Selalu gunakan formatUserError atau UserErrorAlert saat menampilkan kegagalan API/Auth
+import { UserErrorAlert } from '@/components/shared/UserErrorAlert';
+import { formatUserError } from '@/lib/utils/errors';
+
+// Di Client Component:
+const [error, setError] = useState(null);
+
+try {
+  // operasional
+} catch (err) {
+  setError(err); // UserErrorAlert otomatis menyaring pesan teknis / PostgreSQL / Captcha
+}
+
+return (
+  <div>
+    <UserErrorAlert error={error} onRetry={() => loadData()} />
+  </div>
+);
+```
+
+### Helper: Standardized API Responses
+```javascript
+// Gunakan helper terstandarisasi di app/api/*
+import { apiSuccess, apiError, apiBadRequest, apiUnauthorized, apiForbidden } from '@/lib/utils/response';
+
+export async function POST(req) {
+  try {
+    const data = await req.json();
+    return apiSuccess({ result: data }, "Operasi berhasil", 200);
+  } catch (err) {
+    return apiBadRequest("Input tidak valid", err.message);
+  }
+}
+```
+
 ---
 
 ## 13. AI AGENT SKILLS REGISTRY (.agent/skills)
@@ -1126,36 +1163,43 @@ function CancelBookingDialog({ open, onClose, onConfirm, isLoading }) {
 > Daftar keahlian khusus AI Agent yang tersedia di dalam folder `.agent/skills/` project NekoStay. 
 > Digunakan secara otomatis dan proaktif oleh AI assistant untuk standarisasi keamanan, arsitektur, testing, refactoring, dan dokumentasi.
 
-### Ringkasan 26 Skills Berdasarkan Kategori
+### Ringkasan Skills Berdasarkan Kategori
 
 | No | Nama Skill | Kategori | Deskripsi Singkat & Fokus Utama |
 |---|---|---|---|
-| 1 | `backend-security-coder` | Security | Praktik backend aman: validasi input, sanitasi, autentikasi, database protection, API security. |
-| 2 | `frontend-security-coder` | Security | Praktik frontend aman: mitigasi XSS, sanitasi output HTML/JSX, CSP, cookie security. |
-| 3 | `frontend-mobile-security-xss-scan` | Security | Pemindaian injeksi Cross-Site Scripting (XSS) pada React/Next.js dan antarmuka web/mobile. |
-| 4 | `mobile-security-coder` | Security | Pola keamanan aplikasi mobile, WebView hardening, secure token storage di device. |
-| 5 | `security-auditor` | Security | Audit keamanan menyeluruh: DevSecOps, ancaman OWASP Top 10, OAuth2/OIDC, postur cloud. |
-| 6 | `security-compliance-compliance-check` | Security | Audit kepatuhan & regulasi perangkat lunak (GDPR, HIPAA, SOC2, PCI-DSS). |
-| 7 | `security-requirement-extraction` | Security | Penurunan kebutuhan keamanan dari threat models menjadi user stories dan test cases teruji. |
-| 8 | `security-scanning-security-dependencies` | Security | Pemindaian kerentanan dependensi npm/node_modules, SBOM generation, supply chain security. |
-| 9 | `security-scanning-security-hardening` | Security | Koordinasi pengerasan keamanan multi-layer (aplikasi, infrastruktur database, control access). |
-| 10 | `security-scanning-security-sast` | Security | Static Application Security Testing (SAST) untuk deteksi kerentanan kode otomatis. |
-| 11 | `k8s-security-policies` | Security | Penerapan kebijakan keamanan Kubernetes (NetworkPolicy, PodSecurity, RBAC). |
-| 12 | `solidity-security` | Security | Audit dan best practices keamanan smart contract Solidity & blockchain security. |
-| 13 | `code-reviewer` | Code Quality | Analisis kode modern, deteksi potensi bug, optimasi performa, keandalan produksi. |
-| 14 | `code-review-excellence` | Code Quality | Standar review pull request berkualitas tinggi, feedback konstruktif, dan transfer knowledge. |
-| 15 | `code-review-ai-ai-review` | Code Quality | Review cerdas berbasis AI terintegrasi automated static analysis dan DevOps workflows. |
-| 16 | `code-refactoring-refactor-clean` | Refactoring | Penerapan Clean Code, prinsip SOLID, design patterns modern, dan modularitas tinggi. |
-| 17 | `code-refactoring-tech-debt` | Refactoring | Identifikasi, kuantifikasi, dan prioritas perbaikan utang teknis (technical debt). |
-| 18 | `code-refactoring-context-restore` | Refactoring | Pemulihan dan pemeliharaan konteks sistem saat melakukan refactoring skala besar. |
-| 19 | `framework-migration-code-migrate` | Migration | Perencanaan dan eksekusi migrasi kode antar framework, versi library, dan runtime platform. |
-| 20 | `javascript-pro` | Core JS | Penguasaan JavaScript modern ES6+, async/await, event loops, dan API runtime Node.js. |
-| 21 | `modern-javascript-patterns` | Core JS | Penerapan functional programming, iterators, generators, destructuring, dan modular JS. |
-| 22 | `javascript-typescript-typescript-scaffold` | TypeScript | Arsitektur dan scaffolding proyek TypeScript modern berskala produksi. |
-| 23 | `javascript-testing-patterns` | Testing | Strategi pengujian komprehensif: unit/integration test (Jest, Vitest, Testing Library, TDD). |
-| 24 | `c4-code` | Documentation | Dokumentasi arsitektur tingkat rendah C4 Code Level (signature fungsi, relasi modul). |
-| 25 | `code-documentation-doc-generate` | Documentation | Generator dokumentasi API, diagram arsitektur Mermaid, user guides, dan technical docs. |
-| 26 | `code-documentation-code-explain` | Documentation | Penjelasan naratif konsep kode rumit melalui breakdown visual dan analogi jelas. |
+| 1 | `ui-ux-pro-max` | UI/UX & Design | Standar desain visual modern, palet warna, tipografi, micro-interactions, mobile responsiveness. |
+| 2 | `clean-code` | Architecture | Standar kode bersih, pragmatis, modular, tanpa over-engineering atau duplikasi. |
+| 3 | `antislop` & family | Code Hygiene | Penghapus komentar generik AI slop, layout mobile responsif, copywriting natural. |
+| 4 | `nestjs-patterns` | Backend | Arsitektur modular domain terstruktur: Controller – Service – Repository – DTO. |
+| 5 | `backend-patterns` | Backend | Pola backend API Next.js, optimasi query Supabase, isolasi transaksi. |
+| 6 | `postgres-patterns` | Database | Pola PostgreSQL Supabase, indexing, RLS security, penanganan generated columns (`428C9`). |
+| 7 | `tailwind-patterns` | Frontend | Tailwind CSS v4 design tokens, fluid spacing, adaptasi zoom desktop & mobile. |
+| 8 | `backend-security-coder` | Security | Praktik backend aman: validasi input, sanitasi, autentikasi, database protection, API security. |
+| 9 | `frontend-security-coder` | Security | Praktik frontend aman: mitigasi XSS, sanitasi output HTML/JSX, CSP, cookie security. |
+| 10 | `frontend-mobile-security-xss-scan` | Security | Pemindaian injeksi Cross-Site Scripting (XSS) pada React/Next.js dan antarmuka web/mobile. |
+| 11 | `mobile-security-coder` | Security | Pola keamanan aplikasi mobile, WebView hardening, secure token storage di device. |
+| 12 | `security-auditor` | Security | Audit keamanan menyeluruh: DevSecOps, ancaman OWASP Top 10, OAuth2/OIDC, postur cloud. |
+| 13 | `security-compliance-compliance-check` | Security | Audit kepatuhan & regulasi perangkat lunak (GDPR, HIPAA, SOC2, PCI-DSS). |
+| 14 | `security-requirement-extraction` | Security | Penurunan kebutuhan keamanan dari threat models menjadi user stories dan test cases teruji. |
+| 15 | `security-scanning-security-dependencies` | Security | Pemindaian kerentanan dependensi npm/node_modules, SBOM generation, supply chain security. |
+| 16 | `security-scanning-security-hardening` | Security | Koordinasi pengerasan keamanan multi-layer (aplikasi, infrastruktur database, control access). |
+| 17 | `security-scanning-security-sast` | Security | Static Application Security Testing (SAST) untuk deteksi kerentanan kode otomatis. |
+| 18 | `k8s-security-policies` | Security | Penerapan kebijakan keamanan Kubernetes (NetworkPolicy, PodSecurity, RBAC). |
+| 19 | `solidity-security` | Security | Audit dan best practices keamanan smart contract Solidity & blockchain security. |
+| 20 | `code-reviewer` | Code Quality | Analisis kode modern, deteksi potensi bug, optimasi performa, keandalan produksi. |
+| 21 | `code-review-excellence` | Code Quality | Standar review pull request berkualitas tinggi, feedback konstruktif, dan transfer knowledge. |
+| 22 | `code-review-ai-ai-review` | Code Quality | Review cerdas berbasis AI terintegrasi automated static analysis dan DevOps workflows. |
+| 23 | `code-refactoring-refactor-clean` | Refactoring | Penerapan Clean Code, prinsip SOLID, design patterns modern, dan modularitas tinggi. |
+| 24 | `code-refactoring-tech-debt` | Refactoring | Identifikasi, kuantifikasi, dan prioritas perbaikan utang teknis (technical debt). |
+| 25 | `code-refactoring-context-restore` | Refactoring | Pemulihan dan pemeliharaan konteks sistem saat melakukan refactoring skala besar. |
+| 26 | `framework-migration-code-migrate` | Migration | Perencanaan dan eksekusi migrasi kode antar framework, versi library, dan runtime platform. |
+| 27 | `javascript-pro` | Core JS | Penguasaan JavaScript modern ES6+, async/await, event loops, dan API runtime Node.js. |
+| 28 | `modern-javascript-patterns` | Core JS | Penerapan functional programming, iterators, generators, destructuring, dan modular JS. |
+| 29 | `javascript-typescript-typescript-scaffold` | TypeScript | Arsitektur dan scaffolding proyek TypeScript modern berskala produksi. |
+| 30 | `javascript-testing-patterns` | Testing | Strategi pengujian komprehensif: unit/integration test (141 tests 100% pass via native test runner). |
+| 31 | `c4-code` | Documentation | Dokumentasi arsitektur tingkat rendah C4 Code Level (signature fungsi, relasi modul). |
+| 32 | `code-documentation-doc-generate` | Documentation | Generator dokumentasi API, diagram arsitektur Mermaid, user guides, dan technical docs. |
+| 33 | `code-documentation-code-explain` | Documentation | Penjelasan naratif konsep kode rumit melalui breakdown visual dan analogi jelas. |
 
 ---
 
@@ -1166,16 +1210,18 @@ Gunakan kombinasi skill `backend-security-coder` dan `security-auditor`:
 - Selalu verifikasi session user via `supabase.auth.getUser()`.
 - Validasi semua input pengguna dengan **Zod** sebelum query database.
 - Terapkan **Row Level Security (RLS)** pada setiap tabel Supabase baru.
+- Cegah kebocoran error internal database menggunakan `lib/utils/errors.js` (`sanitizeApiError`).
 
 #### 2. Kualitas Kode Frontend & UI Realtime
-Gunakan skill `frontend-security-coder` dan `javascript-pro`:
+Gunakan skill `frontend-security-coder`, `ui-ux-pro-max`, dan `javascript-pro`:
 - Pastikan input tidak rentan injeksi XSS saat me-render teks dinamis.
 - Gunakan debouncing pada listener Realtime WebSocket untuk mencegah re-render berlebih.
+- Bungkus semua pesan error form dan aksi pengguna dengan `<UserErrorAlert />`.
 
-#### 3. Refactoring & Pembersihan Technical Debt
-Gunakan skill `code-refactoring-refactor-clean` dan `code-refactoring-tech-debt`:
-- Pisahkan business logic ke dalam helper reusable di folder `lib/`.
-- Pertahankan tipe data dan kontrak fungsi dengan JSDoc yang jelas.
+#### 3. Refactoring & Modularitas Domain
+Gunakan skill `clean-code`, `nestjs-patterns`, dan `code-refactoring-refactor-clean`:
+- Pisahkan business logic ke dalam domain module di folder `lib/modules/` (Controller – Service – Repository).
+- Pertahankan zero-dependency testing di `scripts/test-suite.mjs` (wajib 141/141 tests pass).
 
 ---
 

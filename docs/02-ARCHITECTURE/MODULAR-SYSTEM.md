@@ -91,7 +91,9 @@ Saat menambahkan fungsionalitas backend atau modul baru:
    Definisikan skema di `<domain>.dto.js`.
 4. **Jaga Backward Compatibility**:
    Jika utilitas lama diimpor oleh banyak komponen (seperti `lib/utils/pricing.js`), re-export dari modul baru agar impor lama tidak rusak.
-5. **Verifikasi Kualitas**:
-   - Jalankan `npm test` (semua unit test wajib lulus).
-   - Jalankan `npm run build` (semua 47 rute wajib terkompilasi tanpa error).
+5. **Sanitasi Error & Keamanan (Zero-Leakage)**:
+   Gunakan `lib/utils/errors.js` (`sanitizeApiError`) di backend dan `<UserErrorAlert />` di frontend agar detail internal database dan credentials tidak terekspos ke pengguna.
+6. **Verifikasi Kualitas**:
+   - Jalankan `npm test` (semua 141 automated unit & integration tests wajib lulus 100%).
+   - Jalankan `npm run build` (seluruh 47 rute wajib terkompilasi bersih tanpa error).
 

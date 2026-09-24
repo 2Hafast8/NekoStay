@@ -49,6 +49,10 @@
 * **RLS Enabled**: `ALTER TABLE public.whatsapp_bot_state ENABLE ROW LEVEL SECURITY;` & `ALTER TABLE public.whatsapp_logs ENABLE ROW LEVEL SECURITY;`
 * **ALL**: `is_admin()` (Hanya Admin yang dapat melihat live status bot dan riwayat chat log).
 
+### 9. Tabel `booking_admin_notes`
+* **RLS Enabled**: `ALTER TABLE public.booking_admin_notes ENABLE ROW LEVEL SECURITY;`
+* **ALL**: `is_admin()` (Hanya Admin yang berhak membaca, menambah, dan mengaudit catatan staf serta jejak audit payment override).
+
 ---
 
 ## ⚡ Database Triggers & Helper Functions

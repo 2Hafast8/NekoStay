@@ -62,6 +62,20 @@ Folder ini berisi dokumentasi tentang desain teknis, arsitektur sistem, dan keam
 
 ---
 
+### 4️⃣ [MODULAR-SYSTEM.md](./MODULAR-SYSTEM.md) — **Arsitektur Modular Domain (Pola NestJS)**
+**Untuk apa**: Panduan arsitektur domain mandiri bergaya NestJS di Next.js App Router  
+**Isi**: Controller – Service – Repository – DTO, pemisahan dependensi, barrel exports  
+**Baca kapan**: Saat mengembangkan domain baru atau refactoring logika bisnis  
+**Estimasi**: 10 menit membaca
+
+**Apa yang ada di dalamnya**:
+- Struktur modular `lib/modules/` (`bookings/`, `payments/`, `pricing/`, `whatsapp/`)
+- Dekomposisi komponen kompleks `components/modules/`
+- Zero-leakage error handling via `lib/utils/errors.js` dan `<UserErrorAlert />`
+- Aturan penambahan fitur baru & verifikasi test runner (141 tests 100% pass)
+
+---
+
 ## 🎯 USE CASES
 
 ### "Aku pengin memahami sistem secara keseluruhan"
@@ -129,6 +143,7 @@ See [RLS_POLICIES.md](./RLS_POLICIES.md) for detailed instructions.
 | File | Size | Read Time | Priority | Action |
 |------|------|-----------|----------|--------|
 | NekoStay_Technical_Design.md | Large | 45 min | 🔴 HIGH | Read |
+| MODULAR-SYSTEM.md | Small | 10 min | 🔴 HIGH | Read |
 | design.md | Medium | 20 min | 🟡 MEDIUM | Read |
 | RLS_POLICIES.md | Medium | 15 min | 🔴 HIGH | Read + Execute SQL |
 

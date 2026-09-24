@@ -35,7 +35,10 @@
    - *Analisis Baris Kode Penting (Webhook Hash, OfflineQrModal, Scan Endpoint)*
 6. [Sistem 5: Panel Operasional Admin & Siklus Penitipan Check-in / Check-out](#sistem-5-panel-operasional-admin--siklus-penitipan-check-in--check-out)
    - *Executive Analytics Dashboard (Occupancy Rate & Omzet Tren)*
+   - *Kustomisasi Warna Chart Kelas Kamar Dinamis (16 Palet & Penyimpanan Lokal)*
    - *Manajemen Pesanan & Tindakan Massal (Bulk Actions)*
+   - *Ubah Status Pembayaran Darurat (Emergency Override) & Audit Trail*
+   - *Pencatatan Catatan Khusus Tamu (Booking Admin Notes)*
    - *Tombol Cepat Alasan Penolakan & Evaluasi 1-Klik*
    - *Kalkulator Check-Out Cerdas: Denda Terlambat 8% & Refund Jemput Awal 90%*
    - *Ekspor Laporan PDF Landscape Resmi*
@@ -64,7 +67,8 @@
     - *Analisis Baris Kode Penting (Cron Auth Guard, Batch Query Processing)*
 11. [Sistem 10: Pengujian Otomatis Mandiri & Standar Keamanan Sistem](#sistem-10-pengujian-otomatis-mandiri--standar-keamanan-sistem)
     - *Filosofi Zero-Dependency Test Runner (Node.js 22 ESM)*
-    - *Daftar Lengkap 50 Kasus Uji Logika Bisnis & Keamanan (100% Pass)*
+    - *Daftar Lengkap 141 Kasus Uji Logika Bisnis & Keamanan (100% Pass)*
+    - *Sistem Penanganan Error Ramah Pengguna & Sanitasi Keamanan (OWASP A04/A05)*
     - *Panduan Eksekusi Pengujian untuk Kontributor & AI Agents*
 
 ---
@@ -86,8 +90,10 @@ graph TD
     MW["Next.js Middleware (Session & Route Guard)"]
     AppRouter["App Router (SSR Pages & Interactive Components)"]
     APIRoutes["Next.js API Routes (/api/*)"]
-    Zod["Zod Validation Layer"]
-    CapUtil["Capacity & Pricing Engine (lib/utils)"]
+    Zod["Zod Validation & DTO Layer (lib/validations & lib/modules/*/dto)"]
+    DomainServices["Modular Domain Services (lib/modules/pricing, whatsapp)"]
+    CapUtil["Capacity & Date Utilities (lib/utils)"]
+    ErrorSanitizer["User-Centric Error Sanitizer (lib/utils/errors.js)"]
     SupaClient["Supabase Server Client (RLS Protected)"]
     SupaAdmin["Supabase Service Role (Admin/Cron Engine)"]
     PostgreSQL[("Supabase PostgreSQL Database")]
@@ -100,8 +106,11 @@ graph TD
     MW -->|Authorized Route| AppRouter
     MW -->|API Request| APIRoutes
     APIRoutes --> Zod
-    Zod --> CapUtil
-    CapUtil --> SupaClient
+    APIRoutes --> ErrorSanitizer
+    Zod --> DomainServices
+    DomainServices --> CapUtil
+    DomainServices --> SupaClient
+    DomainServices --> SupaAdmin
     APIRoutes --> SupaClient
     APIRoutes --> SupaAdmin
     SupaClient --> PostgreSQL
@@ -589,6 +598,25 @@ export function calculateRefund(pricePerDay, scheduledCheckout, actualCheckout, 
 }
 ```
 
+#### 3. Kustomisasi Warna Chart Kelas Kamar Dinamis ([`components/admin/ClassColorCustomizerModal.jsx`](file:///c:/Users/LENOVO/NekoStay/components/admin/ClassColorCustomizerModal.jsx))
+Admin dapat menyesuaikan warna visual grafik distribusi kelas kamar (*Doughnut Chart*) pada dashboard operasional:
+- **16 Pilihan Palet Warna Eksklusif**: Mulai dari Emerald, Teal, Rose, Amber, Indigo, Violet, hingga Zinc.
+- **Penyimpanan Lokal Persisten**: Preferensi warna tersimpan otomatis di `localStorage` per browser admin (`nekostay_room_class_colors`).
+- **Deteksi Kelas Baru Otomatis**: Jika ada kelas kamar baru ditambahkan di database, sistem secara otomatis memberikan warna acak terdistribusi dari palet yang belum terpakai tanpa merusak konfigurasi kelas lama.
+- **Preview Interaktif & Reset Default**: Dilengkapi pratinjau live sebelum disimpan dan opsi reset 1-klik ke warna tema standar.
+
+#### 4. Penanganan Status Pembayaran Darurat & Jejak Audit ([`components/admin/EmergencyPaymentModal.jsx`](file:///c:/Users/LENOVO/NekoStay/components/admin/EmergencyPaymentModal.jsx) & [`app/api/bookings/[id]/payment-status/route.js`](file:///c:/Users/LENOVO/NekoStay/app/api/bookings/[id]/payment-status/route.js))
+Jika terjadi kendala sistem pembayaran gateway atau pembayaran manual tunai di kasir tanpa pemindaian QR:
+- **Alasan Wajib (Minimum 5 Karakter)**: Admin wajib mengisi alasan pengubahan status pembayaran (misal: "Verifikasi mutasi rekening BCA kasir manual").
+- **Pernyataan Tanggung Jawab (Checkbox Konfirmasi)**: Mencegah perubahan tidak sengaja dengan checkbox konfirmasi tanggung jawab audit.
+- **Pencatatan Otomatis ke `booking_admin_notes`**: Perubahan status dicatat dengan kategori `payment_override` beserta metadata waktu dan email admin yang melakukan otorisasi.
+- **Notifikasi Pelanggan**: Mengirimkan notifikasi in-app ke pemilik anabul bahwa status pembayaran mereka telah diperbarui secara resmi.
+
+#### 5. Pencatatan Khusus Tamu & Riwayat Catatan ([`app/api/bookings/[id]/notes/route.js`](file:///c:/Users/LENOVO/NekoStay/app/api/bookings/[id]/notes/route.js))
+Memungkinkan admin menambahkan catatan operasional pada pesanan:
+- **Kategori Terstruktur**: `general` (umum), `dietary` (pola makan/alergi), `medical` (kondisi obat/kesehatan), `behavior` (perilaku/temperamen), `emergency` (kondisi mendesak), `payment_override` (audit pembayaran).
+- **Audit & Keamanan**: Hanya admin yang berhak menulis dan menghapus catatan. Dilengkapi timestamp realtime dan identitas pembuat catatan.
+
 ---
 
 ## Sistem 6: Rekam Medis Kucing Harian & Notifikasi Multi-Kanal
@@ -775,11 +803,13 @@ if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
 Untuk menjamin stabilitas aplikasi sebelum dipublikasikan ke server produksi, NekoStay dilengkapi dengan suite pengujian otomatis mandiri berbasis **Node.js Test Runner** yang sangat cepat (**< 1 detik**) tanpa dependensi framework pengujian berat seperti Jest atau Vitest.
 
 ```bash
-# Perintah Menjalankan Seluruh 50 Kasus Uji Otomatis:
+# Perintah Menjalankan Seluruh 141 Kasus Uji Otomatis:
+npm test
+# atau:
 node scripts/test-suite.mjs
 ```
 
-### 📊 Hasil Pengujian Otomatis (50 / 50 PASS):
+### 📊 Hasil Pengujian Otomatis (141 / 141 PASS — 100%):
 ```text
 📌 [TEST SUITE] Pricing & Mathematical Calculations
   ✅ PASS: Estimasi Basic 5 hari harus Rp 250.000 (Didapat: 250000)
@@ -810,6 +840,21 @@ node scripts/test-suite.mjs
   ✅ PASS: Token scan offline UUID valid harus lolos
   ✅ PASS: offlineQrSchema dengan bookingId valid harus lolos
   ✅ PASS: offlineQrSchema dengan bookingId bukan UUID harus ditolak
+
+📌 [TEST SUITE] Booking Admin Notes & Emergency Payment Status Validation
+  ✅ PASS: Payload catatan admin valid harus lolos validasi
+  ✅ PASS: Kategori catatan general harus lolos
+  ✅ PASS: Kategori catatan medical harus lolos
+  ✅ PASS: Kategori catatan dietary harus lolos
+  ✅ PASS: Kategori catatan behavior harus lolos
+  ✅ PASS: Kategori catatan emergency harus lolos
+  ✅ PASS: Kategori catatan payment_override harus lolos
+  ✅ PASS: Kategori yang tidak dikenal harus ditolak oleh schema
+  ✅ PASS: Konten catatan kosong/whitespace harus ditolak oleh schema
+  ✅ PASS: Konten catatan melebihi 1000 karakter harus ditolak
+  ✅ PASS: Perubahan status darurat valid harus lolos validasi
+  ✅ PASS: Alasan darurat terlalu pendek (< 5 karakter) harus ditolak
+  ✅ PASS: Status pembayaran tidak dikenal harus ditolak
 
 📌 [TEST SUITE] API Response Helpers
   ✅ PASS: apiSuccess harus mengembalikan status 200
@@ -873,11 +918,77 @@ node scripts/test-suite.mjs
   ✅ PASS: checkAndExpireInactiveAdminChats harus mendeteksi sesi yang idle 1 jam
   ✅ PASS: Status sesi harus otomatis kembali ke IDLE setelah di-sweep
 
+📌 [TEST SUITE] WhatsApp Bot Copy-Paste Echo & Template Protection
+  ✅ PASS: isBotMessageEcho harus mendeteksi salinan Menu Utama bot
+  ✅ PASS: isBotMessageEcho harus mendeteksi salinan Submenu Jadwal bot
+  ✅ PASS: isBotMessageEcho harus mendeteksi salinan Submenu Kelas Kamar bot
+  ✅ PASS: isBotMessageEcho harus mendeteksi template jadwal yang disalin utuh
+  ✅ PASS: isBotMessageEcho harus false untuk input angka '1'
+  ✅ PASS: isBotMessageEcho harus false untuk input angka '2'
+  ✅ PASS: isBotMessageEcho harus false untuk input angka '3'
+  ✅ PASS: isBotMessageEcho harus false untuk frasa 'ubah jadwal'
+  ✅ PASS: isBotMessageEcho harus false untuk frasa 'chat admin'
+  ✅ PASS: isBotMessageEcho harus false untuk template yang sudah diisi data asli
+  ✅ PASS: isUnfilledTemplate harus mendeteksi template dengan placeholder bracket
+  ✅ PASS: isUnfilledTemplate harus mendeteksi template kelas dengan placeholder
+  ✅ PASS: isUnfilledTemplate harus false jika data sudah diisi tanpa bracket
+  ✅ PASS: Sesi harus berada dalam status AWAITING_MAIN_CHOICE
+  ✅ PASS: Balasan echo menu harus berupa string
+  ✅ PASS: Bot harus memberikan peringatan bahwa pesan terdeteksi salinan menu
+  ✅ PASS: Bot TIDAK BOLEH salah lompat ke Ubah Jadwal saat menu di-paste
+  ✅ PASS: Status sesi harus tetap AWAITING_MAIN_CHOICE
+  ✅ PASS: Input '1' harus membuka Submenu Jadwal
+  ✅ PASS: Status sesi harus AWAITING_SCHEDULE_TYPE
+  ✅ PASS: Bot harus memberikan panduan saat submenu jadwal di-paste
+  ✅ PASS: Bot TIDAK BOLEH langsung memilih Memundurkan Jadwal saat submenu di-paste
+  ✅ PASS: Status sesi harus tetap AWAITING_SCHEDULE_TYPE
+  ✅ PASS: Pilihan '2' harus memberikan template formulir
+  ✅ PASS: Status sesi harus AWAITING_SCHEDULE_SUBMISSION
+  ✅ PASS: Bot harus menolak template yang belum diganti datanya
+  ✅ PASS: Peringatan harus menyebutkan kurung siku placeholder
+  ✅ PASS: Template dengan data valid harus diterima
+  ✅ PASS: Balasan konfirmasi harus memuat nama kucing 'Oyen'
+  ✅ PASS: Setelah pengajuan selesai, sesi kembali ke IDLE
+  ✅ PASS: Bot harus menolak salinan menu kelas
+  ✅ PASS: Bot TIDAK BOLEH auto-select Standard Room saat daftar kelas di-paste
+  ✅ PASS: Status sesi harus tetap AWAITING_CLASS_TYPE
+  ✅ PASS: Copy-paste bot text saat dalam mode Admin Chat harus tetap hening (return null)
+  ✅ PASS: Sesi harus tetap berada dalam mode CHAT_WITH_ADMIN
+
+📌 [TEST SUITE] User-Centric Error Sanitizer & Captcha Protection
+  ✅ PASS: Harus mengenali CAPTCHA_REQUIRED
+  ✅ PASS: Kategori harus security
+  ✅ PASS: Pesan harus dalam bahasa ramah pengguna tanpa frasa teknis Supabase
+  ✅ PASS: Pesan ramah pengguna tidak boleh mengandung kata 'disallowed'
+  ✅ PASS: Pesan ramah pengguna tidak boleh membocorkan 'no captcha_token'
+  ✅ PASS: Harus menyertakan tips aksi mitigasi
+  ✅ PASS: Harus mendukung bahasa Inggris untuk verifikasi captcha
+  ✅ PASS: Harus mengenali INVALID_CREDENTIALS
+  ✅ PASS: Kategori harus auth
+  ✅ PASS: Tips harus menyertakan saran periksa Caps Lock
+  ✅ PASS: Harus mengenali WEAK_PASSWORD
+  ✅ PASS: Harus mengenali ROOM_CAPACITY_FULL
+  ✅ PASS: Kategori harus warning
+  ✅ PASS: Harus mengenali DATABASE_INTERNAL_ERROR
+  ✅ PASS: Pesan pengguna tidak boleh membocorkan nama kolom database
+  ✅ PASS: Pesan pengguna tidak boleh membocorkan istilah teknis generated column
+  ✅ PASS: getUserFriendlyMessage harus mengembalikan string
+  ✅ PASS: getUserFriendlyMessage harus ramah pengguna
+  ✅ PASS: sanitizedMessage harus string
+  ✅ PASS: sanitizedMessage tidak boleh mengekspos syntax error
+  ✅ PASS: sanitizedMessage tidak boleh mengekspos sintaks SQL
+
 ========================================================
-📊 HASIL PENGUJIAN OTOMATIS: 76 / 76 BERHASIL (100% PASS)
+📊 HASIL PENGUJIAN OTOMATIS: 141 / 141 BERHASIL (100% PASS)
 🎉 SELURUH PENGUJIAN LOGIKA BISNIS & KEAMANAN BERHASIL 100%!
 ========================================================
 ```
+
+### 🛡️ Standar Sanitasi Error Ramah Pengguna (OWASP A04 / A05)
+Sistem ini menggunakan modul terpusat [`lib/utils/errors.js`](file:///c:/Users/LENOVO/NekoStay/lib/utils/errors.js) dan komponen visual [`components/shared/UserErrorAlert.jsx`](file:///c:/Users/LENOVO/NekoStay/components/shared/UserErrorAlert.jsx) untuk:
+1. **Mencegah Kebocoran Informasi Sensitif**: Pesan error teknis database (PostgreSQL code, nama tabel/kolom, generated column) dan sistem internal tidak pernah ditampilkan mentah ke pengguna.
+2. **Kamus Pesan Ramah Pengguna**: Mengubah error teknis menjadi instruksi tindakan yang solutif (Actionable Tips & Recovery Guidance).
+3. **Dual Mode (Development vs Production)**: Di mode development, developer tetap dapat melihat rincian error teknis pada dropdown accordion debug yang rapi, sementara di mode produksi detail tersebut disembunyikan sepenuhnya.
 
 ---
 

@@ -22,4 +22,8 @@
 | 11 | **Security Hardening (Frontend & Backend)** | 100% Selesai | Anti-clickjacking CSP frame-ancestors 'none', Open Redirect sanitization, client MIME allowlist, rate limiting, AbortSignal timeout. |
 | 12 | **React & Next.js Performance** | 100% Selesai | optimizePackageImports, eliminasi database query waterfall (Promise.all), bebas cascading render React 19, Core Web Vitals Next.js Image. |
 | 13 | **Kapasitas & Waitlist Auto-Reject** | 100% Selesai | Toleransi antrian maksimal 3 hari, cron auto-reject background, live occupancy tracking, dan kandang maintenance. |
-| 14 | **Automated Testing Suite** | 100% Selesai | 76 skenario pengujian di scripts/test-suite.mjs (npm test) lulus 100% (pricing, denda 8%, tanggal, Zod, QR, WA JID/bot). |
+| 14 | **Automated Testing Suite** | 100% Selesai | 141 skenario pengujian di scripts/test-suite.mjs (npm test) lulus 100% (pricing, denda 8%, tanggal, Zod, QR, WA JID/bot, echo protection, capacity waitlist, error sanitizer & captcha protection). |
+| 15 | **Arsitektur Modular (Pola NestJS)** | 100% Selesai | Restrukturisasi `lib/modules/` (`pricing`, `whatsapp`) dengan pemisahan domain services, DTO, dan repositories independen. |
+| 16 | **Sistem Error Ramah Pengguna & Keamanan** | 100% Selesai | Kamus regex `lib/utils/errors.js`, komponen `UserErrorAlert`, proteksi captcha Turnstile proaktif, sanitasi error sensitif di mode deploy (OWASP A04/A05). |
+| 17 | **Modifikasi Status Pembayaran Darurat Admin** | 100% Selesai | Modal khusus `EmergencyPaymentModal` dengan validasi alasan audit wajib (min 5 karakter), konfirmasi tanggung jawab, transaksi atomik. |
+| 18 | **Grafik Donut Kelas Kamar Adaptif & Kustomisasi Warna** | 100% Selesai | Deteksi otomatis kelas baru di dashboard admin, palet 16 warna harmonis, modal kustomisasi warna per kelas dengan persistensi. |

@@ -29,6 +29,10 @@ MIDTRANS_SERVER_KEY=SB-Mid-server-xxxxx
 NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=SB-Mid-client-xxxxx
 MIDTRANS_IS_PRODUCTION=false # Ubah ke true saat go-live akun produksi Midtrans
 
+# Cloudflare Turnstile Captcha Protection
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAA...
+TURNSTILE_SECRET_KEY=0x4AAAAAA...
+
 # Cron Security Token
 CRON_SECRET=random-string-rahasia-panjang-dan-unik
 
@@ -42,7 +46,7 @@ NEXT_PUBLIC_ADMIN_WHATSAPP=6282371986344
 ## 2. Database Setup & RLS (Supabase)
 
 - [x] **Jalankan Skema SQL**: Eksekusi seluruh isi [`supabase/schema.sql`](../../supabase/schema.sql) di Supabase SQL Editor.
-- [x] **Aktifkan RLS**: Pastikan seluruh 9 tabel (`profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, `reviews`, `promos`, `whatsapp_bot_state`, `whatsapp_logs`) memiliki RLS enabled.
+- [x] **Aktifkan RLS**: Pastikan seluruh 10 tabel (`profiles`, `classes`, `bookings`, `cat_reports`, `notifications`, `reviews`, `promos`, `whatsapp_bot_state`, `whatsapp_logs`, `booking_admin_notes`) memiliki RLS enabled.
 - [x] **Supabase Storage Bucket**: Buat bucket `cat-photos` dengan akses publik untuk thumbnail foto kucing.
 - [x] **Setup Admin Akun**: Daftarkan email admin di `handle_new_user()` trigger atau update role via SQL Editor:
   ```sql
@@ -54,15 +58,16 @@ NEXT_PUBLIC_ADMIN_WHATSAPP=6282371986344
 ## 3. Pre-Deployment Verification Commands
 
 ```bash
-# 1. Menjalankan Automated Test Suite
+# 1. Menjalankan Automated Test Suite (Wajib 100% Pass)
 npm test
+# Output wajib: 141 / 141 BERHASIL (100% PASS)
 
 # 2. Menjalankan Linting
 npm run lint
 
 # 3. Menjalankan Kompilasi Build Produksi
 npm run build
-# Output wajib: 0 error, 44 routes generated.
+# Output wajib: 0 error, 47 routes generated (Turbopack compile clean).
 ```
 
 ---

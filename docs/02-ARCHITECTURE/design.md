@@ -419,6 +419,82 @@ Dropdown (klik):
 └──────────────────────────────┘
 ```
 
+### 6.8 User Error Alert (`<UserErrorAlert />`)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  ⚠️  Verifikasi Keamanan Diperlukan            [Coba]  │
+│  Silakan selesaikan tantangan verifikasi captcha...   │
+│  ────────────────────────────────────────────────────  │
+│  💡 Tips Pemulihan:                                    │
+│  • Klik kotak verifikasi Cloudflare Turnstile          │
+│  • Pastikan koneksi internet stabil                    │
+│  [▼ Detail Teknis Pengembang (Hanya Mode Dev)]         │
+└────────────────────────────────────────────────────────┘
+Varian Kategori:
+  auth     → border-amber-300  bg-amber-50/90  text-amber-900
+  security → border-orange-300 bg-orange-50/90 text-orange-900
+  warning  → border-yellow-300 bg-yellow-50/90 text-yellow-900
+  error    → border-rose-300   bg-rose-50/90   text-rose-900
+```
+
+### 6.9 Dynamic Room Class Chart Color Customizer (`<ClassColorCustomizerModal />`)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  🎨 Kustomisasi Warna Kelas Kamar               [✕]    │
+│  Atur warna visual grafik distribusi kelas kamar       │
+│  ────────────────────────────────────────────────────  │
+│  Preview Doughnut Chart:                               │
+│      (🟢 Basic 40%  🟣 Standard 35%  🟠 Premium 25%)   │
+│                                                        │
+│  Pilihan Palet (16 Warna Presets):                     │
+│  Basic Room:    [🟢 Emerald] [🔵 Sky] [🟣 Indigo] ...  │
+│  Standard Room: [🟡 Amber]   [🔴 Rose] [🟢 Teal]   ...  │
+│  Premium Room:  [🟣 Purple]  [🟠 Orange] [⚪ Slate]...  │
+│                                                        │
+│  [🔄 Reset Default]                [Batal] [💾 Simpan] │
+└────────────────────────────────────────────────────────┘
+```
+
+### 6.10 Emergency Payment Status Modal (`<EmergencyPaymentModal />`)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  🚨 Ubah Status Pembayaran Darurat              [✕]    │
+│  Gunakan hanya jika ada kendala gateway / mutasi tunai │
+│  ────────────────────────────────────────────────────  │
+│  Status Baru: [ Paid (Lunas)                 ▼ ]       │
+│  Alasan Perubahan (Wajib min 5 karakter):              │
+│  [ Transfer bank konfirmasi manual via mutasi BCA   ] │
+│                                                        │
+│  [✓] Saya mengonfirmasi perubahan ini di bawah         │
+│      tanggung jawab penuh audit staf admin.            │
+│                                                        │
+│  [ Batal ]                    [ 🚨 Simpan Perubahan ]  │
+└────────────────────────────────────────────────────────┘
+```
+
+### 6.11 Offline QR Code Modal (`<OfflineQrModal />`)
+
+```
+┌────────────────────────────────────────────────────────┐
+│  💳 Pembayaran Kasir Offline                     [✕]   │
+│  ────────────────────────────────────────────────────  │
+│          ┌──────────────────────┐                      │
+│          │   [ QR Code Canvas ] │                      │
+│          │     Scan di Kasir    │                      │
+│          └──────────────────────┘                      │
+│  Nomor Tagihan: #ORD-2026-0924                         │
+│  Total Bayar: Rp 250.000                               │
+│  ⏱️ Berlaku: 24 Jam sejak dibuat                      │
+│                                                        │
+│  [ Simpan Gambar ]                     [ Selesai ]     │
+└────────────────────────────────────────────────────────┘
+Container: max-w-[min(94vw,480px)] max-h-[min(92vh,820px)]
+Adaptif untuk layar smartphone hingga desktop zoom 25% - 100%+
+```
+
 ---
 
 ## 7. LAYOUT WIREFRAME — SETIAP HALAMAN

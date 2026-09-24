@@ -2,10 +2,12 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Cat, Mail, ArrowRight, Sparkles, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { Cat, Mail, ArrowRight, Sparkles, CheckCircle2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SupabaseCaptcha } from "@/components/shared/SupabaseCaptcha";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { formatUserError } from "@/lib/utils/errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -15,8 +17,8 @@ export default function ForgotPasswordPage() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Auto-dismiss alert notifications after 3 seconds
-  useAutoDismiss(errorMsg, setErrorMsg);
+  // Auto-dismiss alert notifications (6s for error to allow reading tips/devInfo, 3s for success)
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
   useAutoDismiss(successMsg, setSuccessMsg);
 
   const supabase = createClient();
@@ -25,6 +27,20 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    const turnstileSiteKey =
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+      process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
+
+    if (turnstileSiteKey && !captchaToken) {
+      setErrorMsg(
+        formatUserError("captcha protection: request disallowed (no captcha_token found)", {
+          language: "id",
+        })
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -50,9 +66,7 @@ export default function ForgotPasswordPage() {
     } catch (err) {
       captchaRef.current?.reset();
       setCaptchaToken(null);
-      setErrorMsg(
-        err.message || "Terjadi kesalahan. Pastikan email Anda terdaftar.",
-      );
+      setErrorMsg(formatUserError(err, { language: "id" }));
     } finally {
       setIsLoading(false);
     }
@@ -89,22 +103,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setErrorMsg(null)}
-              className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-              title="Tutup notifikasi"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} />
 
         {successMsg && (
           <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">

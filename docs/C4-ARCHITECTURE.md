@@ -146,3 +146,28 @@ flowchart TD
 * **`apiNotFound(message): NextResponse`**
 * **`apiBadRequest(message, details): NextResponse`**
 * **`apiValidationError(zodError): NextResponse`**
+
+### F. User-Centric Error Sanitizer & UI Shield (`lib/utils/errors.js` & `components/shared/UserErrorAlert.jsx`)
+* **`formatUserError(error, options = { lang: 'id', isDev: false }): UserErrorInfo`**: Mentransformasikan error mentah (Supabase/PostgreSQL/Zod/Network/Midtrans) menjadi objek terstruktur: `{ message, originalMessage, category, tip, isSanitized, devDetails }`.
+* **`getUserFriendlyMessage(error, lang = 'id'): string`**: Menghasilkan pesan satu baris yang bersih dan ramah pengguna tanpa kebocoran detail teknis.
+* **`sanitizeApiError(error, isDev = false): { message, category, tip, ...(isDev && { devDetails }) }`**: Handler sanitasi untuk response JSON API agar tidak mengekspos struktur internal database (OWASP A04/A05).
+* **`<UserErrorAlert error={...} onRetry={...} />`**: Komponen antarmuka pengguna ramah aksesibilitas (ARIA alert) dengan ikon status tematik, instruksi pemulihan (tips), dan collapsible debug trace untuk lingkungan pengembang (`NODE_ENV === 'development'`).
+
+---
+
+## 🧪 5. Architecture Verification & Test Coverage
+Arsitektur modular di atas diverifikasi secara otomatis melalui test suite terintegrasi:
+* **Total Automated Tests**: 141 / 141 Passed (100%)
+* **Zero External Test Runner**: Node.js 22 native ESM runner (`scripts/test-suite.mjs`)
+* **Cakupan Pengujian**:
+  1. Pricing & Mathematical Calculations (8 tests)
+  2. Date Utilities (4 tests)
+  3. Zod Validation Schemas (12 tests)
+  4. Booking Admin Notes & Emergency Payment DTOs (12 tests)
+  5. API Response Helpers (5 tests)
+  6. Offline QR Token & Replay Prevention (4 tests)
+  7. Room Capacity & 3-Day Queue Tolerance (14 tests)
+  8. WhatsApp JID & LID Routing Resolution (7 tests)
+  9. WhatsApp Chat with Admin & Inactivity Sweep (20 tests)
+  10. WhatsApp Bot Copy-Paste Echo Protection (36 tests)
+  11. User-Centric Error Sanitizer & Security Shield (19 tests)

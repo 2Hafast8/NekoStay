@@ -9,6 +9,8 @@ import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { GsapAuthCurveOverlay } from "@/components/shared/GsapAuthCurveOverlay";
 import { SupabaseCaptcha } from "@/components/shared/SupabaseCaptcha";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { formatUserError } from "@/lib/utils/errors";
 import { gsap } from "gsap";
 
 export default function LoginPage() {
@@ -22,8 +24,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // Auto-dismiss alert notifications after 3 seconds
-  useAutoDismiss(errorMsg, setErrorMsg);
+  // Auto-dismiss alert notifications after 6 seconds
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
 
   const supabase = createClient();
 
@@ -51,6 +53,20 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    const turnstileSiteKey =
+      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+      process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY;
+
+    if (turnstileSiteKey && !captchaToken) {
+      setErrorMsg(
+        formatUserError("captcha protection: request disallowed (no captcha_token found)", {
+          language: "id",
+        })
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -61,9 +77,6 @@ export default function LoginPage() {
       });
 
       if (error) {
-        if (error.message === "Invalid login credentials") {
-          throw new Error("Email atau password salah.");
-        }
         throw error;
       }
 
@@ -95,7 +108,7 @@ export default function LoginPage() {
     } catch (err) {
       captchaRef.current?.reset();
       setCaptchaToken(null);
-      setErrorMsg(err.message || "Terjadi kesalahan sistem. Coba lagi.");
+      setErrorMsg(formatUserError(err, { language: "id" }));
       setIsLoading(false);
     }
   };
@@ -132,22 +145,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setErrorMsg(null)}
-              className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-              title="Tutup notifikasi"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+        <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} />
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">

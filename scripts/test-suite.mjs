@@ -60,6 +60,12 @@ import {
   apiBadRequest,
 } from "../lib/utils/response.js";
 import {
+  formatUserError,
+  getUserFriendlyMessage,
+  sanitizeApiError,
+  IS_DEV,
+} from "../lib/utils/errors.js";
+import {
   resolveRemoteJid,
   processIncomingWhatsAppMessage,
   BOT_FLOW_STATES,
@@ -797,6 +803,82 @@ Silakan *SALIN / COPY* teks template di bawah ini, lalu isi datanya dan kirim ke
   } catch (err) {
     // Non-blocking cleanup
   }
+});
+
+// -------------------------------------------------------------
+// 10. USER-CENTRIC ERROR SANITIZER & CAPTCHA PROTECTION
+// -------------------------------------------------------------
+group("User-Centric Error Sanitizer & Captcha Protection", async () => {
+  // Test 1: Captcha token missing (Supabase protection enabled without token)
+  const captchaMissingRaw = "captcha protection: request disallowed (no captcha_token found)";
+  const captchaMissingRes = formatUserError(captchaMissingRaw, { language: "id" });
+  assert(captchaMissingRes.code === "CAPTCHA_REQUIRED", "Harus mengenali CAPTCHA_REQUIRED");
+  assert(captchaMissingRes.category === "security", "Kategori harus security");
+  assert(
+    captchaMissingRes.message.includes("verifikasi keamanan"),
+    "Pesan harus dalam bahasa ramah pengguna tanpa frasa teknis Supabase"
+  );
+  assert(
+    !captchaMissingRes.message.toLowerCase().includes("disallowed"),
+    "Pesan ramah pengguna tidak boleh mengandung kata 'disallowed'"
+  );
+  assert(
+    !captchaMissingRes.message.toLowerCase().includes("no captcha_token"),
+    "Pesan ramah pengguna tidak boleh membocorkan 'no captcha_token'"
+  );
+  assert(typeof captchaMissingRes.tip === "string", "Harus menyertakan tips aksi mitigasi");
+
+  // Test 2: Captcha missing English locale
+  const captchaMissingEn = formatUserError(captchaMissingRaw, { language: "en" });
+  assert(
+    captchaMissingEn.message.includes("security verification (Captcha)"),
+    "Harus mendukung bahasa Inggris untuk verifikasi captcha"
+  );
+
+  // Test 3: Invalid Credentials
+  const credsErr = formatUserError("Invalid login credentials", { language: "id" });
+  assert(credsErr.code === "INVALID_CREDENTIALS", "Harus mengenali INVALID_CREDENTIALS");
+  assert(credsErr.category === "auth", "Kategori harus auth");
+  assert(credsErr.tip.includes("Caps Lock"), "Tips harus menyertakan saran periksa Caps Lock");
+
+  // Test 4: Weak Password
+  const weakPassErr = formatUserError("Password should be at least 8 characters", { language: "id" });
+  assert(weakPassErr.code === "WEAK_PASSWORD", "Harus mengenali WEAK_PASSWORD");
+
+  // Test 5: Room capacity full
+  const capErr = formatUserError("kamar penuh untuk tanggal tersebut", { language: "id" });
+  assert(capErr.code === "ROOM_CAPACITY_FULL", "Harus mengenali ROOM_CAPACITY_FULL");
+  assert(capErr.category === "warning", "Kategori harus warning");
+
+  // Test 6: Database Internal & Generated column error
+  const dbErr = formatUserError('column "total_days" is a generated column', { language: "id" });
+  assert(dbErr.code === "DATABASE_INTERNAL_ERROR", "Harus mengenali DATABASE_INTERNAL_ERROR");
+  assert(
+    !dbErr.message.includes("total_days"),
+    "Pesan pengguna tidak boleh membocorkan nama kolom database"
+  );
+  assert(
+    !dbErr.message.includes("generated column"),
+    "Pesan pengguna tidak boleh membocorkan istilah teknis generated column"
+  );
+
+  // Test 7: getUserFriendlyMessage helper
+  const friendlyMsg = getUserFriendlyMessage(captchaMissingRaw);
+  assert(typeof friendlyMsg === "string", "getUserFriendlyMessage harus mengembalikan string");
+  assert(friendlyMsg.includes("verifikasi keamanan"), "getUserFriendlyMessage harus ramah pengguna");
+
+  // Test 8: sanitizeApiError server function
+  const rawSqlError = "syntax error at or near 'SELECT' in table bookings";
+  const sanitizedApi = sanitizeApiError(rawSqlError, 500);
+  assert(typeof sanitizedApi.sanitizedMessage === "string", "sanitizedMessage harus string");
+  assert(
+    !sanitizedApi.sanitizedMessage.includes("syntax error"),
+    "sanitizedMessage tidak boleh mengekspos syntax error"
+  );
+  assert(
+    !sanitizedApi.sanitizedMessage.includes("SELECT"),
+    "sanitizedMessage tidak boleh mengekspos sintaks SQL"
+  );
 });
 
 // -------------------------------------------------------------

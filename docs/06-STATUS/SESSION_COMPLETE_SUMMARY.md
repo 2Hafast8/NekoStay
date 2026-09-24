@@ -36,19 +36,28 @@
 
 ### 4. Code Quality, Modularity & Testing Suite
 - [x] Helper respons API terpusat di [`lib/utils/response.js`](../../lib/utils/response.js).
-- [x] Sentralisasi skema validasi Zod lengkap di [`lib/validations/booking.js`](../../lib/validations/booking.js).
+- [x] Sentralisasi skema validasi Zod lengkap di [`lib/validations/booking.js`](../../lib/validations/booking.js) dan DTO modul di `lib/modules/*/dto/`.
+- [x] Arsitektur domain modular bergaya NestJS di [`lib/modules/`](../../lib/modules/) (`pricing/`, `whatsapp/`, `bookings/`, `payments/`).
+- [x] Perbaikan bug PostgreSQL generated column `428C9` pada endpoint edit pesanan.
 - [x] Sinkronisasi konstanta bisnis dan JSDoc Typedef di [`lib/constants/index.js`](../../lib/constants/index.js).
-- [x] Test runner otomatis di [`scripts/test-suite.mjs`](../../scripts/test-suite.mjs) (`npm test`) mengeksekusi **76 / 76 skenario uji** (100% PASS).
+- [x] Test runner otomatis di [`scripts/test-suite.mjs`](../../scripts/test-suite.mjs) (`npm test`) mengeksekusi **141 / 141 skenario uji** (100% PASS).
 
-### 5. Dokumentasi & Arsitektur C4
+### 5. User Experience & Keamanan Sensitif (OWASP A04/A05)
+- [x] **User-Centric Error Sanitizer**: Modul `lib/utils/errors.js` dan komponen visual `<UserErrorAlert />` menyaring pesan error teknis database dan credential leaking.
+- [x] **Kamus Pesan Ramah Pengguna**: Mengubah error captcha, auth, dan database menjadi tips pemulihan tindakan nyata.
+- [x] **Dual Mode (Dev vs Deploy)**: Menyembunyikan trace teknis di mode produksi dan menampilkannya dalam collapsible accordion di mode pengembang.
+- [x] **Kustomisasi Warna Chart Kelas Kamar**: Modal `<ClassColorCustomizerModal />` dengan 16 palet warna dan penyimpanan `localStorage`.
+- [x] **Emergency Payment Override**: Modal `<EmergencyPaymentModal />` dengan validasi alasan minimum 5 karakter, persetujuan tanggung jawab audit, dan pencatatan otomatis ke `booking_admin_notes`.
+
+### 6. Dokumentasi & Arsitektur C4
 - [x] Dokumen arsitektur C4 Code-Level di [`docs/C4-ARCHITECTURE.md`](../C4-ARCHITECTURE.md).
-- [x] Spesifikasi teknis 31 REST API Endpoints di [`docs/API-SPECIFICATION.md`](../API-SPECIFICATION.md).
+- [x] Spesifikasi teknis 33 REST API Endpoints di [`docs/API-SPECIFICATION.md`](../API-SPECIFICATION.md).
 - [x] Pembaruan seluruh panduan proyek di folder `docs/` dan `README.md`.
 
 ---
 
 ## 🧪 HASIL VERIFIKASI BUILD & TEST SUITE
 
-- **Automated Test Suite (`npm test`)**: **76 / 76 PASSED (100%)**
+- **Automated Test Suite (`npm test`)**: **141 / 141 PASSED (100%)**
 - **Linter (`npm run lint`)**: **0 Errors**
-- **Production Build (`npm run build`)**: **48 Static & Dynamic Routes Prerendered** (Compiled successfully via Turbopack)
+- **Production Build (`npm run build`)**: **47 Static & Dynamic Routes Prerendered** (Compiled successfully via Turbopack)

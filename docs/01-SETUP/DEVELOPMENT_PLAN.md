@@ -34,4 +34,13 @@
 - [x] Konsolidasi seluruh database schema, fungsi RPC, trigger, dan RLS di [`supabase/schema.sql`](../../supabase/schema.sql).
 - [x] Pembuatan Automated Test Runner di [`scripts/test-suite.mjs`](../../scripts/test-suite.mjs) (`npm test`).
 - [x] Penyusunan dokumentasi arsitektur C4 Code-Level, API Spec, dan OWASP Security Audit di folder `docs/`.
-- [x] Verifikasi Next.js 16 build produksi (`npm run build` — 44 static/dynamic routes berhasil).
+
+### PHASE 5: Modular Clean Architecture & Advanced Security Hardening ✅
+- [x] Restrukturisasi arsitektur modular domain (pola NestJS) di `lib/modules/` (`pricing`, `whatsapp`) dengan penghapusan file usang/duplikat.
+- [x] Perbaikan PostgreSQL Generated Column `428C9` pada pengeditan data reservasi.
+- [x] Sistem Notifikasi Error Ramah Pengguna & Proteksi Keamanan (`lib/utils/errors.js`, `UserErrorAlert.jsx`) dengan redaksi zero-leakage error database di mode produksi (OWASP A04/A05).
+- [x] Pengecekan proaktif token Turnstile Captcha pada form autentikasi (Login, Register, Forgot Password).
+- [x] Modal verifikasi modifikasi status pembayaran darurat admin (`EmergencyPaymentModal`).
+- [x] Chart donut kelas kamar adaptif dengan 16-color harmonic palette dan modal kustomisasi warna (`ClassColorCustomizerModal`).
+- [x] Ekspansi automated test runner menjadi **141 / 141 skenario pengujian lulus 100%**.
+- [x] Verifikasi Next.js 16 build produksi (`npm run build` — 47 routes terkompilasi sempurna).

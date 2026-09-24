@@ -4,7 +4,7 @@
 [![React Version](https://img.shields.io/badge/React-19.2.4-blue?style=flat-square&logo=react)](https://react.dev)
 [![Supabase Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL%20(RLS)-emerald?style=flat-square&logo=supabase)](https://supabase.com)
 [![WhatsApp Engine](https://img.shields.io/badge/WhatsApp-whiskeysockets--baileys-25D366?style=flat-square&logo=whatsapp)](https://github.com/WhiskeySockets/Baileys)
-[![Automated Tests](https://img.shields.io/badge/Tests-76%2F76%20Passed-success?style=flat-square)](scripts/test-suite.mjs)
+[![Automated Tests](https://img.shields.io/badge/Tests-141%2F141%20Passed-success?style=flat-square)](scripts/test-suite.mjs)
 [![Security](https://img.shields.io/badge/Security-Hardened%20(CSP%20%2B%20Rate%20Limit)-blueviolet?style=flat-square)](docs/SECURITY-AUDIT.md)
 [![Tailwind CSS v4](https://img.shields.io/badge/Styling-Tailwind%20CSS%20v4-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
 [![License](https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square)](LICENSE)
@@ -16,7 +16,8 @@
 ## 🌟 Fitur Utama (Key Features)
 
 ### 👤 Portal Pelanggan (Cat Owner Portal)
-* **Autentikasi Aman & Captcha Turnstile**: Proteksi bot terverifikasi via Cloudflare Turnstile Captcha pada form Login, Registrasi, dan Reset Password.
+* **Autentikasi Aman & Captcha Turnstile**: Proteksi bot terverifikasi via Cloudflare Turnstile Captcha pada form Login, Registrasi, dan Reset Password dengan validasi proaktif sisi klien.
+* **Sistem Notifikasi Error Ramah Pengguna (User-Centric & Anti-Slop)**: Seluruh kegagalan (captcha, kredensial, koneksi, kuota kamar) disajikan dalam bahasa empati dengan tips solusi jelas (`UserErrorAlert`). Tidak ada kebocoran teknis database/SQL di mode produksi (OWASP A04/A05).
 * **Formulir Pemesanan Cerdas (3 Langkah)**: Input data kucing (nama, umur, ras, makanan favorit, riwayat kesehatan, kehamilan, catatan khusus), validasi format MIME gambar client-side, upload foto ke Supabase Storage, dan pilih paket kamar (`Basic`, `Standard`, `Premium`).
 * **Sistem Pembayaran Fleksibel**:
   - **Online**: Integrasi Snap Midtrans (Virtual Account, GoPay, QRIS, Kartu Kredit).
@@ -31,9 +32,12 @@
 * **Fitur Kenyamanan**: Dark & Light mode switch, multi-bahasa instan (Bahasa Indonesia & English), animasi interaktif GSAP, dan optimasi Core Web Vitals (Next.js Image LCP priority).
 
 ### 👑 Panel Manajemen Admin (Admin Control Center)
-* **Executive Analytics Dashboard**: Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts dengan kalkulasi single-pass O(n).
+* **Executive Analytics Dashboard & Chart Adaptif**:
+  - Grafik pendapatan bulanan, occupancy rate kamar, dan metrik pesanan secara real-time via Recharts dengan kalkulasi single-pass O(n).
+  - **Chart Donut Kelas Kamar Adaptif & Kustomisasi Warna**: Mendukung penambahan kelas kamar baru secara dinamis dengan palet 16 warna harmonis dan modal pemilih warna per kelas (`ClassColorCustomizerModal`).
 * **Manajemen Kamar & Kandang**: Kartu kelas kamar ringkas dengan modal edit terintegrasi, pemantauan kapasitas terisi real-time, dan pengaturan kandang isolasi/maintenance.
 * **Manajemen Pesanan & Tindakan Massal**: Filter pesanan berdasarkan status, kelas kamar, bulan, dan tahun. Konfirmasi, tolak dengan template alasan cepat, atau lakukan persetujuan massal (*bulk actions*).
+* **Perubahan Status Pembayaran Darurat Terverifikasi**: Modal khusus (`EmergencyPaymentModal`) untuk perubahan status pembayaran darurat dengan validasi alasan audit wajib (min 5 karakter) dan konfirmasi tanggung jawab.
 * **Evaluasi Otomatis Antrian Penuh**: Tombol 1-klik `Cek Antrian Penuh (>3 Hari)` dan background cron `GET /api/cron/check-waiting` untuk membersihkan dan menolak antrian yang melebihi batas 3 hari.
 * **QR Camera Scanner Kasir (`/admin/scanner`)**: Pemindaian kamera langsung untuk memvalidasi pembayaran tunai di kasir secara instan dan aman (*one-time use*).
 * **Pembuat Laporan Kucing Harian (`/admin/reports`)**: Input laporan kondisi fisik & mental kucing dengan upload foto yang langsung terkirim ke email pelanggan.
@@ -146,11 +150,11 @@ CRON_SECRET=random-super-secret-string-12345
 ---
 
 ### 6. Menjalankan Pengujian Otomatis (Automated Tests)
-Verifikasi logika bisnis, kalkulasi harga, denda keterlambatan 8%, skema validasi Zod, resolusi JID/LID WhatsApp, dan timeout direct chat:
+Verifikasi logika bisnis, kalkulasi harga, denda keterlambatan 8%, skema validasi Zod, resolusi JID/LID WhatsApp, chatbot echo protection, dan sanitasi error:
 ```bash
 npm test
 ```
-*Output yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 76 / 76 BERHASIL (100% PASS)`.*
+*Output yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 141 / 141 BERHASIL (100% PASS)`.*
 
 ---
 
@@ -221,30 +225,37 @@ sequenceDiagram
 
 ---
 
-## 📁 Struktur Direktori Proyek
-
+### 📁 Struktur Direktori Proyek
+ 
 ```
 NekoStay/
-├── app/                  # Next.js App Router (48 Routes Prerendered)
+├── app/                  # Next.js App Router (47 Routes Prerendered)
 │   ├── (auth)/           # Halaman Login, Register, Forgot Password (Turnstile Captcha)
 │   ├── (user)/           # Dashboard user, booking, profil, notifikasi
 │   ├── (admin)/          # Dashboard admin, scanner QR, laporan, reviews, whatsapp
-│   └── api/              # 31 REST API Route Handlers (hardened with Zod, RBAC, Rate-Limit)
+│   └── api/              # REST API Route Handlers (hardened with Zod, RBAC, Rate-Limit)
 ├── components/           # Komponen React (UI, Form, Dialogs, Charts, Badges)
-├── docs/                 # Dokumentasi Lengkap (C4, API Spec, Security Audit)
+│   ├── admin/            # EmergencyPaymentModal, ClassColorCustomizerModal, dsb.
+│   ├── shared/           # UserErrorAlert, SupabaseCaptcha, ConfirmDialog, GsapDataLoader
+│   └── booking/          # BookingForm, BookingStatus, PriceCalculator, OfflineQrModal
+├── docs/                 # Dokumentasi Lengkap (C4, API Spec, Security Audit, Walkthrough)
 │   ├── 00-INDEX.md       # Indeks dokumentasi utama
 │   ├── C4-ARCHITECTURE.md# Arsitektur sistem C4 Code-level
-│   ├── API-SPECIFICATION.md # Spesifikasi 31 REST API Endpoints
-│   └── SECURITY-AUDIT.md # Laporan audit keamanan OWASP Top 10 & Hardening
+│   ├── API-SPECIFICATION.md # Spesifikasi REST API Endpoints
+│   ├── SECURITY-AUDIT.md # Laporan audit keamanan OWASP Top 10 & Hardening
+│   └── SYSTEM_WALKTHROUGH.md # Panduan komprehensif alur sistem
 ├── hooks/                # Custom React & Zustand Hooks (zero cascading renders)
-├── lib/                  # Library utilitas (Supabase, Pricing, Response helpers)
-│   ├── constants/        # Enums, rates, dan JSDoc typedefs
+├── lib/                  # Library domain & utilitas
+│   ├── modules/          # Domain Services bergaya NestJS (Separation of Concerns)
+│   │   ├── pricing/      # pricing.service.js, capacity.service.js, index.js
+│   │   └── whatsapp/     # baileys.service.js, bot.service.js, jid.service.js, index.js
+│   ├── constants/        # Enums, rates, color palettes, dan JSDoc typedefs
 │   ├── supabase/         # Client browser, server, dan admin helpers
-│   ├── utils/            # Helper response.js, pricing.js, dates.js, rate-limit.js
+│   ├── utils/            # errors.js, response.js, dates.js, rate-limit.js, format.js
 │   └── validations/      # Zod validation schemas
-├── public/               # File statis, logo, dan aset gambar
+├── public/               # File statis, logo, branding, dan aset gambar
 ├── scripts/              # Automated Test Runner & WhatsApp Bot script
-│   ├── test-suite.mjs    # Node.js automated test runner (76 skenario uji)
+│   ├── test-suite.mjs    # Node.js automated test runner (141 skenario uji)
 │   └── whatsapp-bot.mjs  # @whiskeysockets/baileys WhatsApp gateway worker
 ├── supabase/             # Skema SQL, triggers, RLS, dan migrasi database
 │   └── schema.sql        # Skema lengkap Supabase PostgreSQL

@@ -15,9 +15,11 @@
 | **Database & Auth** | Supabase (PostgreSQL 15+, Auth SSR, Storage, Realtime WebSocket CDC, RLS) |
 | **Styling & UI** | Tailwind CSS v4, shadcn/ui, Lucide Icons, GSAP & Anime.js |
 | **Payment Gateway** | Midtrans (Snap Online) + QR Code Scanner Offline (One-time 24h token) |
-| **WhatsApp Gateway** | `lily-baileys` Multi-Device Engine (Cloud sync ke `whatsapp_bot_state` & `whatsapp_logs`) |
+| **WhatsApp Gateway** | `@whiskeysockets/baileys` Multi-Device Engine (Cloud sync ke `whatsapp_bot_state` & `whatsapp_logs`, direct chat admin) |
 | **Email & Receipt** | Dual-Mode Engine (Resend & EmailJS) + jsPDF Stream Generator |
-| **Testing Suite** | Node.js Test Suite (`scripts/test-suite.mjs` / `npm test`) |
+| **Arsitektur Domain** | Modular Services bergaya NestJS di `lib/modules/` (`pricing`, `whatsapp`) |
+| **Error Handling** | User-Centric Error Sanitizer (`lib/utils/errors.js`), `UserErrorAlert`, & zero sensitive leakage in production |
+| **Testing Suite** | Node.js Test Suite (`scripts/test-suite.mjs` / `npm test` — 141 tests 100% pass) |
 | **Bahasa Utama** | JavaScript Modern (ES6+ dengan JSDoc Type Annotations lengkap) |
 
 ---
@@ -85,5 +87,6 @@ whatsapp_logs        → Riwayat log pesan masuk & keluar interaksi chat bot Wha
 2. **Otorisasi Server**:
    - Gunakan [`verifyAdmin(supabase)`](../../lib/supabase/admin.js) untuk melindungi rute admin.
    - Gunakan [`verifyBookingAccess(supabase, bookingId)`](../../lib/supabase/admin.js) untuk memastikan isolasi data antar pengguna.
-3. **Format Respons Standar**: Seluruh API route menggunakan helper terpusat di [`lib/utils/response.js`](../../lib/utils/response.js) (`apiSuccess`, `apiError`, `apiUnauthorized`, `apiForbidden`, `apiNotFound`, `apiBadRequest`, `apiValidationError`).
-4. **Testing Suite**: Jalankan `npm test` untuk memvalidasi fungsi bisnis sebelum perubahan dipublikasikan.
+3. **Format Respons Standar & Sanitasi Error**: Seluruh API route menggunakan helper terpusat di [`lib/utils/response.js`](../../lib/utils/response.js) (`apiSuccess`, `apiError`) yang terintegrasi dengan sanitasi error [`lib/utils/errors.js`](../../lib/utils/errors.js) untuk mencegah kebocoran informasi sensitif di mode produksi (OWASP A04/A05).
+4. **Antarmuka Error Ramah Pengguna**: Gunakan komponen [`UserErrorAlert`](../../components/shared/UserErrorAlert.jsx) yang menyajikan pesan empati dari perspektif pengguna beserta tips aksi solutif.
+5. **Testing Suite**: Jalankan `npm test` untuk memvalidasi 141 skenario pengujian bisnis dan keamanan sebelum perubahan dipublikasikan.

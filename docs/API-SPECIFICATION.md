@@ -15,7 +15,7 @@
 
 ---
 
-## 📋 Daftar 31 API Endpoints
+## 📋 Daftar 33 API Endpoints
 
 ### 1. Booking Endpoints (`/api/bookings`)
 
@@ -26,13 +26,15 @@
 | `/api/bookings/[id]/confirm` | `POST` | Admin Only | Mengonfirmasi pesanan ('Menunggu'/'Antrian' → 'Aktif'). |
 | `/api/bookings/[id]/reject` | `POST` | Admin Only | Menolak pesanan dengan alasan penolakan. |
 | `/api/bookings/[id]/cancel` | `POST` | Owner Only | Membatalkan pesanan yang belum disetujui admin. |
-| `/api/bookings/[id]/edit` | `PUT` | Admin Only | Mengubah kelas kamar atau tanggal sewa pesanan. |
+| `/api/bookings/[id]/edit` | `PUT` | Admin Only | Mengubah kelas kamar atau tanggal sewa pesanan (Postgres generated column `428C9` guarded). |
 | `/api/bookings/[id]/receipt` | `GET` | Owner / Admin | Mengunduh file PDF bukti pemesanan resmi. |
 | `/api/bookings/[id]/resend-receipt` | `POST` | Admin Only | Mengirim ulang bukti pemesanan PDF ke email user. |
-| `/api/bookings/[id]/payment-status` | `PATCH` | Admin Only | Memperbarui status pembayaran secara manual. |
+| `/api/bookings/[id]/payment-status` | `PATCH` | Admin Only | Memperbarui status pembayaran secara darurat (validasi alasan audit min 5 karakter & konfirmasi tanggung jawab). |
 | `/api/bookings/[id]/report` | `POST` | Admin Only | Menambahkan laporan harian kondisi kucing. |
 | `/api/bookings/[id]/wa-request-change` | `POST` | Owner / Admin | Notifikasi admin saat user mengajukan perubahan via WA. |
 | `/api/bookings/auto-reject-waiting` | `POST` | Admin Only | Evaluasi & otomatis tolak antrian jika kamar penuh >3 hari. |
+| `/api/bookings/[id]/notes` | `GET`, `POST` | Admin Only | Mengambil atau menambahkan catatan operasional penting/darurat per pesanan. |
+| `/api/bookings/[id]/notes/[noteId]` | `PATCH`, `DELETE` | Admin Only | Mengubah status pin/sematan atau menghapus catatan operasional. |
 
 ---
 
@@ -90,4 +92,40 @@
 | `/api/auth/notify-password-changed` | `POST` | Authenticated | Mengirim alert keamanan in-app & email setelah reset password. |
 | `/api/cron/check-late` | `GET` | Cron Secret | Cron harian perhitungan akumulatif denda 8% keterlambatan. |
 | `/api/cron/check-waiting` | `GET` | Cron Secret | Cron harian evaluasi antrian penuh dan penolakan otomatis >3 hari. |
+
+---
+
+## 📦 Standardized API Responses & Error Sanitization
+
+Semua endpoint REST API menggunakan helper standar di [`lib/utils/response.js`](../lib/utils/response.js) dan [`lib/utils/errors.js`](../lib/utils/errors.js):
+
+### Respons Sukses (`apiSuccess`)
+```json
+{
+  "success": true,
+  "message": "Operasi berhasil",
+  "data": { ... }
+}
+```
+
+### Respons Error Terproteksi (`apiError`)
+* **Mode Produksi (`NODE_ENV === "production"`)**:
+  Error teknis internal (SQL, nama kolom database, generated column, stack trace) secara otomatis disanitasi menjadi pesan empati ramah pengguna demi mematuhi OWASP A04/A05:
+  ```json
+  {
+    "success": false,
+    "error": "Terjadi kendala teknis pada server. Silakan coba beberapa saat lagi."
+  }
+  ```
+* **Mode Pengembangan (`NODE_ENV !== "production"`)**:
+  Menyertakan objek diagnostik developer untuk mempermudah debugging:
+  ```json
+  {
+    "success": false,
+    "error": "Terjadi kendala teknis pada server. (Detail tersedia dalam mode dev)",
+    "debug": {
+      "rawMessage": "syntax error at or near 'SELECT'..."
+    }
+  }
+  ```
 

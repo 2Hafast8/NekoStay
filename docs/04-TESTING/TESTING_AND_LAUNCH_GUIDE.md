@@ -10,11 +10,12 @@
 NekoStay dilengkapi test suite otomatis tanpa dependensi eksternal berat untuk memverifikasi logika matematika, fungsi tanggal, validasi Zod, dan respons API.
 
 ```bash
-# Menjalankan seluruh pengujian otomatis
+# Menjalankan seluruh 141 skenario pengujian otomatis
 npm test
 ```
+*Hasil yang diharapkan: `📊 HASIL PENGUJIAN OTOMATIS: 141 / 141 BERHASIL (100% PASS)`.*
 
-### Lingkup yang Diuji Otomatis:
+### 10 Lingkup Pengujian Otomatis (`scripts/test-suite.mjs`):
 1. **Pricing & Mathematical Calculations**:
    - Estimasi biaya paket `Basic` (Rp 50rb), `Standard` (Rp 80rb), `Premium` (Rp 130rb).
    - Akumulasi denda keterlambatan 8% majemuk harian ($\text{price} \times 1.08^n$).
@@ -24,9 +25,26 @@ npm test
    - `daysBetween()`, `isLate()`, `lateDays()`, dan format tanggal Indonesia `formatDate()`.
 3. **Zod Validation Schemas**:
    - `bookingFormSchema` (validasi format, check-in vs check-out).
-   - `catReportSchema`, `reviewSchema`, `cancelBookingSchema`, `bulkActionSchema`, `scanOfflineSchema`.
+   - `catReportSchema`, `reviewSchema`, `cancelBookingSchema`, `bulkActionSchema`, `scanOfflineSchema`, `adminBookingNoteSchema`, `emergencyPaymentStatusSchema`.
 4. **Standardized API Responses**:
    - Helper `apiSuccess`, `apiError`, `apiUnauthorized`, `apiForbidden`, `apiNotFound`, `apiBadRequest`.
+5. **Offline QR Token & Verification URL**:
+   - Format URL `/scan-verify?token=<UUID>`, masa berlaku 24 jam, dan deteksi token kedaluwarsa.
+6. **Kapasitas Kamar & Batas Maksimal Antrian 3 Hari**:
+   - Perhitungan kapasitas efektif kamar, deteksi kamar penuh, toleransi antrian ≤ 3 hari, dan penolakan otomatis > 3 hari.
+7. **WhatsApp JID & LID Routing Resolution**:
+   - Normalisasi nomor telepon lokal (`08...`) ke format internasional (`62...@s.whatsapp.net`).
+   - Resolusi LID 14-digit ke `@lid` untuk mencegah pesan salah kirim pada WhatsApp Multi-Device.
+8. **WhatsApp Chat with Admin & Bot Reactivation Flow**:
+   - Transisi alur Opsi 3 (Chat Admin) menjeda auto-responder bot.
+   - Timer auto-reactivation 1 jam inaktivitas dan pemicu manual kata kunci *MENU*.
+9. **WhatsApp Bot Copy-Paste Echo & Template Protection**:
+   - Pencegahan loop bot saat pelanggan menyalin (*copy-paste*) pesan menu atau template jadwal bot.
+   - Deteksi placeholder kurung siku pada pengajuan formulir.
+10. **User-Centric Error Sanitizer & Captcha Protection**:
+    - Penerjemahan error mentah Supabase Captcha ke pesan ramah pengguna dan tips aksi.
+    - Redaksi penuh informasi sensitif (SQL syntax, nama kolom generated `428C9`, database relation) di mode deploy.
+    - Penyediaan diagnostik pengembang hanya pada mode dev.
 
 ---
 

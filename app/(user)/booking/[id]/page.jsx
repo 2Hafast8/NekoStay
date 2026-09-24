@@ -48,6 +48,8 @@ import { formatDate } from "@/lib/utils/dates";
 import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { formatUserError } from "@/lib/utils/errors";
 import { toast } from "sonner";
 export default function BookingDetailPage({ params }) {
   const { id } = use(params);
@@ -84,8 +86,8 @@ function BookingDetailContent({ id }) {
   const [isCancelling, setIsCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // Auto-dismiss alert notifications after 3 seconds
-  useAutoDismiss(errorMsg, setErrorMsg);
+  // Auto-dismiss alert notifications (6s for error, 3s default)
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
 
   // Payment states
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
@@ -162,7 +164,12 @@ function BookingDetailContent({ id }) {
       }
     } catch (err) {
       console.error("Error fetching booking details:", err);
-      setErrorMsg(language === "en" ? "Failed to load booking details." : "Gagal memuat rincian pesanan.");
+      setErrorMsg(
+        formatUserError(err, {
+          language,
+          fallback: language === "en" ? "Failed to load booking details." : "Gagal memuat rincian pesanan.",
+        })
+      );
     } finally {
       setIsLoading(false);
       setCheckingReview(false);
@@ -325,7 +332,14 @@ function BookingDetailContent({ id }) {
           await checkPaymentStatus(idToCheck);
         },
         onError: function () {
-          setErrorMsg(language === "en" ? "Online payment failed. Please try again." : "Pembayaran online gagal. Silakan coba lagi.");
+          setErrorMsg(
+            formatUserError(
+              language === "en"
+                ? "Online payment failed. Please try again."
+                : "Pembayaran online gagal. Silakan coba lagi.",
+              { language }
+            )
+          );
         },
         onClose: async function () {
           if (currentOrderId) {
@@ -334,7 +348,7 @@ function BookingDetailContent({ id }) {
         },
       });
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(formatUserError(err, { language }));
       setIsPaymentLoading(false);
     }
   };
@@ -415,7 +429,7 @@ function BookingDetailContent({ id }) {
       setIsQrModalOpen(true);
       await loadBookingDetails();
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(formatUserError(err, { language }));
     } finally {
       setIsReceiptSending(false);
     }
@@ -514,7 +528,15 @@ function BookingDetailContent({ id }) {
       setIsCancelOpen(false);
       await loadBookingDetails();
     } catch (err) {
-      setErrorMsg(err.message || (language === "en" ? "Failed to cancel booking." : "Gagal membatalkan pesanan. Coba lagi."));
+      setErrorMsg(
+        formatUserError(err, {
+          language,
+          fallback:
+            language === "en"
+              ? "Failed to cancel booking."
+              : "Gagal membatalkan pesanan. Coba lagi.",
+        })
+      );
       setIsCancelOpen(false);
       await loadBookingDetails();
     } finally {
@@ -554,7 +576,7 @@ function BookingDetailContent({ id }) {
         reply_text: null,
       });
     } catch (err) {
-      setErrorMsg(err.message);
+      setErrorMsg(formatUserError(err, { language }));
     } finally {
       setIsSubmittingReview(false);
     }
@@ -721,22 +743,7 @@ function BookingDetailContent({ id }) {
         </div>
       </div>
 
-      {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setErrorMsg(null)}
-            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-            title="Tutup notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} language={language} className="mb-6" />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

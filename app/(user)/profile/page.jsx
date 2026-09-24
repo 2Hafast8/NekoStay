@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Mail, Sparkles, Check, AlertCircle, CheckCircle2, Copy, Share2, Users, Gift, X } from "lucide-react";
+import { User, Phone, Mail, Sparkles, Check, CheckCircle2, Copy, Share2, Users, Gift, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { useGsapReveal } from "@/hooks/useGsapReveal";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { formatUserError } from "@/lib/utils/errors";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,8 +31,8 @@ export default function ProfilePage() {
   const [successMsg, setSuccessMsg] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Auto-dismiss alert notifications after 3 seconds
-  useAutoDismiss(errorMsg, setErrorMsg);
+  // Auto-dismiss alert notifications (6s for error, 3s for success)
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
   useAutoDismiss(successMsg, setSuccessMsg);
   useAutoDismiss(copySuccess, setCopySuccess);
 
@@ -104,7 +106,12 @@ export default function ProfilePage() {
       if (error) throw error;
       setSuccessMsg(language === "en" ? "Profile updated successfully!" : "Profil Anda berhasil diperbarui!");
     } catch (err) {
-      setErrorMsg(err.message || (language === "en" ? "Failed to update profile." : "Gagal memperbarui profil."));
+      setErrorMsg(
+        formatUserError(err, {
+          language,
+          fallback: language === "en" ? "Failed to update profile." : "Gagal memperbarui profil.",
+        })
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -144,22 +151,7 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setErrorMsg(null)}
-            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-            title="Tutup notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} language={language} />
 
       {successMsg && (
         <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900 rounded-2xl p-4 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
@@ -370,8 +362,8 @@ function ChangePasswordCard({ language }) {
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Auto-dismiss alert notifications after 3 seconds
-  useAutoDismiss(errorMsg, setErrorMsg);
+  // Auto-dismiss alert notifications (6s for error, 3s for success)
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
   useAutoDismiss(successMsg, setSuccessMsg);
 
   const supabase = createClient();
@@ -385,18 +377,24 @@ function ChangePasswordCard({ language }) {
 
     if (newPassword.length < 8) {
       setErrorMsg(
-        language === "en"
-          ? "Password must be at least 8 characters long."
-          : "Password minimal 8 karakter."
+        formatUserError(
+          language === "en"
+            ? "Password must be at least 8 characters long."
+            : "Password minimal 8 karakter.",
+          { language }
+        )
       );
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setErrorMsg(
-        language === "en"
-          ? "Password confirmation does not match."
-          : "Konfirmasi password baru tidak cocok."
+        formatUserError(
+          language === "en"
+            ? "Password confirmation does not match."
+            : "Konfirmasi password baru tidak cocok.",
+          { language }
+        )
       );
       return;
     }
@@ -439,10 +437,13 @@ function ChangePasswordCard({ language }) {
       });
     } catch (err) {
       setErrorMsg(
-        err.message ||
-          (language === "en"
-            ? "Failed to update password."
-            : "Gagal memperbarui password.")
+        formatUserError(err, {
+          language,
+          fallback:
+            language === "en"
+              ? "Failed to update password."
+              : "Gagal memperbarui password.",
+        })
       );
       setIsSubmitting(false);
     }
@@ -455,22 +456,7 @@ function ChangePasswordCard({ language }) {
         <span>{language === "en" ? "Keamanan & Ganti Password" : "Keamanan & Ganti Password"}</span>
       </div>
 
-      {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 dark:border-rose-900 rounded-2xl p-4 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setErrorMsg(null)}
-            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-            title="Tutup notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} language={language} />
 
       {successMsg && (
         <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">

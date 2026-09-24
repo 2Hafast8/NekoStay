@@ -33,7 +33,7 @@
 19. **`tailwind-patterns`**: Container queries dan modern utility classes.
 20. **`ui-styling`**: shadcn/ui component library, glassmorphism, dan tema adaptif dark/light mode.
 21. **`ui-ux-pro-max`**: Design intelligence, typography scales, dan mobile responsiveness.
-22. **`antislop` / `antislop-code`**: Comment hygiene, eliminasi komentar AI generik, dan clean coding practices.
+22. **`antislop` / `antislop-code` / `antislop-human` / `antislop-copywriting` / `antislop-layoutmobile`**: Eliminasi komentar generik AI, teks empatis pengguna, aksesibilitas tinggi, dan layout responsif.
 23. **`clean-code`**: Standar kode pragmatis tanpa over-engineering.
 
 ### 4. Code Quality & Review
@@ -43,19 +43,20 @@
 27. **`git-workflow`**: Conventional commits, branch management, rebase/merge flow, dan release tags.
 
 ### 5. Refactoring, Database & Architecture
-28. **`code-refactoring-refactor-clean`**: Clean Code, prinsip SOLID, modularitas tinggi di folder `lib/`.
-29. **`code-refactoring-tech-debt`**: Pembersihan technical debt dan penghapusan kode duplikasi.
-30. **`code-refactoring-context-restore`**: Pemeliharaan konteks sistem saat refactoring skala besar.
-31. **`framework-migration-code-migrate`**: Pola migrasi framework Next.js 16 App Router dan React 19.
-32. **`database-design` / `database-migrations`**: Desain skema relational, indexing strategi, dan migrasi Supabase.
-33. **`postgres-patterns`**: Optimasi query PostgreSQL dan RLS policy best practices.
-34. **`system-design` / `software-architecture`**: Pemodelan arsitektur pet hotel, domain boundary, dan event handling.
+28. **`nestjs-patterns`**: Arsitektur modular domain di `lib/modules/` (`pricing`, `whatsapp`) dengan separation of concerns.
+29. **`code-refactoring-refactor-clean`**: Clean Code, prinsip SOLID, modularitas tinggi di folder `lib/`.
+30. **`code-refactoring-tech-debt`**: Pembersihan technical debt dan penghapusan kode duplikasi / file usang.
+31. **`code-refactoring-context-restore`**: Pemeliharaan konteks sistem saat refactoring skala besar.
+32. **`framework-migration-code-migrate`**: Pola migrasi framework Next.js 16 App Router dan React 19.
+33. **`database-design` / `database-migrations`**: Desain skema relational, indexing strategi, dan migrasi Supabase.
+34. **`postgres-patterns`**: Optimasi query PostgreSQL, RLS policy best practices, dan generated column handling (`428C9`).
+35. **`system-design` / `software-architecture`**: Pemodelan arsitektur pet hotel, domain boundary, dan event handling.
 
 ### 6. JavaScript & Testing
-35. **`javascript-pro`**: Penguasaan async/await ES6+, stream handling, dan API runtime Node.js.
-36. **`modern-javascript-patterns`**: Destructuring, immutability, dan JSDoc type annotations.
-37. **`javascript-typescript-typescript-scaffold`**: Modular scaffold dan type safety via `jsconfig.json`.
-38. **`javascript-testing-patterns`**: Test runner otomatis 76 skenario (`scripts/test-suite.mjs` / `npm test`).
+36. **`javascript-pro`**: Penguasaan async/await ES6+, stream handling, dan API runtime Node.js.
+37. **`modern-javascript-patterns`**: Destructuring, immutability, dan JSDoc type annotations.
+38. **`javascript-typescript-typescript-scaffold`**: Modular scaffold dan type safety via `jsconfig.json`.
+39. **`javascript-testing-patterns`**: Test runner otomatis 141 skenario (`scripts/test-suite.mjs` / `npm test` 100% pass).
 
 ### 7. Documentation & C4
 39. **`c4-code`**: Dokumentasi arsitektur C4 Code Level ([`docs/C4-ARCHITECTURE.md`](../C4-ARCHITECTURE.md)).

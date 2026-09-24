@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Cat, KeyRound, Sparkles, ArrowRight, AlertCircle, CheckCircle2, RefreshCw, X } from "lucide-react";
+import { Cat, KeyRound, Sparkles, ArrowRight, CheckCircle2, RefreshCw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { formatUserError } from "@/lib/utils/errors";
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
@@ -17,10 +19,10 @@ export default function UpdatePasswordPage() {
   const [isExpired, setIsExpired] = useState(false);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Auto-dismiss alert notifications after 3 seconds
+  // Auto-dismiss alert notifications (6s for error to allow reading tips/devInfo, 3s for success)
   useEffect(() => {
     if (!errorMsg || isExpired) return;
-    const timer = setTimeout(() => setErrorMsg(null), 3000);
+    const timer = setTimeout(() => setErrorMsg(null), 6000);
     return () => clearTimeout(timer);
   }, [errorMsg, isExpired]);
 
@@ -45,7 +47,10 @@ export default function UpdatePasswordPage() {
       ) {
         setIsExpired(true);
         setErrorMsg(
-          "Tautan email pemulihan telah kadaluarsa atau sudah pernah digunakan. Silakan minta tautan baru."
+          formatUserError(
+            "Tautan email pemulihan telah kadaluarsa atau sudah pernah digunakan. Silakan minta tautan baru.",
+            { language: "id" }
+          )
         );
         setIsVerifying(false);
         return;
@@ -59,7 +64,10 @@ export default function UpdatePasswordPage() {
             console.warn("Code exchange error:", error.message);
             setIsExpired(true);
             setErrorMsg(
-              "Kode verifikasi tidak valid atau telah kadaluarsa. Silakan minta tautan baru."
+              formatUserError(
+                "Kode verifikasi tidak valid atau telah kadaluarsa. Silakan minta tautan baru.",
+                { language: "id" }
+              )
             );
           }
         } catch (err) {
@@ -72,7 +80,10 @@ export default function UpdatePasswordPage() {
       if (!session && !code && !window.location.hash.includes("access_token")) {
         setIsExpired(true);
         setErrorMsg(
-          "Sesi pemulihan tidak ditemukan. Silakan klik tautan dari email pemulihan atau minta tautan baru."
+          formatUserError(
+            "Sesi pemulihan tidak ditemukan. Silakan klik tautan dari email pemulihan atau minta tautan baru.",
+            { language: "id" }
+          )
         );
       }
 
@@ -88,12 +99,16 @@ export default function UpdatePasswordPage() {
     setSuccessMsg(null);
 
     if (password !== confirmPassword) {
-      setErrorMsg("Konfirmasi password tidak cocok.");
+      setErrorMsg(
+        formatUserError("Konfirmasi password tidak cocok.", { language: "id" })
+      );
       return;
     }
 
     if (password.length < 8) {
-      setErrorMsg("Password minimal 8 karakter.");
+      setErrorMsg(
+        formatUserError("Password minimal 8 karakter.", { language: "id" })
+      );
       return;
     }
 
@@ -133,9 +148,7 @@ export default function UpdatePasswordPage() {
         router.push("/login");
       }, 3000);
     } catch (err) {
-      setErrorMsg(
-        err.message || "Gagal memperbarui password. Silakan coba lagi.",
-      );
+      setErrorMsg(formatUserError(err, { language: "id" }));
     } finally {
       setIsLoading(false);
     }
@@ -164,35 +177,20 @@ export default function UpdatePasswordPage() {
           </p>
         </div>
 
-        {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 border border-rose-100 rounded-xl p-3.5 text-xs font-semibold space-y-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-              {!isExpired && (
-                <button
-                  type="button"
-                  onClick={() => setErrorMsg(null)}
-                  className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-                  title="Tutup notifikasi"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            {isExpired && (
-              <Link
-                href="/forgot-password"
-                className="mt-2 w-full py-2 bg-rose-600 text-white rounded-lg font-bold text-center block hover:bg-rose-700 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Minta Link Pemulihan Baru
-              </Link>
-            )}
-          </div>
-        )}
+        <UserErrorAlert
+          error={errorMsg}
+          onDismiss={!isExpired ? () => setErrorMsg(null) : undefined}
+        >
+          {isExpired && (
+            <Link
+              href="/forgot-password"
+              className="mt-1 w-full py-2 px-3 bg-rose-600 text-white rounded-xl font-bold text-center hover:bg-rose-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs text-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Minta Link Pemulihan Baru
+            </Link>
+          )}
+        </UserErrorAlert>
 
         {successMsg && (
           <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-100 rounded-xl p-3.5 text-xs font-semibold leading-relaxed flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
