@@ -8,6 +8,7 @@ import {
   forwardRef,
 } from "react";
 import Script from "next/script";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * SupabaseCaptcha: Komponen proteksi bot Captcha resmi untuk Supabase Auth.
@@ -145,7 +146,10 @@ export const SupabaseCaptcha = forwardRef(function SupabaseCaptcha(
     if (process.env.NODE_ENV === "development") {
       return (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-          <p className="font-bold">⚠️ Supabase Captcha Protection:</p>
+          <p className="font-bold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Supabase Captcha Protection:</span>
+          </p>
           <p className="mt-0.5">
             Key belum diatur. Tambahkan <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> di <code>.env.local</code>.
           </p>

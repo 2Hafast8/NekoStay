@@ -44,6 +44,7 @@ import { useBrandColor } from "@/components/providers/BrandColorProvider";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { GsapTextButton } from "@/components/shared/GsapTextButton";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
 import { toast } from "sonner";
 
 const DEFAULT_HERO = {
@@ -1053,22 +1054,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Global Alerts (Auto-dismisses in 3s or can be closed manually) */}
-      {errorMsg && (
-        <div className="bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setErrorMsg(null)}
-            className="p-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500 transition-colors cursor-pointer"
-            title="Tutup notifikasi"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} className="mb-4" />
 
       {successMsg && (
         <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded-2xl p-4 text-xs font-bold flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-2 duration-300">

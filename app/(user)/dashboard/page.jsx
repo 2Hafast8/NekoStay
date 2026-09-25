@@ -21,6 +21,8 @@ import { useGsapReveal, useGsapCounter } from "@/hooks/useGsapReveal";
 import { GsapCardSlider } from "@/components/ui/GsapCardSlider";
 import { GsapDataLoader } from "@/components/shared/GsapDataLoader";
 import { GsapDashboardCurveUnveil } from "@/components/shared/GsapDashboardCurveUnveil";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
+import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import { gsap } from "gsap";
 
 export default function UserDashboard() {
@@ -29,9 +31,12 @@ export default function UserDashboard() {
   const [activeTab, setActiveTab] = useState("Semua");
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState("");
+  const [errorMsg, setErrorMsg] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
   const supabase = createClient();
+
+  useAutoDismiss(errorMsg, setErrorMsg, 6000);
 
   // GSAP animation refs
   const headerRef = useRef(null);
@@ -47,6 +52,7 @@ export default function UserDashboard() {
 
   const fetchBookings = useCallback(
     async (uid) => {
+      setErrorMsg(null);
       try {
         const { data, error } = await supabase
           .from("bookings")
@@ -63,6 +69,7 @@ export default function UserDashboard() {
         setBookings(data || []);
       } catch (err) {
         console.error("Error fetching bookings:", err);
+        setErrorMsg(err);
       } finally {
         setIsLoading(false);
       }
@@ -186,6 +193,13 @@ export default function UserDashboard() {
           {t("user_db_new_booking")}
         </Link>
       </div>
+
+      <UserErrorAlert
+        error={errorMsg}
+        onDismiss={() => setErrorMsg(null)}
+        onRetry={() => userId && fetchBookings(userId)}
+        language={language}
+      />
 
       {/* Stats Section */}
       <div ref={statsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

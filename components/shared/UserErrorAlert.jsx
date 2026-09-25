@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCcw,
+  Lightbulb,
 } from "lucide-react";
 import { formatUserError, IS_DEV } from "@/lib/utils/errors";
 
@@ -58,7 +59,7 @@ const CATEGORY_STYLES = {
  *
  * Fitur:
  * - Bahasa empati dari sudut pandang pengguna (tanpa pesan teknis bocor di mode deploy).
- * - Tips aksi yang jelas untuk memandu pengguna.
+ * - Tips aksi yang jelas untuk memandu pengguna dengan ikon SVG profesional (antislop-ui).
  * - Palet warna tematik sesuai kategori masalah (keamanan, autentikasi, jaringan, peringatan, sistem).
  * - Dukungan tombol coba lagi (onRetry) langsung pada kartu notifikasi.
  * - Mode Dev interaktif: diagnostik teknis lengkap hanya muncul saat proses pengembangan.
@@ -117,8 +118,9 @@ export function UserErrorAlert({
               {message}
             </p>
             {tip && (
-              <p className={`text-[11px] leading-relaxed ${style.tip}`}>
-                💡 <span className="font-semibold">{tip}</span>
+              <p className={`text-[11px] leading-relaxed flex items-start gap-1.5 ${style.tip}`}>
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span className="font-semibold">{tip}</span>
               </p>
             )}
           </div>

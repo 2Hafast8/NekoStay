@@ -53,6 +53,7 @@ import { toast } from "sonner";
 import { AdminBookingStickyAlert } from "@/components/admin/AdminBookingStickyAlert";
 import { AdminBookingNotesTimeline } from "@/components/admin/AdminBookingNotesTimeline";
 import { EmergencyPaymentModal } from "@/components/admin/EmergencyPaymentModal";
+import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
 
 export default function AdminBookingDetailPage({ params }) {
   const { id } = use(params);
@@ -661,12 +662,7 @@ export default function AdminBookingDetailPage({ params }) {
       </div>
 
       {/* Global Alerts */}
-      {errorMsg && (
-        <div className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 rounded-2xl p-4 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-200">
-          <AlertCircle className="w-4.5 h-4.5 text-rose-500 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
+      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} className="mb-4" />
 
       {reportSuccess && (
         <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl p-4 text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-200">

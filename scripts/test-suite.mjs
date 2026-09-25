@@ -77,6 +77,13 @@ import {
   isBotMessageEcho,
   isUnfilledTemplate,
 } from "../lib/modules/whatsapp/index.js";
+import { formatRupiah, formatShortRupiah } from "../lib/utils/format.js";
+import { cn } from "../lib/utils/cn.js";
+import { checkRateLimit, getClientIp } from "../lib/utils/rate-limit.js";
+import {
+  mapMidtransStatusToPaymentStatus,
+  paymentCheckStatusSchema,
+} from "../lib/modules/payments/payments.dto.js";
 
 let totalTests = 0;
 let passedTests = 0;
@@ -899,6 +906,171 @@ group("User-Centric Error Sanitizer & Captcha Protection", async () => {
   // Test 11: Postgres unique constraint 23505 via code
   const uniqueViolation = formatUserError({ code: "23505", message: "duplicate entry" });
   assert(uniqueViolation.code === "DUPLICATE_DATA", "Harus mengenali kode 23505 sebagai DUPLICATE_DATA");
+});
+
+// -------------------------------------------------------------
+// 10. PATTERN: PURE FUNCTIONS & DATA FORMATTERS (TABLE-DRIVEN)
+// Sesuai skill `javascript-testing-patterns` (Pattern 1 & Table-Driven Tests)
+// -------------------------------------------------------------
+group("UI Formatting & Class Merger Patterns (javascript-testing-patterns)", () => {
+  // Test 1: formatRupiah
+  const rupiahCases = [
+    { val: 0, expectedText: "0" },
+    { val: 50000, expectedText: "50.000" },
+    { val: 1500000, expectedText: "1.500.000" },
+  ];
+  for (const { val, expectedText } of rupiahCases) {
+    const formatted = formatRupiah(val);
+    assert(formatted.startsWith("Rp"), `formatRupiah(${val}) harus diawali 'Rp'`);
+    assert(formatted.includes(expectedText), `formatRupiah(${val}) harus memuat '${expectedText}' (Didapat: ${formatted})`);
+  }
+
+  // Test 2: formatShortRupiah (Equivalence Partitioning & Boundary Testing)
+  const shortCases = [
+    { input: 500, expected: "500", desc: "Nilai < 1.000 harus dikembalikan apa adanya" },
+    { input: 1000, expected: "1rb", desc: "Batas 1.000 harus diformat 1rb" },
+    { input: 50000, expected: "50rb", desc: "Puluhan ribu harus berakhiran rb" },
+    { input: 750000, expected: "750rb", desc: "Ratusan ribu harus berakhiran rb" },
+    { input: 1000000, expected: "1jt", desc: "Batas 1.000.000 harus diformat 1jt" },
+    { input: 1500000, expected: "1.5jt", desc: "Jutaan pecahan harus memuat desimal .5jt" },
+    { input: 2000000, expected: "2jt", desc: "Jutaan bulat tidak boleh menampilkan .0jt" },
+  ];
+  for (const { input, expected, desc } of shortCases) {
+    const result = formatShortRupiah(input);
+    assert(result === expected, `formatShortRupiah(${input}) harus '${expected}' - ${desc} (Didapat: ${result})`);
+  }
+
+  // Test 3: cn (Tailwind Class Merging & Falsy Handling)
+  const basicMerged = cn("p-2", "text-rose-500");
+  assert(basicMerged === "p-2 text-rose-500", `cn harus menggabungkan kelas dasar (Didapat: ${basicMerged})`);
+
+  const resolvedConflict = cn("p-2", "p-4");
+  assert(resolvedConflict === "p-4", `cn harus menyelesaikan konflik tailwind (Didapat: ${resolvedConflict})`);
+
+  const colorConflict = cn("text-red-500", "text-blue-500");
+  assert(colorConflict === "text-blue-500", `cn harus memprioritaskan kelas warna terakhir (Didapat: ${colorConflict})`);
+
+  const falsyHandled = cn("base-class", false && "hidden", null, undefined, "active");
+  assert(falsyHandled === "base-class active", `cn harus menyaring nilai falsy secara aman (Didapat: ${falsyHandled})`);
+});
+
+// -------------------------------------------------------------
+// 11. PATTERN: SECURITY SLIDING WINDOW RATE LIMITER & HEADERS (AAA PATTERN)
+// Sesuai skill `javascript-testing-patterns` (AAA Pattern & Security Boundary)
+// -------------------------------------------------------------
+group("Security Rate Limiter & IP Extraction Patterns (javascript-testing-patterns)", () => {
+  // Test 1: Sliding Window Rate Limiter (Arrange - Act - Assert)
+  // Arrange
+  const testClientKey = `test-ip-${Date.now()}`;
+  const maxQuota = 3;
+  const testWindowMs = 60000;
+
+  // Act
+  const req1 = checkRateLimit(testClientKey, maxQuota, testWindowMs);
+  const req2 = checkRateLimit(testClientKey, maxQuota, testWindowMs);
+  const req3 = checkRateLimit(testClientKey, maxQuota, testWindowMs);
+  const req4 = checkRateLimit(testClientKey, maxQuota, testWindowMs);
+
+  // Assert
+  assert(req1.allowed === true && req1.remaining === 2, "Request 1 dalam kuota harus diizinkan (remaining: 2)");
+  assert(req2.allowed === true && req2.remaining === 1, "Request 2 dalam kuota harus diizinkan (remaining: 1)");
+  assert(req3.allowed === true && req3.remaining === 0, "Request 3 batas kuota harus diizinkan (remaining: 0)");
+  assert(req4.allowed === false && req4.remaining === 0, "Request 4 melebihi kuota 3 harus diblokir (allowed: false)");
+
+  // Test 2: Anonymous Client Fallback
+  const anonymousReq = checkRateLimit(null, 5);
+  assert(anonymousReq.allowed === true, "Client tanpa IP harus fallback ke anonymous tanpa error");
+
+  // Test 3: Safe Client IP Extraction
+  // Multi-hop x-forwarded-for
+  const reqMultiHop = {
+    headers: new Headers({ "x-forwarded-for": "203.0.113.195, 70.41.3.18, 150.172.238.178" }),
+  };
+  const ip1 = getClientIp(reqMultiHop);
+  assert(ip1 === "203.0.113.195", `getClientIp harus mengekstrak IP klien pertama dari proxy chain (Didapat: ${ip1})`);
+
+  // Single header x-real-ip
+  const reqRealIp = {
+    headers: new Headers({ "x-real-ip": "198.51.100.1" }),
+  };
+  const ip2 = getClientIp(reqRealIp);
+  assert(ip2 === "198.51.100.1", `getClientIp harus membaca x-real-ip jika x-forwarded-for absen (Didapat: ${ip2})`);
+
+  // Fallback to loopback
+  const reqEmpty = { headers: new Headers() };
+  const ip3 = getClientIp(reqEmpty);
+  assert(ip3 === "127.0.0.1", `getClientIp harus fallback ke 127.0.0.1 jika tidak ada header IP (Didapat: ${ip3})`);
+});
+
+// -------------------------------------------------------------
+// 12. PATTERN: STATE MACHINE TRANSITION & DTO VALIDATION (EQUIVALENCE PARTITIONING)
+// Sesuai skill `javascript-testing-patterns` (State Machine & Schema Validation)
+// -------------------------------------------------------------
+group("Midtrans Payment Status State Machine & DTO Patterns (javascript-testing-patterns)", () => {
+  // Test 1: State Machine Transition Matrix
+  const statusMatrix = [
+    { trans: "capture", fraud: "accept", expected: "Paid", desc: "Capture dengan fraud accept harus Paid" },
+    { trans: "capture", fraud: "challenge", expected: "Failed", desc: "Capture dengan fraud challenge harus Failed" },
+    { trans: "capture", fraud: undefined, expected: "Paid", desc: "Capture tanpa fraud status harus Paid" },
+    { trans: "settlement", fraud: undefined, expected: "Paid", desc: "Settlement berhasil harus Paid" },
+    { trans: "deny", fraud: undefined, expected: "Failed", desc: "Deny transaksi harus Failed" },
+    { trans: "cancel", fraud: undefined, expected: "Failed", desc: "Cancel transaksi harus Failed" },
+    { trans: "expire", fraud: undefined, expected: "Failed", desc: "Expire transaksi harus Failed" },
+    { trans: "pending", fraud: undefined, expected: "Unpaid", desc: "Pending pembayaran harus Unpaid" },
+    { trans: "refund", fraud: undefined, expected: "Refunded", desc: "Refund transaksi harus Refunded" },
+    { trans: "partial_refund", fraud: undefined, expected: "Refunded", desc: "Partial refund transaksi harus Refunded" },
+    { trans: "unrecognized_status", fraud: undefined, expected: "Unpaid", desc: "Status tidak dikenal harus fallback ke Unpaid" },
+  ];
+
+  for (const { trans, fraud, expected, desc } of statusMatrix) {
+    const mapped = mapMidtransStatusToPaymentStatus(trans, fraud);
+    assert(mapped === expected, `${desc} (Didapat: ${mapped})`);
+  }
+
+  // Test 2: paymentCheckStatusSchema DTO Validation
+  const validCheckPayload = {
+    bookingId: "550e8400-e29b-41d4-a716-446655440000",
+    orderId: "ORDER-TEST-001",
+  };
+  const validResult = paymentCheckStatusSchema.safeParse(validCheckPayload);
+  assert(validResult.success === true, "Payload check-status dengan UUID valid harus lolos DTO");
+
+  const invalidUuidPayload = {
+    bookingId: "bukan-uuid-valid",
+    orderId: "ORDER-TEST-001",
+  };
+  const invalidUuidResult = paymentCheckStatusSchema.safeParse(invalidUuidPayload);
+  assert(invalidUuidResult.success === false, "Payload dengan ID bukan UUID harus ditolak DTO");
+
+  const missingOrderIdPayload = {
+    bookingId: "550e8400-e29b-41d4-a716-446655440000",
+    orderId: "",
+  };
+  const missingOrderResult = paymentCheckStatusSchema.safeParse(missingOrderIdPayload);
+  assert(missingOrderResult.success === false, "Payload dengan Order ID kosong harus ditolak DTO");
+});
+
+// -------------------------------------------------------------
+// 13. PATTERN: DEFENSIVE BOUNDARIES & ZERO-DURATION PRICING
+// Sesuai skill `javascript-testing-patterns` (Defensive Code & Boundary Testing)
+// -------------------------------------------------------------
+group("Defensive Pricing & Boundary Patterns (javascript-testing-patterns)", () => {
+  // Test 1: Booking durasi 0 hari (checkIn === checkOut)
+  const sameDay = new Date("2026-09-10");
+  const zeroTotal = calculateEstimatedTotal(50000, sameDay, sameDay);
+  assert(zeroTotal === 0, `Kalkulasi hari yang sama harus 0 rupiah (Didapat: ${zeroTotal})`);
+
+  // Test 2: Defensive check jika tanggal checkOut < checkIn (misal data korup di DB)
+  const earlierDate = new Date("2026-09-08");
+  const defensiveTotal = calculateEstimatedTotal(50000, sameDay, earlierDate);
+  assert(defensiveTotal === 0, `Durasi negatif harus diamankan menjadi 0 rupiah (Didapat: ${defensiveTotal})`);
+
+  // Test 3: Denda keterlambatan jika checkout actual lebih cepat atau tepat waktu
+  const scheduled = new Date("2026-09-15");
+  const onTime = new Date("2026-09-15");
+  const noLateFee = calculateLateFee(50000, scheduled, onTime);
+  assert(noLateFee.totalFee === 0, `Checkout tepat waktu tidak boleh dikenakan denda (Didapat: ${noLateFee.totalFee})`);
+  assert(noLateFee.breakdown.length === 0, "Breakdown denda checkout tepat waktu harus kosong");
 });
 
 // -------------------------------------------------------------

@@ -49,7 +49,7 @@ import { formatRupiah } from "@/lib/utils/format";
 import { useLanguage, dictionary } from "@/hooks/useLanguage";
 import { useAutoDismiss } from "@/hooks/useAutoDismiss";
 import { UserErrorAlert } from "@/components/shared/UserErrorAlert";
-import { formatUserError } from "@/lib/utils/errors";
+import { formatUserError, getUserFriendlyMessage } from "@/lib/utils/errors";
 import { toast } from "sonner";
 export default function BookingDetailPage({ params }) {
   const { id } = use(params);
@@ -495,7 +495,10 @@ function BookingDetailContent({ id }) {
       );
     } catch (err) {
       console.error("Refresh QR error:", err);
-      toast.error(err.message || "Gagal memperbarui QR Code.");
+      toast.error(
+        getUserFriendlyMessage(err, language) ||
+          (language === "en" ? "Failed to refresh QR Code." : "Gagal memperbarui QR Code.")
+      );
     } finally {
       setIsRefreshingQr(false);
     }
@@ -743,7 +746,13 @@ function BookingDetailContent({ id }) {
         </div>
       </div>
 
-      <UserErrorAlert error={errorMsg} onDismiss={() => setErrorMsg(null)} language={language} className="mb-6" />
+      <UserErrorAlert
+        error={errorMsg}
+        onDismiss={() => setErrorMsg(null)}
+        onRetry={loadBookingDetails}
+        language={language}
+        className="mb-6"
+      />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
