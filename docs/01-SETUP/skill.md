@@ -1196,10 +1196,14 @@ export async function POST(req) {
 | 27 | `javascript-pro` | Core JS | Penguasaan JavaScript modern ES6+, async/await, event loops, dan API runtime Node.js. |
 | 28 | `modern-javascript-patterns` | Core JS | Penerapan functional programming, iterators, generators, destructuring, dan modular JS. |
 | 29 | `javascript-typescript-typescript-scaffold` | TypeScript | Arsitektur dan scaffolding proyek TypeScript modern berskala produksi. |
-| 30 | `javascript-testing-patterns` | Testing | Strategi pengujian komprehensif: unit/integration test (141 tests 100% pass via native test runner). |
-| 31 | `c4-code` | Documentation | Dokumentasi arsitektur tingkat rendah C4 Code Level (signature fungsi, relasi modul). |
-| 32 | `code-documentation-doc-generate` | Documentation | Generator dokumentasi API, diagram arsitektur Mermaid, user guides, dan technical docs. |
-| 33 | `code-documentation-code-explain` | Documentation | Penjelasan naratif konsep kode rumit melalui breakdown visual dan analogi jelas. |
+| 30 | `javascript-testing-patterns` | Testing | Strategi pengujian komprehensif: unit/integration test (189 tests 100% pass via native test runner). |
+| 31 | `frontend-patterns` | Frontend | Pola frontend modern React/Next.js: state management, data fetching, forms, dan aksesibilitas. |
+| 32 | `mysql-patterns` | Database | Pola database MySQL/MariaDB: indexing, query tuning, locking, dan connection pooling. |
+| 33 | `docker-patterns` | DevOps | Container development: Docker Compose multi-stage, dev/prod isolation, dan volume mounts. |
+| 34 | `git-workflow` | Workflow | Standar Git branching, semantic commits, PR review checklist, dan release deployment. |
+| 35 | `c4-code` | Documentation | Dokumentasi arsitektur tingkat rendah C4 Code Level (signature fungsi, relasi modul). |
+| 36 | `code-documentation-doc-generate` | Documentation | Generator dokumentasi API, diagram arsitektur Mermaid, user guides, dan technical docs. |
+| 37 | `code-documentation-code-explain` | Documentation | Penjelasan naratif konsep kode rumit melalui breakdown visual dan analogi jelas. |
 
 ---
 
@@ -1213,7 +1217,7 @@ Gunakan kombinasi skill `backend-security-coder` dan `security-auditor`:
 - Cegah kebocoran error internal database menggunakan `lib/utils/errors.js` (`sanitizeApiError`).
 
 #### 2. Kualitas Kode Frontend & UI Realtime
-Gunakan skill `frontend-security-coder`, `ui-ux-pro-max`, dan `javascript-pro`:
+Gunakan skill `frontend-security-coder`, `ui-ux-pro-max`, `frontend-patterns`, dan `javascript-pro`:
 - Pastikan input tidak rentan injeksi XSS saat me-render teks dinamis.
 - Gunakan debouncing pada listener Realtime WebSocket untuk mencegah re-render berlebih.
 - Bungkus semua pesan error form dan aksi pengguna dengan `<UserErrorAlert />`.
@@ -1221,7 +1225,7 @@ Gunakan skill `frontend-security-coder`, `ui-ux-pro-max`, dan `javascript-pro`:
 #### 3. Refactoring & Modularitas Domain
 Gunakan skill `clean-code`, `nestjs-patterns`, dan `code-refactoring-refactor-clean`:
 - Pisahkan business logic ke dalam domain module di folder `lib/modules/` (Controller – Service – Repository).
-- Pertahankan zero-dependency testing di `scripts/test-suite.mjs` (wajib 141/141 tests pass).
+- Pertahankan zero-dependency testing di `scripts/test-suite.mjs` (wajib 189/189 tests pass).
 
 ---
 
