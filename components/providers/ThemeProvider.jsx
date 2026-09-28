@@ -3,13 +3,26 @@
 import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 
-// Suppress the extra React 19 warning about script tags that next-themes triggers
 if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
   const orig = console.error;
   console.error = (...args) => {
-    if (typeof args[0] === "string" && args[0].includes("Encountered a script tag")) {
+    const fullMessage = args
+      .map((arg) => (typeof arg === "string" ? arg : (arg && arg.message) || ""))
+      .join(" ");
+
+    if (fullMessage.includes("Encountered a script tag")) {
       return;
     }
+
+    if (
+      fullMessage.includes("bis_skin_checked") ||
+      fullMessage.includes("bis_register") ||
+      (fullMessage.includes("hydration-mismatch") &&
+        (fullMessage.includes("bis_") || fullMessage.includes("browser extension")))
+    ) {
+      return;
+    }
+
     orig.apply(console, args);
   };
 }

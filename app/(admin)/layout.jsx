@@ -3,7 +3,7 @@ import { AdminSidebar } from "@/components/layout/AdminSidebar";
 
 export default function AdminLayout({ children }) {
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col min-h-screen bg-background text-foreground" suppressHydrationWarning>
       <Navbar />
       <div className="flex flex-col md:flex-row flex-1 w-full min-h-[calc(100vh-4rem)]">
         <AdminSidebar />

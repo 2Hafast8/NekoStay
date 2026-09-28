@@ -118,6 +118,7 @@ Buat file baru bernama `.env.local` atau `.env` di folder utama proyek (root), l
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-turnstile-site-key
 
 # ============================================================
 # APP CONFIGURATION

@@ -465,7 +465,7 @@ function DashboardContent() {
 
   if (!isMounted) {
     return (
-      <div className="space-y-8 animate-pulse pb-12">
+      <div className="space-y-8 animate-pulse pb-12" suppressHydrationWarning>
         <div className="h-8 bg-muted dark:bg-zinc-800/60 rounded-xl w-48 mb-4" />
         <div className="h-6 bg-muted dark:bg-zinc-800/60 rounded-xl w-96 mb-8" />
         <div className="h-64 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800 rounded-3xl" />
