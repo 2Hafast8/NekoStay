@@ -9,7 +9,7 @@ const siteUrl = "https://nekostay.vercel.app";
 
 export const metadata = {
   title: {
-    default: "NekoStay | Penitipan Kucing Premium",
+    default: "NekoStay",
     template: "%s | NekoStay",
   },
   description:
@@ -22,8 +22,8 @@ export const metadata = {
     "kucing",
     "pet care",
   ],
-  authors: [{ name: "NekoStay Team" }],
-  creator: "NekoStay",
+  authors: [{ name: "Hafast2008" }],
+  creator: "Craftters",
 
   // Open Graph: preview saat share link di WhatsApp, Facebook, dll
   openGraph: {
@@ -31,7 +31,7 @@ export const metadata = {
     locale: "id_ID",
     url: siteUrl,
     siteName: "NekoStay",
-    title: "NekoStay | Penitipan Kucing Premium",
+    title: "NekoStay",
     description:
       "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
     images: [
@@ -40,7 +40,7 @@ export const metadata = {
         width: 1200,
         height: 675,
         type: "image/jpeg",
-        alt: "NekoStay | Penitipan Kucing Premium",
+        alt: "NekoStay",
       },
     ],
   },
@@ -48,7 +48,7 @@ export const metadata = {
   // Twitter Card: preview saat share link di Twitter/X
   twitter: {
     card: "summary_large_image",
-    title: "NekoStay | Penitipan Kucing Premium",
+    title: "NekoStay",
     description:
       "Platform penitipan kucing premium dengan laporan berkala, kalkulasi harga otomatis, dan layanan dokter hewan siaga.",
     images: [`${siteUrl}/og-banner.jpg`],
